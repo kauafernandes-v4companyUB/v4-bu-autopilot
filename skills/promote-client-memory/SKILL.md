@@ -159,7 +159,7 @@ Cada `promotion_candidate` deve declarar exatamente um `target_file`.
 
 - metas atuais;
 - campanhas atuais;
-- pendências atuais **confirmadas** (ver seção 12.1 — freshness de PENDING);
+- pendências e intentos operacionais abertos **confirmados** (ver seção 12.1 — freshness de itens operacionais abertos);
 - dependências atuais;
 - flags atuais;
 - bloqueios atuais.
@@ -175,6 +175,8 @@ Exemplos que NUNCA vão para `current-state.json` só porque a fonte os descreve
 Essas são regras permanentes de como a conta funciona — não bloqueios do momento presente. Um candidato só pertence a `current-state.json/dependencies` quando descreve um bloqueio pontual amarrado a uma ação em andamento agora (ex.: "campanha de outubro está bloqueada aguardando confirmação de estoque de X"), não a uma regra geral que se aplica a qualquer campanha, de qualquer mês.
 
 Antes de propor `target_file: current-state.json`, perguntar: "isso descreve o estado do cliente hoje, ou é uma regra permanente de como esta conta sempre funciona?" No segundo caso, o destino é `knowledge.json`/`operation_context` ou `strategy.md`.
+
+Um `request`, `commitment` ou intento operacional planejado também pode ocupar `current-state.json/pending` quando estiver aberto e temporalmente vigente. O registro deve preservar `semantic_type` igual ao tipo original da evidência, `status: "open"` (ou equivalente já usado no modelo), `confidence`, `source_date` e `evidence_ids`; esse uso do slot `pending` não muda o tipo semântico para `pending`, não afirma execução nem cria uma tarefa no eKyte.
 
 ---
 
@@ -289,19 +291,21 @@ Nunca sobrescrever silenciosamente informação conflitante. Toda `conflict` fic
 
 ---
 
-## 12.1 Freshness de PENDING (obrigatório antes de `current-state.json/pending`)
+## 12.1 Freshness de itens operacionais abertos (obrigatório antes de `current-state.json/pending`)
 
-Um item classificado como `pending` na fonte de origem **não vira automaticamente** `current-state.json/pending` só porque a fonte o descreveu como pendência. Isso vale mesmo com `confidence: high` na evidência — freshness e confidence são avaliações independentes.
+Um item classificado como `pending`, `request`, `commitment` ou intento operacional planejado na fonte de origem **não vira automaticamente** `current-state.json/pending`. Freshness e confidence são avaliações independentes.
 
-Antes de propor `target_file: current-state.json` com `action: promote` para um `pending`, verificar se existe evidência razoável de que a pendência **continua aberta/ativa** (ex.: `source_date`/`observed_at` recente e confiável, confirmação em check-in mais recente, menção em `decisions.json` ou fonte estruturada equivalente).
+Antes de propor `target_file: current-state.json` com `action: promote`, verificar cumulativamente: (1) fonte recente e com `source_date` confiável; (2) ação ainda temporalmente vigente; (3) evidência explícita do pedido, compromisso ou intento; (4) ausência de evidência posterior de conclusão, cancelamento ou supersessão; e (5) relevância operacional. Para `request`/`commitment`/intento, preservar `semantic_type` original e registrar `status: "open"` (ou equivalente compatível); o slot `pending` representa estado operacional aberto, não reclassifica a evidência nem afirma execução ou tarefa existente.
 
-Quando essa confirmação não existir — por exemplo, a fonte é uma narrativa sem data de emissão confiável (ver seção 23 — Freshness) — o candidato **não** pode ser `promote` para `current-state.json`. As alternativas são:
+Projeções equivalentes de `campaigns_and_initiatives`, `planned_actions` e `requests` sustentadas pela mesma evidência devem gerar no máximo um item em `current-state.json/pending`.
+
+Quando esses requisitos não existirem — por exemplo, a fonte é uma narrativa sem data de emissão confiável (ver seção 23 — Freshness) — o candidato **não** pode ser `promote` para `current-state.json`. As alternativas são:
 
 - **skip**, quando a pendência não tiver valor duradouro suficiente para justificar preservação sem confirmação;
 - **historize**, quando a pendência tiver valor como registro histórico (ex.: algo que foi cogitado/planejado em determinado momento), mas não puder ser afirmada como ativa hoje;
 - aguardar uma nova execução desta skill após confirmação por check-in, eKyte, transcrição ou outra fonte mais recente — registrar isso em `missing_data`, não inventar a confirmação.
 
-Nunca promover um `pending` sem data confiável para `current-state.json` apenas para "não perder a informação" — perder a informação não é o risco aqui; a memória canônica ganhar um item que aparenta estar ativo sem sustentação é o risco que esta regra evita.
+Nunca promover um item operacional aberto sem data confiável para `current-state.json` apenas para "não perder a informação" — perder a informação não é o risco aqui; a memória canônica ganhar um item que aparenta estar ativo sem sustentação é o risco que esta regra evita.
 
 ---
 
