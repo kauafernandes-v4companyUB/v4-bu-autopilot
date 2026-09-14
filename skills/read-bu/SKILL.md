@@ -8,7 +8,7 @@ Slug: read-bu
 
 Categoria: source
 
-Versão: 1.0.0
+Versão: 1.1.0
 
 Side Effects: NONE
 
@@ -21,6 +21,8 @@ Ler uma Business Unit de clientes e transformar sua estrutura visível e seus hy
 A skill identifica clientes e fontes.
 
 Ela não interpreta o conteúdo das fontes vinculadas.
+
+A skill só extrai clientes quando a fonte recebida é, de fato, estruturalmente uma BU/carteira/índice de clientes (ver seção 8 — Qualificação da Fonte). Mencionar múltiplos clientes não torna uma fonte narrativa em uma BU.
 
 ---
 
@@ -48,7 +50,8 @@ Não usar para:
 - analisar BI;
 - gerar diagnóstico;
 - gerar replanejamento;
-- gerar tarefas.
+- gerar tarefas;
+- extrair registros de cliente a partir de fontes narrativas (handoff de Account Manager, documentação estratégica, relatório de cliente, transcrição, conversa, briefing) — mesmo quando essas fontes citam múltiplos clientes. Essas fontes devem ser apenas classificadas e rejeitadas pela Qualificação da Fonte (seção 8), nunca processadas como BU.
 
 Essas responsabilidades pertencem a outras skills.
 
@@ -93,6 +96,8 @@ Para PDF, deve considerar:
 - hyperlinks embutidos;
 - anotações de link.
 
+Nem todo arquivo desses formatos é uma BU válida. O formato do arquivo (PDF, planilha) não qualifica a fonte — quem qualifica é a estrutura de conteúdo, avaliada na seção 8.
+
 ---
 
 ## 7. Estrutura esperada
@@ -113,10 +118,73 @@ Colunas adicionais devem ser preservadas quando forem relevantes.
 
 ---
 
-## 8. Procedimento
+## 8. Qualificação da Fonte (Source Qualification)
+
+Esta etapa é **obrigatória** e deve ser executada **antes de qualquer extração semântica de clientes**, independentemente do formato do arquivo recebido.
+
+### 8.1 Objetivo
+
+Impedir que uma fonte narrativa (que apenas menciona clientes) seja processada como se fosse uma BU estruturada.
+
+Mencionar múltiplos clientes não é suficiente para qualificar uma fonte como BU.
+
+### 8.2 O que caracteriza uma fonte compatível
+
+Uma fonte é compatível com read-bu (`source_kind = client_portfolio_index`, `source_compatible = true`) quando apresenta **as duas condições a seguir, simultaneamente**:
+
+1. organização explícita por cliente (linhas de tabela, cards de índice, entradas de carteira — não páginas de prosa corrida por cliente);
+2. presença de ao menos um campo estrutural de estado/cadastro de carteira por cliente, equivalente a: status, flag, documentação, grupo, contrato, ou links/hyperlinks padronizados por cliente.
+
+### 8.3 O que caracteriza uma fonte incompatível
+
+São incompatíveis com read-bu, entre outras:
+
+- Handoff de Account Manager (narrativo, uma seção longa de texto por cliente);
+- documentação estratégica;
+- relatório de cliente;
+- transcrição;
+- conversa (ex.: exportação de WhatsApp);
+- briefing.
+
+Essas fontes podem citar nomes de clientes, CNPJs, hyperlinks e até status pontuais dentro do texto — isso **não** as torna uma BU. O sinal decisivo é a ausência de organização estrutural em nível de carteira (condição 1) e/ou de um campo de estado de carteira (condição 2), e não a presença ou ausência de qualquer menção a cliente.
+
+Em caso de dúvida real entre os dois cenários, classificar como incompatível (`source_compatible = false`) e declarar a incerteza em `warnings` — não extrapolar a favor da extração.
+
+### 8.4 Procedimento de qualificação
+
+Executar antes da seção 9 (Procedimento de extração):
+
+1. observar a forma geral da fonte (tabular/índice vs. narrativa/prosa longa por cliente);
+2. verificar se há organização explícita por cliente (condição 8.2.1);
+3. verificar se há ao menos um campo estrutural de carteira por cliente (condição 8.2.2);
+4. classificar `source_kind` (ver enum em `output.schema.json`: `client_portfolio_index`, `account_handoff`, `strategic_documentation`, `client_report`, `transcript`, `conversation`, `briefing`, `other_narrative`, `unknown`);
+5. definir `source_compatible` (`true` somente se `source_kind = client_portfolio_index`);
+6. registrar uma evidência (`type: fact`) descrevendo a natureza observada da fonte — isto é um fato sobre a fonte, não sobre um cliente;
+7. se `source_compatible = false`, seguir a seção 8.5 e **parar** — não prosseguir para a seção 9;
+8. se `source_compatible = true`, prosseguir normalmente para a seção 9.
+
+### 8.5 Tratamento de fonte incompatível
+
+Quando `source_compatible = false`:
+
+- **não** executar extração semântica de clientes a partir do conteúdo narrativo;
+- **não** gerar evidências do tipo "cliente pertence à BU" ou qualquer fato de pertencimento de carteira a partir dessa fonte;
+- `clients` deve ser `[]` (vazio);
+- `status` final do output deve ser `failed`;
+- registrar em `warnings` uma mensagem clara de *source type mismatch*, citando o `source_kind` detectado e o motivo da incompatibilidade (condição 8.2 não satisfeita);
+- registrar em `missing_data` que a extração de clientes não foi realizada por incompatibilidade de fonte;
+- preencher `suggested_skill` com uma sugestão textual de qual categoria/skill deveria tratar aquela fonte (ex.: skill de leitura de handoff narrativo, read-client-context, read-transcript, read-whatsapp), **sem executar** essa skill;
+- nunca inferir metadados de cliente (nome, CNPJ, contrato, hyperlink) a partir do conteúdo narrativo só porque "parecem confiáveis" — isso pertence a outra skill, com seu próprio contrato de evidência.
+
+`bu.name` e `bu.source` continuam sendo preenchidos normalmente mesmo com `source_compatible = false`, pois descrevem a fonte em si, não um fato sobre clientes.
+
+---
+
+## 9. Procedimento
 
 Executar nesta ordem:
 
+0. executar a Qualificação da Fonte (seção 8); se `source_compatible = false`, seguir a seção 8.5 e encerrar sem prosseguir para os passos abaixo;
 1. identificar a fonte;
 2. verificar se a fonte está acessível;
 3. identificar estrutura tabular;
@@ -132,7 +200,7 @@ Executar nesta ordem:
 
 ---
 
-## 9. Identificador do cliente
+## 10. Identificador do cliente
 
 Gerar client_id normalizado a partir do nome visível.
 
@@ -154,7 +222,7 @@ O display_name deve preservar o nome original.
 
 ---
 
-## 10. Hyperlinks
+## 11. Hyperlinks
 
 A skill deve identificar hyperlinks presentes na BU.
 
@@ -186,7 +254,7 @@ Quando a associação for ambígua:
 
 ---
 
-## 11. WhatsApp
+## 12. WhatsApp
 
 Links de convite de WhatsApp podem ser registrados como:
 
@@ -203,7 +271,7 @@ O link representa apenas uma referência de fonte.
 
 ---
 
-## 12. Documentação
+## 13. Documentação
 
 Links de documentação devem ser registrados, mas não abertos por esta skill.
 
@@ -219,7 +287,7 @@ O conteúdo será responsabilidade de read-client-context ou skill equivalente.
 
 ---
 
-## 13. Contratos e anexos
+## 14. Contratos e anexos
 
 Se a BU exibir:
 
@@ -233,7 +301,7 @@ Não assumir existência de arquivo acessível apenas porque existe um nome na c
 
 ---
 
-## 14. Status
+## 15. Status
 
 Preservar o status conforme registrado na fonte.
 
@@ -252,7 +320,7 @@ Nunca alterar o status baseado em inferência externa.
 
 ---
 
-## 15. Flags
+## 16. Flags
 
 Preservar a flag conforme registrada.
 
@@ -273,12 +341,13 @@ A skill não recalcula a flag.
 
 ---
 
-## 16. Evidências
+## 17. Evidências
 
 Gerar evidências para informações estruturais relevantes.
 
 Exemplos:
 
+- classificação da fonte (source_kind/source_compatible);
 - cliente existe na BU;
 - status registrado;
 - flag registrada;
@@ -291,7 +360,7 @@ schemas/evidence.schema.json
 
 ---
 
-## 17. Output
+## 18. Output
 
 Salvar output temporário em:
 
@@ -301,9 +370,11 @@ O output deve validar contra:
 
 skills/read-bu/output.schema.json
 
+O output sempre inclui `source_kind` e `source_compatible`, mesmo quando a fonte é incompatível.
+
 ---
 
-## 18. Missing Data
+## 19. Missing Data
 
 Registrar quando:
 
@@ -311,13 +382,14 @@ Registrar quando:
 - cliente não possuir documentação;
 - link estiver quebrado ou indisponível;
 - contrato estiver apenas referenciado;
-- associação entre link e cliente for ambígua.
+- associação entre link e cliente for ambígua;
+- extração de clientes não foi realizada por incompatibilidade de fonte (`source_compatible = false`).
 
 Ausência de um campo não autoriza inferência.
 
 ---
 
-## 19. Warnings
+## 20. Warnings
 
 Gerar warning quando:
 
@@ -326,11 +398,12 @@ Gerar warning quando:
 - cliente aparecer duplicado;
 - status for desconhecido;
 - flag não possuir valor reconhecido;
-- arquivo contiver links sem contexto suficiente.
+- arquivo contiver links sem contexto suficiente;
+- a fonte recebida for incompatível com read-bu (source type mismatch — ver seção 8.5).
 
 ---
 
-## 20. Freshness
+## 21. Freshness
 
 Registrar:
 
@@ -341,7 +414,7 @@ A skill não assume que a BU está atualizada apenas porque foi lida com sucesso
 
 ---
 
-## 21. Proibições
+## 22. Proibições
 
 read-bu não pode:
 
@@ -354,37 +427,44 @@ read-bu não pode:
 - criar metas;
 - deduzir escopo;
 - acessar conteúdo de grupos de WhatsApp;
-- preencher campos ausentes usando conhecimento externo.
+- preencher campos ausentes usando conhecimento externo;
+- processar uma fonte narrativa (handoff, documentação estratégica, relatório de cliente, transcrição, conversa, briefing) como se fosse uma BU apenas porque ela cita múltiplos clientes;
+- gerar evidência do tipo "cliente pertence à BU" (ou equivalente) a partir de uma fonte com `source_compatible = false`;
+- retornar `status = success` (ou `partial`) quando `source_compatible = false` — o resultado correto nesse caso é `status = failed`;
+- executar, sugerir com autoridade final, ou substituir a skill apropriada para a fonte incompatível — apenas sugerir seu tipo em `suggested_skill`.
 
 ---
 
-## 22. Idempotência
+## 23. Idempotência
 
-Executar read-bu novamente sobre a mesma versão da fonte deve produzir semanticamente o mesmo registro.
+Executar read-bu novamente sobre a mesma versão da fonte deve produzir semanticamente o mesmo registro, incluindo a mesma classificação de `source_kind`/`source_compatible`.
 
 Não duplicar clientes ou sources.
 
 ---
 
-## 23. Critérios de qualidade
+## 24. Critérios de qualidade
 
 Antes de concluir:
 
-1. todos os clientes visíveis foram capturados?
-2. nomes originais foram preservados?
-3. hyperlinks foram capturados?
-4. hyperlinks estão associados corretamente?
-5. ambiguidades foram declaradas?
-6. status e flags foram preservados?
-7. nenhuma documentação vinculada foi interpretada?
-8. nenhuma informação foi inventada?
-9. o output valida contra o schema?
+1. a Qualificação da Fonte (seção 8) foi executada antes de qualquer extração?
+2. `source_kind` e `source_compatible` foram registrados no output?
+3. se `source_compatible = false`, `clients` está vazio, `status = failed`, e não há evidência de pertencimento de cliente à BU?
+4. todos os clientes visíveis foram capturados (quando `source_compatible = true`)?
+5. nomes originais foram preservados?
+6. hyperlinks foram capturados?
+7. hyperlinks estão associados corretamente?
+8. ambiguidades foram declaradas?
+9. status e flags foram preservados?
+10. nenhuma documentação vinculada foi interpretada?
+11. nenhuma informação foi inventada?
+12. o output valida contra o schema?
 
 ---
 
-## 24. Resultado esperado
+## 25. Resultado esperado
 
-read-bu responde essencialmente:
+Quando `source_compatible = true`, read-bu responde essencialmente:
 
 Quem está na BU?
 
@@ -397,3 +477,11 @@ Ela não responde:
 O que está acontecendo no cliente?
 
 Essa responsabilidade pertence às skills seguintes.
+
+Quando `source_compatible = false`, read-bu responde apenas:
+
+Esta fonte é uma BU válida? (Não.)
+
+Que tipo de fonte parece ser, e qual categoria de skill deveria tratá-la?
+
+Ela explicitamente não tenta responder "quem está na BU" a partir de uma fonte que não é uma BU.

@@ -8,6 +8,8 @@
     "skill",
     "generated_at",
     "status",
+    "source_kind",
+    "source_compatible",
     "bu",
     "clients",
     "evidence",
@@ -28,6 +30,29 @@
     "status": {
       "type": "string",
       "enum": ["success", "partial", "failed"]
+    },
+    "source_kind": {
+      "description": "Classificação estrutural da fonte, produzida pela etapa obrigatória de Source Qualification (ver SKILL.md secao 8). 'client_portfolio_index' e o unico valor compativel com extracao de clientes.",
+      "type": "string",
+      "enum": [
+        "client_portfolio_index",
+        "account_handoff",
+        "strategic_documentation",
+        "client_report",
+        "transcript",
+        "conversation",
+        "briefing",
+        "other_narrative",
+        "unknown"
+      ]
+    },
+    "source_compatible": {
+      "description": "true somente quando source_kind = client_portfolio_index. Quando false, a extracao semantica de clientes nao deve ser realizada e status deve ser 'failed'.",
+      "type": "boolean"
+    },
+    "suggested_skill": {
+      "description": "Preenchido somente quando source_compatible = false. Sugestao textual de qual categoria/skill deveria tratar esta fonte (sem executa-la). null quando source_compatible = true ou quando nenhuma sugestao segura pode ser feita.",
+      "type": ["string", "null"]
     },
     "bu": {
       "type": "object",
