@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "read-client-context/output.schema.json",
+  "title": "Read Client Context Output",
+  "description": "Contrato de output para a skill read-client-context. Ver skills/read-client-context/SKILL.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "client_id",
+    "generated_at",
+    "status",
+    "source",
+    "source_qualification",
+    "section_detection",
+    "data",
+    "discovered_sources",
+    "evidence",
+    "missing_data",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "skill": {
+      "const": "read-client-context"
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed"]
+    },
+    "source": {
+      "description": "Identificacao da fonte lida, independentemente do resultado da qualificacao.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference"],
+      "properties": {
+        "source_id": {
+          "type": ["string", "null"],
+          "description": "Identificador da fonte em clients/<client_id>/sources.json, quando aplicavel."
+        },
+        "reference": {
+          "type": "string",
+          "description": "Caminho ou URL da fonte lida (ex.: private/shared/handoffs/account-manager.pdf)."
+        },
+        "source_date": {
+          "type": ["string", "null"],
+          "description": "Data do documento/fonte, quando disponivel. Nao necessariamente ISO se a fonte so expuser data parcial."
+        },
+        "client_selector_used": {
+          "type": ["string", "null"],
+          "description": "Termo efetivamente usado para localizar o cliente na fonte."
+        }
+      }
+    },
+    "source_qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_kind", "source_compatible", "confidence"],
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "account_handoff",
+            "client_handoff",
+            "onboarding_document",
+            "strategic_document",
+            "client_documentation",
+            "master_briefing",
+            "other_client_context",
+            "bi_dashboard",
+            "meeting_transcript",
+            "whatsapp_export",
+            "task_list",
+            "bu_index",
+            "unrelated_document",
+            "unknown"
+          ]
+        },
+        "source_compatible": {
+          "type": "boolean",
+          "description": "true somente para os source_kind listados como compativeis na SKILL.md secao 8.2."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "suggested_skill": {
+          "type": ["string", "null"],
+          "description": "Preenchido somente quando source_compatible = false. Sugestao textual da skill/categoria adequada, sem executa-la."
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "section_detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client_found", "selector", "start_reference", "end_reference", "confidence"],
+      "properties": {
+        "client_found": {
+          "type": "boolean"
+        },
+        "selector": {
+          "type": ["string", "null"],
+          "description": "Termo usado para localizar o cliente (client_selector, display_name ou client_id)."
+        },
+        "start_reference": {
+          "type": ["string", "null"],
+          "description": "Referencia (pagina, titulo, trecho) de onde a secao do cliente comeca."
+        },
+        "end_reference": {
+          "type": ["string", "null"],
+          "description": "Referencia de onde a secao do cliente termina."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "method": {
+          "type": ["string", "null"],
+          "description": "Como a delimitacao foi feita (ex.: titulo explicito, quebra de pagina, marcador textual)."
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "data": {
+      "description": "Blocos semanticos extraidos da secao isolada do cliente. Todos os blocos sao opcionais; ausencia de um bloco nao e, por si so, um erro. additionalProperties permitido para acomodar variacoes legitimas entre clientes sem forcar um schema rigido demais.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "business_identity": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "razao_social": { "type": ["string", "null"] },
+            "nome_fantasia": { "type": ["string", "null"] },
+            "cnpj": { "type": ["string", "null"] },
+            "localizacao": { "type": ["string", "null"] },
+            "segmento": { "type": ["string", "null"] },
+            "area_de_atuacao": { "type": ["string", "null"] }
+          }
+        },
+        "stakeholders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["nome"],
+            "properties": {
+              "nome": { "type": "string" },
+              "papel": { "type": ["string", "null"] },
+              "contato": { "type": ["string", "null"] },
+              "observacoes": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "commercial_context": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "market_context": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "operation_scope": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "documented_strategy": {
+          "description": "Estrategia conforme DOCUMENTADA pela fonte. Nunca estrategia nova produzida por esta skill.",
+          "type": "object",
+          "additionalProperties": true
+        },
+        "brand_and_creative": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "tracking_and_technology": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "operational_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["statement"],
+            "properties": {
+              "statement": { "type": "string" },
+              "date": { "type": ["string", "null"] },
+              "evidence_ids": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "decisions": { "$ref": "#/$defs/classified_item_list" },
+        "requests": { "$ref": "#/$defs/classified_item_list" },
+        "commitments": { "$ref": "#/$defs/classified_item_list" },
+        "pending": { "$ref": "#/$defs/classified_item_list" },
+        "risks": { "$ref": "#/$defs/classified_item_list" },
+        "dependencies": { "$ref": "#/$defs/classified_item_list" },
+        "links_and_references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/discovered_source" }
+        },
+        "missing_relevant_information": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "discovered_sources": {
+      "description": "Todos os hyperlinks/referencias descobertos na secao do cliente. Espelha links_and_references em data quando presente. Nenhum link e aberto por esta skill.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/discovered_source" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "../../schemas/evidence.schema.json"
+      }
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "impact", "blocking"],
+        "additionalProperties": false,
+        "properties": {
+          "field": { "type": "string" },
+          "expected_source": { "type": ["string", "null"] },
+          "impact": { "type": "string" },
+          "blocking": { "type": "boolean" }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "classified_item_list": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["statement", "type", "confidence", "evidence_ids"],
+        "properties": {
+          "statement": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "metric",
+              "decision",
+              "hypothesis",
+              "request",
+              "commitment",
+              "pending",
+              "risk",
+              "idea",
+              "dependency"
+            ]
+          },
+          "date": { "type": ["string", "null"] },
+          "confidence": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "discovered_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference", "opened"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "website",
+            "landing_page",
+            "whatsapp",
+            "whatsapp_group",
+            "google_doc",
+            "spreadsheet",
+            "drive_folder",
+            "contract",
+            "crm",
+            "bi",
+            "social_profile",
+            "public_registry",
+            "attachment",
+            "documentation",
+            "unknown"
+          ]
+        },
+        "label": { "type": ["string", "null"] },
+        "reference": {
+          "type": "string",
+          "description": "URL ou referencia textual do link/anexo."
+        },
+        "opened": {
+          "const": false,
+          "description": "Sempre false. Esta skill nunca abre links descobertos."
+        },
+        "context": {
+          "type": ["string", "null"],
+          "description": "Trecho ou contexto proximo de onde o link foi encontrado."
+        }
+      }
+    }
+  }
+}
