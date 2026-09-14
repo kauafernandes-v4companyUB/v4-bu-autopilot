@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Read BU Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "generated_at",
+    "status",
+    "bu",
+    "clients",
+    "evidence",
+    "missing_data",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "skill": {
+      "const": "read-bu"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed"]
+    },
+    "bu": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "name"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_date": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "clients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "client_id",
+          "display_name",
+          "status",
+          "flag",
+          "sources",
+          "raw"
+        ],
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "object",
+            "required": ["raw", "normalized"],
+            "properties": {
+              "raw": {
+                "type": ["string", "null"]
+              },
+              "normalized": {
+                "type": "string",
+                "enum": [
+                  "ongoing",
+                  "offboarding",
+                  "unknown"
+                ]
+              }
+            }
+          },
+          "flag": {
+            "type": "object",
+            "required": ["raw", "normalized"],
+            "properties": {
+              "raw": {
+                "type": ["string", "null"]
+              },
+              "normalized": {
+                "type": "string",
+                "enum": [
+                  "green",
+                  "yellow",
+                  "red",
+                  "unknown"
+                ]
+              }
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type", "reference"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "whatsapp_group",
+                    "documentation",
+                    "spreadsheet",
+                    "contract",
+                    "attachment",
+                    "crm",
+                    "operational_routine",
+                    "unknown"
+                  ]
+                },
+                "label": {
+                  "type": ["string", "null"]
+                },
+                "reference": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "raw": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "global_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "reference"],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "label": {
+            "type": ["string", "null"]
+          },
+          "reference": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "../../schemas/evidence.schema.json"
+      }
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "impact", "blocking"],
+        "properties": {
+          "client_id": {
+            "type": ["string", "null"]
+          },
+          "field": {
+            "type": "string"
+          },
+          "expected_source": {
+            "type": ["string", "null"]
+          },
+          "impact": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
