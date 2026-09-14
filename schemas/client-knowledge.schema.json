@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/client-knowledge.schema.json",
+  "title": "V4 BU Autopilot Client Knowledge",
+  "description": "Memoria canonica de conhecimento estavel/semiestavel de um cliente, mantida em clients/<client_id>/knowledge.json. Nao e um dump de contexto temporario: cada item preserva provenance e evidencia para permitir auditoria e supersessao futura. Ver skills/promote-client-memory/SKILL.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "client_id",
+    "updated_at",
+    "categories"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "description": "Data da ultima escrita canonica neste arquivo. null se o arquivo ainda nao foi escrito por nenhuma promocao.",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "categories": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Cada categoria e uma lista de knowledge_item. Uma categoria ausente equivale a lista vazia.",
+      "properties": {
+        "business_identity": { "$ref": "#/$defs/knowledge_item_list" },
+        "stakeholders": { "$ref": "#/$defs/knowledge_item_list" },
+        "products_services": { "$ref": "#/$defs/knowledge_item_list" },
+        "market_context": { "$ref": "#/$defs/knowledge_item_list" },
+        "commercial_context": { "$ref": "#/$defs/knowledge_item_list" },
+        "operation_context": { "$ref": "#/$defs/knowledge_item_list" },
+        "technology": { "$ref": "#/$defs/knowledge_item_list" },
+        "brand": { "$ref": "#/$defs/knowledge_item_list" },
+        "other_facts": { "$ref": "#/$defs/knowledge_item_list" }
+      }
+    }
+  },
+  "$defs": {
+    "knowledge_item_list": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/knowledge_item" }
+    },
+    "knowledge_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "knowledge_id",
+        "statement",
+        "confidence",
+        "status",
+        "provenance"
+      ],
+      "properties": {
+        "knowledge_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field": {
+          "description": "Rotulo curto e estavel do fato dentro da categoria (ex.: 'segmento', 'stakeholder_principal', 'crm_utilizado'). Usado para localizar supersessao. null quando o item nao tem um rotulo natural de campo unico.",
+          "type": ["string", "null"]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "description": "Valor estruturado opcional associado ao statement, quando aplicavel.",
+          "type": ["string", "number", "boolean", "object", "array", "null"]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "status": {
+          "description": "active: conhecimento vigente. superseded: preservado apenas para rastreabilidade, substituido por outro knowledge_item ou por decisions.json.",
+          "type": "string",
+          "enum": ["active", "superseded"]
+        },
+        "superseded_by": {
+          "description": "knowledge_id, decision_id ou referencia textual do que substituiu este item. Obrigatorio semanticamente quando status = superseded, ainda que o schema nao force isso.",
+          "type": ["string", "null"]
+        },
+        "observed_at": {
+          "description": "Data em que o fato foi observado na fonte original (nao a data da promocao).",
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "valid_since": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_skill", "source_output", "promoted_at"],
+          "properties": {
+            "source_skill": {
+              "description": "Skill que gerou o contexto temporario promovido (ex.: read-client-context).",
+              "type": "string",
+              "minLength": 1
+            },
+            "source_output": {
+              "description": "Caminho do output temporario de origem (ex.: context/generated/walmaq/client-context.json).",
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence_ids": {
+              "description": "IDs de evidencia (schemas/evidence.schema.json) que sustentam este item. Referencia por ID; nao duplicar o texto completo da evidencia.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true
+            },
+            "promoted_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "promoted_by": {
+              "const": "promote-client-memory"
+            }
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

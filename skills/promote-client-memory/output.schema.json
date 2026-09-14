@@ -1,0 +1,322 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/promote-client-memory/output.schema.json",
+  "title": "Promote Client Memory Output",
+  "description": "Contrato de output para a skill promote-client-memory. Ver skills/promote-client-memory/SKILL.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "client_id",
+    "generated_at",
+    "mode",
+    "status",
+    "source_outputs",
+    "promotion_plan",
+    "applied_changes",
+    "conflicts",
+    "skipped",
+    "evidence",
+    "missing_data",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "skill": {
+      "const": "promote-client-memory"
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "description": "preview: apenas gera o plano, nao altera memoria. apply: aplica somente o promotion_plan ja validado.",
+      "type": "string",
+      "enum": ["preview", "apply"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed"]
+    },
+    "source_outputs": {
+      "description": "Outputs confiaveis (temporarios ou canonicos) consumidos como entrada. A skill nunca le fontes brutas diretamente.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "kind"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "description": "Natureza do arquivo consumido.",
+            "type": "string",
+            "enum": [
+              "generated_context",
+              "canonical_memory",
+              "schema"
+            ]
+          },
+          "producing_skill": {
+            "type": ["string", "null"]
+          },
+          "generated_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "source_status": {
+            "description": "status declarado pelo output de origem (success/partial/failed), quando aplicavel.",
+            "type": ["string", "null"],
+            "enum": ["success", "partial", "failed", null]
+          }
+        }
+      }
+    },
+    "promotion_plan": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/promotion_candidate" }
+    },
+    "applied_changes": {
+      "description": "Preenchido somente quando mode = apply. Deve permanecer [] em modo preview.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "target_file", "action", "applied_at"],
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_file": { "$ref": "#/$defs/target_file" },
+          "target_path": {
+            "type": ["string", "null"]
+          },
+          "action": { "$ref": "#/$defs/promotion_action" },
+          "applied_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "backup_ref": {
+            "description": "Caminho do snapshot de backup criado antes da escrita, quando aplicavel (ex.: clients/<client_id>/history/<arquivo>-<timestamp>.json).",
+            "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "target_file", "description"],
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_file": { "$ref": "#/$defs/target_file" },
+          "target_path": {
+            "type": ["string", "null"]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "existing_value": {},
+          "incoming_value": {},
+          "existing_evidence_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "incoming_evidence_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "resolution": {
+            "description": "held: nada foi escrito, conflito preservado para decisao humana. needs_user_decision: conflito exige input explicito antes de qualquer apply futuro.",
+            "type": "string",
+            "enum": ["held", "needs_user_decision"]
+          }
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "reason"],
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/evidence.schema.json"
+      }
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "impact", "blocking"],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "expected_source": {
+            "type": ["string", "null"]
+          },
+          "impact": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "validation": {
+      "description": "Preenchido somente em mode = apply, apos escrever arquivos. Ausente/omitido em preview.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "json_files_validated": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "valid"],
+            "properties": {
+              "path": { "type": "string" },
+              "schema": { "type": ["string", "null"] },
+              "valid": { "type": "boolean" },
+              "error": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "git_diff_check_passed": {
+          "type": ["boolean", "null"]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "target_file": {
+      "type": "string",
+      "enum": [
+        "client.json",
+        "sources.json",
+        "knowledge.json",
+        "strategy.md",
+        "current-state.json",
+        "decisions.json",
+        "history"
+      ]
+    },
+    "promotion_action": {
+      "type": "string",
+      "enum": ["promote", "skip", "conflict", "supersede", "historize"]
+    },
+    "promotion_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "target_file",
+        "action",
+        "summary",
+        "reason",
+        "evidence_ids",
+        "confidence"
+      ],
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_file": { "$ref": "#/$defs/target_file" },
+        "target_path": {
+          "description": "Secao/campo/JSON pointer de destino dentro do target_file (ex.: 'categories.stakeholders', 'goals.investimento_mensal'). null quando o destino e o arquivo inteiro ou uma nova entrada de lista sem chave fixa.",
+          "type": ["string", "null"]
+        },
+        "category": {
+          "description": "Categoria de knowledge.json (schemas/client-knowledge.schema.json), quando target_file = knowledge.json.",
+          "type": ["string", "null"],
+          "enum": [
+            "business_identity",
+            "stakeholders",
+            "products_services",
+            "market_context",
+            "commercial_context",
+            "operation_context",
+            "technology",
+            "brand",
+            "other_facts",
+            null
+          ]
+        },
+        "action": { "$ref": "#/$defs/promotion_action" },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "description": "Valor ou resumo estruturado proposto para escrita. Ausente/null quando action = skip."
+        },
+        "existing_value": {
+          "description": "Valor canonico atualmente presente no destino, quando action pertence a {conflict, supersede, historize}."
+        },
+        "existing_evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "source_skill": {
+          "type": ["string", "null"]
+        },
+        "source_output": {
+          "type": ["string", "null"]
+        },
+        "observed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
