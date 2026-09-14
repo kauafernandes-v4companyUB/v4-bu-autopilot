@@ -203,9 +203,9 @@
           "description": "Ex.: account_gt_weekly. null quando nao sustentado."
         },
         "source_date": {
-          "description": "Data da reuniao, explicitamente sustentada pela propria fonte. Distinto de 'generated_at'. null quando nao sustentada - nunca preenchido com a data de execucao nem inferido do conteudo. Ver CLAUDE.md secao 26.3.",
+          "description": "Data da reuniao, explicitamente sustentada pela propria fonte, no formato YYYY-MM-DD. Distinto de 'generated_at'. null quando nao sustentada - nunca preencher hora, timezone, data de execucao ou dado inferido do conteudo. Ver CLAUDE.md secao 26.3.",
           "type": ["string", "null"],
-          "format": "date-time"
+          "format": "date"
         },
         "period_discussed": {
           "type": ["object", "null"],

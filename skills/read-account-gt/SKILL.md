@@ -213,7 +213,7 @@ Nunca inventar identidade de speaker. Se apenas o papel puder ser inferido com s
 Extrair, em `meeting`, quando sustentado pela fonte:
 
 - `meeting_type` — ex.: "account_gt_weekly"; `null` se não sustentado;
-- `source_date` — data da reunião, **somente se explicitamente sustentada pela fonte** (timecode com data, cabeçalho da ata, menção textual inequívoca); caso contrário `null`;
+- `source_date` — data da reunião, **somente se explicitamente sustentada pela fonte** (timecode com data, cabeçalho da ata, menção textual inequívoca); registrar como `YYYY-MM-DD`, sem fabricar hora ou timezone; caso contrário `null`;
 - `period_discussed` — período (semana/mês) referido na conversa, quando sustentado; caso contrário `null`;
 - `notes` — observações relevantes sobre os metadados, quando necessário; caso contrário `null`.
 

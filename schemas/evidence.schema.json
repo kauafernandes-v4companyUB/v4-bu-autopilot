@@ -32,9 +32,9 @@
       "type": ["string", "null"]
     },
     "source_date": {
-      "description": "Data explicitamente sustentada pela PROPRIA FONTE (ex.: data de emissao de um documento, data de um fechamento mensal citado no texto). Conceito distinto de 'observed_at'. Se a fonte nao informa sua propria data, este campo deve ser null - nunca preenchido com a data de execucao da skill, nem inferido do conteudo. Ver CLAUDE.md secao 26.3.",
+      "description": "Data explicitamente sustentada pela PROPRIA FONTE (ex.: data de emissao de um documento, data de um fechamento mensal citado no texto), no formato YYYY-MM-DD. Conceito distinto de 'observed_at'. Se a fonte nao informa sua propria data, este campo deve ser null - nunca preencher hora, timezone, data de execucao da skill ou dado inferido do conteudo. Ver CLAUDE.md secao 26.3.",
       "type": ["string", "null"],
-      "format": "date-time"
+      "format": "date"
     },
     "observed_at": {
       "description": "Timestamp de execucao: momento real em que o sistema leu/observou esta evidencia, obtido do relogio do sistema no momento da execucao (UTC RFC3339) - nunca estimado, arredondado, inferido do conteudo da fonte, ou definido como horario futuro. Conceito distinto de 'source_date' (data que a propria fonte declara). Ver CLAUDE.md secao 26.",
