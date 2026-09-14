@@ -1,0 +1,31 @@
+# ==========================================
+# V4 BU AUTOPILOT
+# Arquivos privados e temporários
+# ==========================================
+
+# Credenciais
+.env
+.env.*
+!.env.example
+*.secret
+*.key
+*.pem
+
+# Conteúdo privado de clientes
+private/
+
+# Contexto temporário gerado pelas skills
+context/generated/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude local
+.claude/settings.local.json
+
+# Temporários
+*.tmp
+*.log
