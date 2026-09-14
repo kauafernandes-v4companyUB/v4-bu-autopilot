@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/read-bu/output.schema.json",
   "title": "Read BU Output",
   "type": "object",
   "additionalProperties": false,
@@ -183,7 +184,7 @@
     "evidence": {
       "type": "array",
       "items": {
-        "$ref": "../../schemas/evidence.schema.json"
+        "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/evidence.schema.json"
       }
     },
     "missing_data": {

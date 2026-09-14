@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "read-client-context/output.schema.json",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/read-client-context/output.schema.json",
   "title": "Read Client Context Output",
   "description": "Contrato de output para a skill read-client-context. Ver skills/read-client-context/SKILL.md.",
   "type": "object",
@@ -233,7 +233,7 @@
     "evidence": {
       "type": "array",
       "items": {
-        "$ref": "../../schemas/evidence.schema.json"
+        "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/evidence.schema.json"
       }
     },
     "missing_data": {

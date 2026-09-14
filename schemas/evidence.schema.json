@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "evidence.schema.json",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/evidence.schema.json",
   "title": "V4 BU Autopilot Evidence",
   "description": "Contrato universal para evidencias geradas pelas skills.",
   "type": "object",

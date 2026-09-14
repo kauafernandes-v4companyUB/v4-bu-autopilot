@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/_template/output.schema.json",
   "title": "V4 BU Autopilot Skill Output Template",
   "description": "Estrutura-base para outputs de skills. Cada skill deve possuir seu proprio schema especifico.",
   "type": "object",
@@ -42,7 +43,7 @@
     "evidence": {
       "type": "array",
       "items": {
-        "$ref": "../../schemas/evidence.schema.json"
+        "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/evidence.schema.json"
       }
     },
     "data": {
