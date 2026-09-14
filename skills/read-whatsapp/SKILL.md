@@ -6,128 +6,70 @@ Nome: Read WhatsApp
 
 Slug: read-whatsapp
 
-Categoria: source
+Categoria: SOURCE
 
-Versão: 1.0.0
+Versão: 1.1.0
 
 Side Effects: NONE
 
----
-
 ## 2. Objetivo
 
-Ler exportações de conversas do WhatsApp relacionadas a UM `client_id`, isolar estritamente o contexto pertinente e transformar apenas a comunicação observada em dados estruturados e evidências rastreáveis.
+Ler exportação textual WhatsApp de UM `client_id`, isolar somente o contexto pertinente e produzir observações/evidências rastreáveis com baseline ou processamento incremental determinístico. A skill apenas observa: não diagnostica, replaneja, gera tarefa, promove memória, persiste cursor, altera `clients/` ou executa ação externa.
 
-Esta skill observa. Não diagnostica, não replaneja, não gera tarefa, não promove memória e não executa ação externa.
+## 3. Fonte, qualificação e isolamento
 
----
+Compatíveis: `whatsapp_export`, `whatsapp_chat_export`, `client_whatsapp_export`. Incompatíveis: `account_gt_transcript`, `client_checkin_transcript`, `account_handoff`, `client_handoff`, `bi_dashboard`, `crm_export`, `task_export`, `task_list`, `unrelated_document`, `unknown`.
 
-## 3. Quando usar
+Pode ler conversa individual, grupo cliente/time ou exportação que referencia anexos. Não abrir links, buscar conteúdo externo ou interpretar mídia que não foi fornecida como legível. Fonte incompatível retorna `failed`, sem extração e com `data` vazio.
 
-Usar para uma exportação textual compatível de conversa individual, grupo com cliente e time interno, ou exportação que apenas referencie anexos:
+Em fonte multi-cliente, isolar somente mensagens inequivocamente do `client_id`; adjacência serve apenas a boundary. Alternância ambígua reduz confidence e gera warning. Se o cliente não for isolável, retornar `failed`, sem atribuir conteúdo.
 
-- `whatsapp_export`;
-- `whatsapp_chat_export`;
-- `client_whatsapp_export`.
+## 4. Inputs e modos de ingestão
 
----
+São obrigatórios `client_id`, fonte legível e `ingestion_mode`: `baseline` ou `incremental`. Em incremental, `previous_cursor` aprovado é obrigatório. Memória canônica mínima só pode resolver identidade de stakeholder, nunca preencher conversa.
 
-## 4. Quando NÃO usar
+**baseline** processa todo histórico textual disponível, constrói baseline e produz cursor final; não presume leitura semântica de toda mídia.
 
-Não usar para `account_gt_transcript`, `client_checkin_transcript`, `account_handoff`, `client_handoff`, `bi_dashboard`, `crm_export`, `task_export`, `task_list`, `unrelated_document` ou `unknown`.
+**incremental** recebe cursor, localiza a sequência contígua e ordenada dos três `anchor_fingerprints` no novo export completo e, se houver exatamente uma correspondência segura, processa apenas mensagens posteriores ao último anchor em SOURCE ORDER. Histórico anterior só pode ser lido como contexto mínimo de reply/referência. Se o anchor não existir, ocorrer mais de uma vez, ou edição/export o quebrar, não usar data como fallback, não adivinhar e não perder mensagens: registrar `cursor_resolution`, warning e `missing_data`; retornar `failed` se não houver fronteira segura para avançar e `partial` somente quando a limitação estiver declarada sem alegar processamento posterior seguro.
 
-Também não usar para diagnosticar, calcular gap, priorizar, replanejar, criar briefing, gerar tarefa, alterar memória canônica, publicar, enviar mensagem ou abrir links. Essas responsabilidades pertencem a outras skills.
+`next_cursor` é produzido, mas nunca persistido em `clients/`; não criar source-state.
 
----
+## 5. Parser e normalização
 
-## 5. Responsabilidade
+O arquivo principal é normalmente `_chat.txt`. Uma nova mensagem humana começa **somente** em linha que casa com `[DD/MM/YYYY, HH:MM:SS] Participante: conteúdo`. Toda linha seguinte sem novo header pertence ao body da mensagem anterior. Evento de sistema só é reconhecido quando a própria exportação o apresentar como tal; nunca se inventa participante ou conteúdo humano para ele.
 
-Esta skill é responsável por:
+Preservar `source_sequence` (ordem física), `message_date`, `local_time_reference`, `participant_raw`, participante resolvido quando sustentado, body/raw context necessário, anexos e markers. Não ordenar destrutivamente por timestamp: `source_sequence` é a referência de cursor; data/hora não a substitui.
 
-- qualificar a fonte antes da extração;
-- isolar a conversa e as mensagens pertencentes ao cliente solicitado, inclusive em fonte multi-cliente;
-- estruturar participantes sem inventar seus papéis;
-- preservar direção, autoria, reply, citação e referência local da comunicação quando suportados;
-- extrair observações conversacionais por bloco semântico e gerar evidências rastreáveis;
-- observar cancelamento, alteração, aprovação, rejeição ou substituição explícita entre mensagens da própria conversa;
-- registrar ambiguidades, lacunas e limitações da exportação.
+Para parsing/matching: CRLF→LF, Unicode NFC e remoção de caracteres invisíveis de controle/formatação somente quando necessária ao matching. Nunca alterar semanticamente mensagem/nome; preservar raw participant/body quando necessário. Normalizar identidade é camada separada da fonte.
 
-Esta skill NÃO é responsável por:
+`message_fingerprint` = SHA-256 (hexadecimal minúsculo) do JSON UTF-8 sem whitespace extra, com chaves nesta ordem: `message_date` (ISO), `local_time_reference` (literal da fonte), `participant_matching`, `body_matching` e `attachment_filenames` (na ordem em que aparecem no body). Os campos `*_matching` usam somente CRLF→LF, NFC e remoção de controles/formatação invisíveis estritamente necessária ao matching. Não depende de execução, linha ou apenas data; não é evidência de negócio e deve reproduzir a mesma mensagem em novo export.
 
-- tratar relato indireto como fala direta do cliente;
-- tratar métrica relatada como métrica validada em BI, CRM ou plataforma;
-- interpretar mídia/anexo não fornecido como fonte legível;
-- transformar request em decision, commitment em tarefa concluída, pending em tarefa, ou planejamento em execução;
-- resolver conflitos com memória canônica ou promover qualquer memória.
+`anchor_fingerprints` contém, em source order, as três últimas mensagens parseadas. Cursor só é emitido quando essas três âncoras existem; a resolução incremental exige exatamente essa sequência contígua uma única vez. O cursor não inclui body completo.
 
----
+O range de conversa vem dos timestamps suportados de mensagens parseadas, e não da primeira/última linha física.
 
-## 6. Inputs e fontes permitidas
+## 6. Participantes, direção e semântica
 
-Obrigatórios: `client_id` e uma referência de exportação WhatsApp legível (`source_path` ou `source_url`). Opcionais: seletor do cliente e contexto explicitamente fornecido para identificar participantes.
+Em `participants`, preservar `participant_name`, `participant_role` (`client`, `account`, `traffic_manager`, `internal_team`, `external_partner`, `unknown`), `role_confidence`, `role_basis`. Sem sustentação, usar `unknown`.
 
-Pode usar memória canônica mínima somente quando indispensável para resolver a identidade de um stakeholder. Nunca a use para completar o conteúdo da conversa. Não abra links das mensagens, não busque conteúdo externo e não interprete arquivo de mídia/anexo que não tenha sido fornecido nesta execução.
+Cada observação preserva `communication_direction`: `direct_client_statement`, `internal_statement`, `external_statement`, `quoted_statement`, `forwarded_statement`, `unknown`. Relato do time não equivale à fala direta. Reply/citação preserva mensagem atual, referência, participante original e relação, usando mínimo contexto auditável.
 
----
+Usar somente `fact`, `metric`, `decision`, `hypothesis`, `request`, `commitment`, `pending`, `risk`, `idea`, `dependency`, sem elevar tipo. Métrica explicitamente declarada é reportada na conversa (`reported_in_conversation: true`) e nunca substitui BI/CRM/Ads Manager. Pedido é request; promessa de envio é commitment; opinião é hypothesis, não metric.
 
-## 7. Qualificação e isolamento
+“ok”, “sim”, “pode”, “aprovado”, “fechado”, “manda”, emoji ou reação só são decision/approval se o objeto for inequivocamente resolvível por reply, citação ou contexto imediato. Reação isolada nunca basta. Referência ambígua não vira decisão e gera warning se relevante.
 
-Antes de extrair semântica:
+Cancelamento, alteração, aprovação, rejeição ou substituição explícita posterior deve ser ligado por evidence IDs; a skill observa a relação dentro da conversa, não resolve memória canônica.
 
-1. classificar `source_kind` e definir `source_compatible = true` somente para `whatsapp_export`, `whatsapp_chat_export` ou `client_whatsapp_export`;
-2. registrar a qualificação como fato sobre a fonte, não sobre o cliente;
-3. se incompatível, retornar `failed`, sem extração semântica e com `data` vazio;
-4. se houver múltiplos clientes, delimitar somente mensagens inequivocamente associadas ao `client_id`; conteúdo adjacente serve apenas para boundary;
-5. reduzir confidence e emitir warning quando houver alternância ambígua; se não for possível isolar com segurança, retornar `failed` sem atribuição ao cliente.
+## 7. Sistema, edição e mídia
 
-`success` exige fonte compatível, cliente isolado e evidências úteis sem bloqueio; `partial` é para ambiguidade relevante, participantes não resolvidos ou temporalidade incompleta; `failed` é para fonte incompatível, ilegível ou cliente não isolável.
+Criação de grupo, inclusão/remoção, configuração/imagem e criptografia não geram evidência de negócio automaticamente, mas podem ajudar contexto, participantes e membership timeline. `<Mensagem editada>` preserva marker sem versão anterior inventada; mensagem apagada só é registrada se operacionalmente relevante, com conteúdo `unknown`; vídeo omitido/mídia indisponível não tem conteúdo inferido.
 
----
+Construir índice de mídia sem abrir centenas de arquivos. Cada candidato relevante pode conter filename, tipo, sequence, data, participante, referência, relevância (`high`, `medium`, `low`), motivo e deep read (`not_needed`, `pending`, `completed`, `unavailable`). High inclui mídia do cliente ligada a request/decision/commitment, documento comercial/estratégico, mídia necessária para decisão, áudio operacional e mídia recente de current state. Stickers, memes, mídia social sem contexto e duplicatas evidentes são low por padrão. Conteúdo só é interpretado com leitura real.
 
-## 8. Participantes e direção
+`baseline_complete` só é true quando texto relevante foi processado, índice de mídia foi construído e mídia necessária para evidência importante foi lida ou marcada `pending`/`unavailable` com impacto declarado. Ler `_chat.txt` não basta; o bloco é avaliação de completude do baseline, não alegação de que toda mídia do ZIP foi lida.
 
-Em `participants`, preservar `participant_name`, `participant_role`, `role_confidence` e `role_basis`. Os únicos papéis são `client`, `account`, `traffic_manager`, `internal_team`, `external_partner` e `unknown`. Sem sustentação suficiente, usar `unknown`.
+## 8. Output e validação
 
-Toda observação relevante deve preservar `communication_direction`: `direct_client_statement`, `internal_statement`, `external_statement`, `quoted_statement`, `forwarded_statement` ou `unknown`. Uma fala relatada pelo time sobre o que o cliente teria dito não equivale a uma fala direta do cliente.
+Salvar em `context/generated/<client_id>/whatsapp.json`. O output contém source, qualification, ingestion, previous/next cursor, conversation_context, participants, baseline_completion, media index/candidates, data, evidence, warnings e missing_data. Evidências validam contra `schemas/evidence.schema.json`; metadados conversacionais ficam nos itens estruturados e `reference` identifica arquivo/participante/data/localização.
 
-Quando houver reply/citação, preservar a mensagem atual, a referência da mensagem respondida, participante original e a relação. Use o menor contexto necessário para auditoria; nunca copie a conversa inteira.
-
----
-
-## 9. Semântica, aprovações e superação interna
-
-Usar exclusivamente `fact`, `metric`, `decision`, `hypothesis`, `request`, `commitment`, `pending`, `risk`, `idea` e `dependency`, preservando o tipo original. Pedido direto de criativo é `request`; concordância inequívoca sobre oferta é `decision`; promessa de envio é `commitment`; espera de estoque é `pending` ou `dependency` conforme o contexto; opinião sobre anúncio é `hypothesis`; número explicitamente declarado é `metric` reportada.
-
-Respostas curtas como “ok”, “sim”, “pode”, “aprovado”, “fechado”, “manda”, emoji ou reação só são `decision`/approval se o objeto estiver inequivocamente resolvível pela mensagem citada, reply ou contexto imediato. Reação isolada nunca basta. Quando o referente não for claro, não inventar decisão e registrar ambiguity/warning se relevante.
-
-Uma mensagem posterior que explicitamente cancela, altera, aprova, rejeita ou substitui outra deve preservar a relação em `supersedes_evidence_ids`/`superseded_by_evidence_ids` dos itens estruturados. Isto descreve apenas a conversa e não resolve conflito com memória canônica.
-
----
-
-## 10. Temporalidade e métricas
-
-`generated_at` e `observed_at` vêm do relógio real do sistema, em UTC RFC3339. `source_date` de cada evidência é a data da mensagem que a sustenta, em `YYYY-MM-DD`, ou `null` quando a própria fonte não permitir determiná-la. `conversation_start_date` e `conversation_end_date` só aparecem quando suportadas. Horário local sem timezone confiável deve permanecer como `local_time_reference`, sem conversão artificial para UTC.
-
-Métricas de WhatsApp devem declarar `reported_in_conversation: true`, autoria e direção. Nunca substituem BI, CRM, Ads Manager ou outra fonte estruturada autoritativa.
-
----
-
-## 11. Procedimento
-
-1. validar inputs e qualificar a fonte;
-2. isolar o cliente e seus limites com segurança;
-3. identificar participantes e direção de cada fala relevante;
-4. extrair apenas mensagens no limite seguro, replies/citações e relações temporais suportadas;
-5. classificar, deduplicar por mensagem/afirmação e gerar uma evidência por observação equivalente;
-6. preencher `data`, usando os mesmos `evidence_ids` em blocos distintos quando necessário;
-7. registrar warnings/missing_data e validar o output.
-
-Os blocos possíveis em `data` são `client_requests`, `client_decisions`, `commitments`, `pending`, `dependencies`, `campaign_feedback`, `commercial_feedback`, `performance_mentions`, `risks`, `ideas`, `references` e `unresolved_questions`. Não preencher blocos sem suporte.
-
----
-
-## 12. Evidência, output e validação
-
-Cada evidência valida contra `schemas/evidence.schema.json`. Como esse contrato é estrito, metadados conversacionais adicionais ficam no item estruturado correspondente; a `reference` universal identifica arquivo, participante, data e horário/localização disponíveis.
-
-O output vai para `context/generated/<client_id>/whatsapp.json` e valida contra `skills/read-whatsapp/output.schema.json`. Antes de concluir, validar JSON, Draft 2020-12, refs, IDs únicos, timestamps não futuros, isolamento do cliente e `git diff --check`. Esta skill não altera `clients/`, não faz commit e não faz push.
+`generated_at`/`observed_at` vêm do relógio real UTC RFC3339. `source_date` é a data da mensagem `YYYY-MM-DD` ou null se não sustentada. Validar JSON, Draft 2020-12, refs absolutos, IDs únicos, timestamps não futuros, isolamento, cursor e `git diff --check`. Sem alteração em clients/, commit ou push.
