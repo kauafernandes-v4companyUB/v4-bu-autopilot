@@ -95,7 +95,7 @@
         "source_date": {
           "description": "Data explicitamente sustentada PELA PROPRIA FONTE, quando conhecida (ex.: data de emissao de um documento, data de um fechamento mensal citado no texto). null/ausente quando a fonte nao informa sua propria data - nunca inferida ou preenchida com a data de execucao. Ver CLAUDE.md secao 26.3.",
           "type": ["string", "null"],
-          "format": "date-time"
+          "format": "date"
         },
         "period": {
           "description": "Periodo coberto pela evidencia, quando aplicavel (ex.: metrica de um mes especifico).",
