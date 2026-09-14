@@ -137,7 +137,50 @@ Se alguma pré-condição falhar, registrar o problema em `missing_data`/`warnin
 | `clients/<client_id>/decisions.json` | Decisões explícitas, com data, evidência, origem e vigência/status quando aplicável. |
 | `clients/<client_id>/history/` | Snapshots que merecem preservação histórica, contextos substituídos relevantes, decisões superadas que não devem ser apagadas. |
 
+Resumo semântico obrigatório dos cinco destinos com conteúdo substantivo (a memorizar antes de classificar qualquer candidato):
+
+- **`knowledge.json`** = fatos e conhecimentos relativamente estáveis/semiestáveis sobre o cliente, independentes de qual mês ou campanha está em curso.
+- **`strategy.md`** = orientação estratégica e operacional qualitativa — como pensar e decidir, não o que está acontecendo agora.
+- **`current-state.json`** = fotografia temporal do agora — o que muda de mês a mês ou de campanha a campanha. Nunca um depósito genérico para qualquer `dependency`/`pending` só porque a fonte usou esse rótulo.
+- **`decisions.json`** = decisões explícitas, tomadas de fato, nunca hipóteses, pedidos ou pendências.
+- **`history/`** = informação passada relevante que não é mais vigente, mas merece rastreabilidade.
+
 Cada `promotion_candidate` deve declarar exatamente um `target_file`.
+
+---
+
+## 9.1 `current-state.json` é fotografia temporal, não depósito genérico
+
+`current-state.json` armazena **somente** o que está vigente **agora**:
+
+- metas atuais;
+- campanhas atuais;
+- pendências atuais **confirmadas** (ver seção 12.1 — freshness de PENDING);
+- dependências atuais;
+- flags atuais;
+- bloqueios atuais.
+
+Regras permanentes de operação — válidas independentemente de qual mês, campanha ou produto está em jogo — **não são estado atual**. Elas são conhecimento estável sobre como a conta opera e pertencem a `knowledge.json` (tipicamente `operation_context`) ou a `strategy.md` quando forem orientação qualitativa de processo.
+
+Exemplos que NUNCA vão para `current-state.json` só porque a fonte os descreveu como "dependency" ou "pending":
+
+- "validar estoque antes de fechar campanha";
+- "validar condição comercial antes de publicar preço/desconto em arte";
+- "validar área exata de entrega antes de expandir mídia para nova região".
+
+Essas são regras permanentes de como a conta funciona — não bloqueios do momento presente. Um candidato só pertence a `current-state.json/dependencies` quando descreve um bloqueio pontual amarrado a uma ação em andamento agora (ex.: "campanha de outubro está bloqueada aguardando confirmação de estoque de X"), não a uma regra geral que se aplica a qualquer campanha, de qualquer mês.
+
+Antes de propor `target_file: current-state.json`, perguntar: "isso descreve o estado do cliente hoje, ou é uma regra permanente de como esta conta sempre funciona?" No segundo caso, o destino é `knowledge.json`/`operation_context` ou `strategy.md`.
+
+---
+
+## 9.2 Contratos e termos comerciais documentados em fonte histórica
+
+Quando uma fonte narrativa/histórica (ex.: handoff sem data de emissão confiável) informar fee, escopo, data de início de contrato ou condições contratuais, a skill **não pode declarar que esses valores estão vigentes agora**. Vigência de contrato depende de confirmação por contrato atual ou fonte autorizada mais recente — não é assumida automaticamente pela existência do dado na fonte.
+
+Ao promover esse tipo de informação (tipicamente a `knowledge.json/operation_context`), o `statement` deve deixar explícito que se trata de uma base documentada na origem, não de um fato confirmado como vigente hoje. Formulação recomendada: prefixar com algo como "Base contratual documentada na fonte:" (ou equivalente), preservando `knowledge_type: "fact"` apenas para a existência do registro documental, nunca para a alegação implícita de que o valor é o vigente atualmente.
+
+Isso não impede a promoção — impede a promoção **como se fosse confirmação de vigência atual**.
 
 ---
 
@@ -156,6 +199,21 @@ Cada `promotion_candidate` deve declarar exatamente um `target_file`.
 - `other_facts` — fatos relevantes que não se encaixam nas categorias acima.
 
 `knowledge.json` NÃO é um dump integral de `client-context.json`. Cada item promovido deve ser um fato individualizado, com `statement` próprio, não um bloco inteiro copiado.
+
+### 10.1 `knowledge_type` — preservar a natureza semântica original
+
+Todo `knowledge_item` escrito em `knowledge.json` deve declarar `knowledge_type` (contrato em `schemas/client-knowledge.schema.json`), herdado diretamente do `type` da evidência de origem (`schemas/evidence.schema.json`): `fact`, `metric`, `decision`, `hypothesis`, `request`, `commitment`, `pending`, `risk`, `idea` ou `dependency`.
+
+A promoção para memória canônica **nunca eleva o tipo semântico**:
+
+- um `risk` promovido continua `knowledge_type: "risk"` — nunca vira `fact`;
+- uma `hypothesis` promovida continua `knowledge_type: "hypothesis"`;
+- um `request` promovido continua `knowledge_type: "request"`, nunca é lido como `commitment`;
+- um `pending` promovido (quando aplicável a `knowledge.json`, não a `current-state.json`) continua `knowledge_type: "pending"`.
+
+Isso vale mesmo quando o `category` de destino (`business_identity`, `operation_context`, etc.) parece sugerir um fato consolidado — a categoria descreve **onde** o conhecimento se encaixa tematicamente, não **que grau de certeza** ele carrega. `confidence` e `knowledge_type` continuam sendo a fonte de verdade sobre certeza e natureza.
+
+`promotion_candidate.value` (no `promotion_plan`) deve incluir o `knowledge_type` proposto sempre que `target_file = knowledge.json`, para que a decisão fique auditável antes da escrita.
 
 ---
 
@@ -190,10 +248,26 @@ Nunca sobrescrever silenciosamente informação conflitante. Toda `conflict` fic
 
 ---
 
+## 12.1 Freshness de PENDING (obrigatório antes de `current-state.json/pending`)
+
+Um item classificado como `pending` na fonte de origem **não vira automaticamente** `current-state.json/pending` só porque a fonte o descreveu como pendência. Isso vale mesmo com `confidence: high` na evidência — freshness e confidence são avaliações independentes.
+
+Antes de propor `target_file: current-state.json` com `action: promote` para um `pending`, verificar se existe evidência razoável de que a pendência **continua aberta/ativa** (ex.: `source_date`/`observed_at` recente e confiável, confirmação em check-in mais recente, menção em `decisions.json` ou fonte estruturada equivalente).
+
+Quando essa confirmação não existir — por exemplo, a fonte é uma narrativa sem data de emissão confiável (ver seção 23 — Freshness) — o candidato **não** pode ser `promote` para `current-state.json`. As alternativas são:
+
+- **skip**, quando a pendência não tiver valor duradouro suficiente para justificar preservação sem confirmação;
+- **historize**, quando a pendência tiver valor como registro histórico (ex.: algo que foi cogitado/planejado em determinado momento), mas não puder ser afirmada como ativa hoje;
+- aguardar uma nova execução desta skill após confirmação por check-in, eKyte, transcrição ou outra fonte mais recente — registrar isso em `missing_data`, não inventar a confirmação.
+
+Nunca promover um `pending` sem data confiável para `current-state.json` apenas para "não perder a informação" — perder a informação não é o risco aqui; a memória canônica ganhar um item que aparenta estar ativo sem sustentação é o risco que esta regra evita.
+
+---
+
 ## 13. Confiança (Confidence)
 
 - `low` — normalmente não deve ser promovido como fato canônico. Candidato deve ser `skip`, a menos que exista razão operacional forte para preservar como `hypothesis`/`pending` explicitamente marcado como tal (nunca como fato definitivo) — nesse caso, registrar com clareza no `statement` e manter `confidence: low` no destino.
-- `medium` — pode ser promovido, mas a incerteza deve ser preservada no destino (ex.: `confidence: medium` mantido no `knowledge_item`, ou linguagem explícita em `strategy.md` como "conforme observado em [fonte], ainda não confirmado"). Nunca tratado como fato definitivo só porque foi promovido.
+- `medium` — não deve virar fato estrutural estável por padrão. Promover um item `medium` exige, cumulativamente: (a) preservar explicitamente `confidence: medium` no destino (nunca omitir ou arredondar para `high`); (b) utilidade futura forte e concreta — não basta ser "interessante", precisa mudar como uma execução futura seria conduzida; (c) ausência de uma fonte melhor e mais barata de confirmar o mesmo fato em breve. Quando a informação puder ser facilmente confirmada por uma fonte melhor logo à frente (ex.: um padrão comercial observável no CRM, algo que o próximo check-in naturalmente esclarece), **preferir `skip`** a promover um item `medium` como se já fosse conhecimento estável — registrar em `missing_data` o que confirmaria o item. Exemplo concreto: um padrão como "leads permanecem parados em negociação por semanas" não deve virar `knowledge_item` estável a partir de uma única menção narrativa sem data — a rota preferida é aguardar confirmação via CRM/Kommo ou check-in antes de promover.
 - `high` — candidato normal à promoção, desde que passe pelos demais critérios (evidência, temporalidade, destino adequado).
 
 A skill nunca eleva a confiança de um item ao promovê-lo. A confiança do `knowledge_item`/registro final não pode ser maior que a confiança da evidência de origem.
@@ -327,7 +401,8 @@ Registrar `missing_data` quando:
 - um `source_output` esperado não existir ou não puder ser lido;
 - um candidato não puder ser avaliado por falta de `evidence_ids` suficientes;
 - a memória canônica de destino não existir ainda (ex.: `knowledge.json` ausente) — isso não bloqueia o preview, mas deve ser declarado;
-- um campo necessário para decidir temporalidade (data da fonte ou da memória existente) estiver ausente.
+- um campo necessário para decidir temporalidade (data da fonte ou da memória existente) estiver ausente;
+- um `pending` sem freshness suficiente (seção 12.1) ficar de fora de `current-state.json` por falta de confirmação — declarar o que confirmaria a vigência (ex.: check-in mais recente, eKyte, CRM) e marcar `blocking: false`, salvo se a ausência dessa pendência comprometer decisão essencial.
 
 ---
 
@@ -340,7 +415,8 @@ Gerar warning quando:
 - houver `conflict` entre candidato e memória existente;
 - uma validação de side-effect safety (seção 18) falhar em modo `apply`;
 - um output de origem estiver com `status: partial` ou `failed`, tornando os candidatos dele menos confiáveis;
-- `knowledge.json` ainda não existir e uma promoção for a primeira a criá-lo.
+- `knowledge.json` ainda não existir e uma promoção for a primeira a criá-lo;
+- um `pending`, `dependency` ou termo contratual (fee/escopo/data de início) da fonte tiver sido mantido fora de `current-state.json`/tratado como "base documentada, não vigência confirmada" por falta de freshness (seções 9.1, 9.2, 12.1).
 
 ---
 
@@ -385,7 +461,12 @@ promote-client-memory não pode:
 - executar `git commit` ou `git push`;
 - apagar `clients/<client_id>/history/` ou qualquer entrada de `decisions.json` — decisões superadas são marcadas/movidas, nunca apagadas;
 - promover como fato definitivo algo com `confidence: low`;
-- transformar `knowledge.json` em cópia integral de um `client-context.json`.
+- transformar `knowledge.json` em cópia integral de um `client-context.json`;
+- escrever em `knowledge.json` um item sem `knowledge_type`, ou com `knowledge_type` diferente do `type` da evidência de origem (nunca elevar `risk`/`hypothesis`/`request`/`pending` a `fact` só pela promoção);
+- promover para `current-state.json` uma regra permanente de operação (ex.: "validar estoque antes de campanha", "validar condição comercial antes de preço em arte", "validar área antes de expandir mídia") — essas pertencem a `knowledge.json`/`operation_context` ou `strategy.md` (seção 9.1);
+- promover um `pending` para `current-state.json` sem freshness suficiente (seção 12.1), mesmo que a fonte o descreva como pendência;
+- declarar fee, escopo ou data de início de contrato de uma fonte histórica sem data confiável como vigente hoje — deve ser preservado como base documentada na fonte, não como vigência confirmada (seção 9.2);
+- promover um item `confidence: medium` a fato estrutural estável quando uma fonte melhor puder confirmá-lo em breve (seção 13) — nesses casos, `skip` é a ação padrão.
 
 ---
 
@@ -422,6 +503,11 @@ Antes de concluir, verificar:
 9. nenhum commit ou push foi executado?
 10. o output valida contra `output.schema.json`?
 11. o `status` reflete corretamente o resultado?
+12. todo `knowledge_item` proposto para `knowledge.json` declara `knowledge_type` igual ao `type` da evidência de origem (seção 10.1)?
+13. nenhuma regra permanente de operação foi proposta para `current-state.json` (seção 9.1)?
+14. todo `pending` proposto para `current-state.json` possui freshness suficiente para sustentar vigência atual (seção 12.1)?
+15. todo dado de fee/escopo/contrato vindo de fonte histórica sem data confiável foi preservado como "base documentada na fonte", não como vigência confirmada (seção 9.2)?
+16. nenhum item `confidence: medium` foi promovido a fato estrutural estável quando uma fonte melhor poderia confirmá-lo em breve (seção 13)?
 
 ---
 

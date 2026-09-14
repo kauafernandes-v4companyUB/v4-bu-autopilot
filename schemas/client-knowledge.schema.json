@@ -52,6 +52,7 @@
       "required": [
         "knowledge_id",
         "statement",
+        "knowledge_type",
         "confidence",
         "status",
         "provenance"
@@ -64,6 +65,22 @@
         "field": {
           "description": "Rotulo curto e estavel do fato dentro da categoria (ex.: 'segmento', 'stakeholder_principal', 'crm_utilizado'). Usado para localizar supersessao. null quando o item nao tem um rotulo natural de campo unico.",
           "type": ["string", "null"]
+        },
+        "knowledge_type": {
+          "description": "Natureza semantica original do conhecimento, herdada do 'type' da evidencia de origem (schemas/evidence.schema.json). A promocao para memoria canonica nunca eleva o tipo semantico: um RISK promovido continua knowledge_type='risk', uma HYPOTHESIS continua 'hypothesis', etc. Usado para impedir que a persistencia em knowledge.json seja lida como se todo item fosse um FACT confirmado.",
+          "type": "string",
+          "enum": [
+            "fact",
+            "metric",
+            "decision",
+            "hypothesis",
+            "request",
+            "commitment",
+            "pending",
+            "risk",
+            "idea",
+            "dependency"
+          ]
         },
         "statement": {
           "type": "string",
