@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.0.1"
 HEADER = re.compile(r"^\[(\d{2}/\d{2}/\d{4}), (\d{2}:\d{2}:\d{2})\] ([^:\n]+):(?: ?)(.*)$")
 ATTACHMENT = re.compile(r"<anexado:\s*([^>]+)>", re.IGNORECASE)
 OMITTED_MEDIA = (
@@ -32,6 +32,15 @@ def matching(value):
         if unicodedata.category(char) != "Cf"
         and not (unicodedata.category(char) == "Cc" and char != "\n")
     )
+
+
+def header_match(line):
+    """Match a header after removing only leading Unicode formatting chars."""
+    auxiliary = unicodedata.normalize("NFC", line)
+    index = 0
+    while index < len(auxiliary) and unicodedata.category(auxiliary[index]) == "Cf":
+        index += 1
+    return HEADER.match(auxiliary[index:])
 
 
 def fingerprint(message_date, local_time_reference, participant_matching, body_matching, attachment_filenames):
@@ -79,7 +88,7 @@ def parse_chat(chat_path):
         lines.pop()  # A final text-file newline is not an extra body line.
     messages, current = [], None
     for line in lines:
-        header = HEADER.match(line)
+        header = header_match(line)
         if header:
             if current is not None:
                 messages.append(build_message(len(messages) + 1, *current))
@@ -204,6 +213,22 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(message["body_raw"], "linha\ncontinua <anexado: x.pdf>")
         self.assertEqual(message["attachment_filenames"], ["x.pdf"])
         self.assertEqual(message["participant_matching"], "Ana")
+
+    def test_leading_format_character_starts_a_new_message(self):
+        result = self.parse_text(
+            "[14/09/2026, 10:19:22] Jean Walmaq: Valeu\n"
+            "\u200e[14/09/2026, 11:04:02] Jean Walmaq: Situação das vendas no mes "
+            "<anexado: 00004434-PHOTO-2026-09-14-11-04-02.jpg>"
+        )
+        first, second = result["messages"]
+        self.assertEqual(result["message_count"], 2)
+        self.assertEqual((first["source_sequence"], second["source_sequence"]), (1, 2))
+        self.assertEqual((second["message_date"], second["local_time_reference"]), ("2026-09-14", "11:04:02"))
+        self.assertEqual(second["participant_raw"], "Jean Walmaq")
+        self.assertEqual(first["body_raw"], "Valeu")
+        self.assertIn("Situação das vendas no mes", second["body_raw"])
+        self.assertEqual(second["attachment_filenames"], ["00004434-PHOTO-2026-09-14-11-04-02.jpg"])
+        self.assertEqual(first["attachment_filenames"], [])
 
     def test_range_uses_dates_not_physical_endpoints(self):
         result = self.parse_text("[03/09/2026, 10:00:00] A: x\n[01/09/2026, 10:00:00] A: y\n[02/09/2026, 10:00:00] A: z")
