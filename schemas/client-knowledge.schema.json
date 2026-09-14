@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.v4-bu-autopilot.internal/schemas/client-knowledge.schema.json",
   "title": "V4 BU Autopilot Client Knowledge",
-  "description": "Memoria canonica de conhecimento estavel/semiestavel de um cliente, mantida em clients/<client_id>/knowledge.json. Nao e um dump de contexto temporario: cada item preserva provenance e evidencia para permitir auditoria e supersessao futura. Ver skills/promote-client-memory/SKILL.md.",
+  "description": "Memoria canonica de conhecimento estavel/semiestavel de um cliente, mantida em clients/<client_id>/knowledge.json. Nao e um dump de contexto temporario: cada item preserva provenance e evidencia para permitir auditoria e supersessao futura. A rastreabilidade duravel de cada item depende de clients/<client_id>/evidence.json (schemas/client-evidence.schema.json), nunca de context/generated/ (transitorio, ignorado pelo Git). Ver skills/promote-client-memory/SKILL.md.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,7 +20,7 @@
       "minLength": 1
     },
     "updated_at": {
-      "description": "Data da ultima escrita canonica neste arquivo. null se o arquivo ainda nao foi escrito por nenhuma promocao.",
+      "description": "Timestamp de execucao: momento real da ultima escrita canonica neste arquivo, do relogio do sistema (UTC RFC3339). null se o arquivo ainda nao foi escrito por nenhuma promocao. Nunca estimado/arredondado/inferido do conteudo de uma fonte. Ver CLAUDE.md secao 26.",
       "type": ["string", "null"],
       "format": "date-time"
     },
@@ -104,7 +104,7 @@
           "type": ["string", "null"]
         },
         "observed_at": {
-          "description": "Data em que o fato foi observado na fonte original (nao a data da promocao).",
+          "description": "Timestamp de execucao herdado da evidencia de origem: momento em que o sistema leu/observou o fato (nao a data da promocao - ver provenance.promoted_at - nem a data que a fonte declara sobre si mesma - ver source_date da evidencia canonica correspondente em clients/<client_id>/evidence.json). Ver CLAUDE.md secao 26.",
           "type": ["string", "null"],
           "format": "date-time"
         },
@@ -113,27 +113,29 @@
           "format": "date"
         },
         "provenance": {
+          "description": "A fonte de verdade DURAVEL de provenance e clients/<client_id>/evidence.json (schemas/client-evidence.schema.json) - nao context/generated/, que e ignorado pelo Git e pode nao existir em outro clone. Um clone limpo do repositorio, sem nenhum arquivo em context/generated/, deve continuar conseguindo auditar este item inteiramente a partir de evidence_ids + clients/<client_id>/evidence.json.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["source_skill", "source_output", "promoted_at"],
+          "required": ["source_skill", "evidence_ids", "promoted_at", "promoted_by"],
           "properties": {
             "source_skill": {
-              "description": "Skill que gerou o contexto temporario promovido (ex.: read-client-context).",
+              "description": "Skill que gerou o contexto temporario promovido (ex.: read-client-context). Metadado de execucao - identifica QUAL skill observou, nao onde o arquivo temporario esta.",
               "type": "string",
               "minLength": 1
             },
             "source_output": {
-              "description": "Caminho do output temporario de origem (ex.: context/generated/walmaq/client-context.json).",
-              "type": "string",
-              "minLength": 1
+              "description": "Caminho do output TEMPORARIO de origem (ex.: context/generated/walmaq/client-context.json), quando disponivel no momento da promocao. Metadado transitorio de execucao - util para depurar a execucao especifica que gerou esta promocao, mas NAO e requerido para auditoria e pode deixar de existir (context/generated/ e ignorado pelo Git). A auditoria durave deste item depende exclusivamente de 'evidence_ids' resolvidos em clients/<client_id>/evidence.json, nunca deste campo. Campo opcional - pode ser omitido quando nao houver um source_output de execucao a registrar.",
+              "type": ["string", "null"]
             },
             "evidence_ids": {
-              "description": "IDs de evidencia (schemas/evidence.schema.json) que sustentam este item. Referencia por ID; nao duplicar o texto completo da evidencia.",
+              "description": "IDs de evidencia CANONICOS, resolviveis em clients/<client_id>/evidence.json (schemas/client-evidence.schema.json). Este e o vinculo duravel de provenance deste item - deve continuar resolvivel mesmo se todo o conteudo de context/generated/ for apagado. Referencia por ID; nao duplicar o texto completo da evidencia aqui.",
               "type": "array",
               "items": { "type": "string", "minLength": 1 },
+              "minItems": 1,
               "uniqueItems": true
             },
             "promoted_at": {
+              "description": "Timestamp de execucao: momento real em que este item foi escrito na memoria canonica, do relogio do sistema (UTC RFC3339). Nunca estimado/arredondado. Ver CLAUDE.md secao 26.",
               "type": "string",
               "format": "date-time"
             },

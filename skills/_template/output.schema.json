@@ -29,6 +29,7 @@
       "minLength": 1
     },
     "generated_at": {
+      "description": "Timestamp de execucao: momento real em que esta skill gerou este output, obtido do relogio do sistema no momento da execucao (UTC RFC3339). Nunca estimado, arredondado, inferido do conteudo da fonte, copiado de um exemplo, ou definido como horario futuro. Nao confundir com a data de uma fonte (ver 'source_date' em schemas/evidence.schema.json). Ver CLAUDE.md secao 26.",
       "type": "string",
       "format": "date-time"
     },

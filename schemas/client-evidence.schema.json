@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/client-evidence.schema.json",
+  "title": "V4 BU Autopilot Client Evidence Ledger",
+  "description": "Ledger canonico e durave de evidencias de UM cliente, mantido em clients/<client_id>/evidence.json. Contem SOMENTE evidencias que efetivamente sustentam memoria promovida/historizada (knowledge.json, strategy.md, current-state.json, decisions.json, history/) - nao e um dump do output temporario de uma skill de observacao. Este arquivo e a fonte de verdade de provenance para auditoria: um clone limpo do repositorio (sem context/generated/, que e ignorado pelo Git e pode nao existir) deve continuar conseguindo, a partir deste arquivo, saber de onde cada conhecimento canonico veio, com que confianca, e a partir de qual localizacao exata na fonte. Ver skills/promote-client-memory/SKILL.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "client_id",
+    "updated_at",
+    "evidences"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "description": "Timestamp de execucao: momento real da ultima escrita neste ledger, do relogio do sistema (UTC RFC3339). null se o arquivo ainda nao foi escrito por nenhuma promocao. Nunca estimado/arredondado/inferido do conteudo de uma fonte. Ver CLAUDE.md secao 26.",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "evidences": {
+      "description": "Lista de evidencias canonicas, uma por evidence_id (unico neste arquivo). Deduplicadas por evidence_id no momento da escrita (ver skills/promote-client-memory/SKILL.md).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/canonical_evidence_item" }
+    }
+  },
+  "$defs": {
+    "canonical_evidence_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "client_id",
+        "type",
+        "statement",
+        "confidence",
+        "observed_at",
+        "source_id",
+        "source_kind",
+        "source_reference",
+        "added_at",
+        "added_by"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Deve ser identico ao client_id do arquivo. Nunca misturar evidencia de outro cliente neste ledger."
+        },
+        "type": {
+          "description": "Tipo semantico original da evidencia (CLAUDE.md secao 5). Preservado sem alteracao ao entrar no ledger - nunca elevado (ex.: risk nunca vira fact).",
+          "type": "string",
+          "enum": [
+            "fact",
+            "metric",
+            "decision",
+            "hypothesis",
+            "request",
+            "commitment",
+            "pending",
+            "risk",
+            "idea",
+            "dependency"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": ["string", "number", "integer", "boolean", "null"]
+        },
+        "unit": {
+          "type": ["string", "null"]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "observed_at": {
+          "description": "Timestamp de execucao: momento em que o sistema originalmente leu/observou esta evidencia (herdado da evidencia de origem em schemas/evidence.schema.json). Nao e a data da fonte - ver 'source_date'. Ver CLAUDE.md secao 26.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_date": {
+          "description": "Data explicitamente sustentada PELA PROPRIA FONTE, quando conhecida (ex.: data de emissao de um documento, data de um fechamento mensal citado no texto). null/ausente quando a fonte nao informa sua propria data - nunca inferida ou preenchida com a data de execucao. Ver CLAUDE.md secao 26.3.",
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "period": {
+          "description": "Periodo coberto pela evidencia, quando aplicavel (ex.: metrica de um mes especifico).",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "from": { "type": ["string", "null"], "format": "date" },
+            "to": { "type": ["string", "null"], "format": "date" }
+          }
+        },
+        "source_id": {
+          "description": "Identificador estavel da fonte em clients/<client_id>/sources.json (ex.: 'account-manager-handoff'). null somente quando a fonte de origem nao possui entrada cadastrada em sources.json - preferir sempre cadastrar a fonte antes de promover conhecimento sustentado por ela.",
+          "type": ["string", "null"]
+        },
+        "source_kind": {
+          "description": "Natureza da fonte que produziu esta evidencia (mesmo vocabulario de source_qualification.source_kind em skills/read-client-context, quando aplicavel: account_handoff, client_handoff, onboarding_document, strategic_document, client_documentation, master_briefing, other_client_context, ou outro identificador equivalente de uma skill de observacao diferente). Permite entender o TIPO de fonte mesmo se o arquivo fisico da fonte (tipicamente em private/, nunca versionado) nao existir neste clone.",
+          "type": "string",
+          "minLength": 1
+        },
+        "source_reference": {
+          "description": "Localizacao conceitual da evidencia dentro da fonte, suficiente para permitir auditoria mesmo sem context/generated/ e mesmo que o arquivo fisico da fonte (ex.: em private/) nao exista neste clone.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label"],
+          "properties": {
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Descricao curta e humana da evidencia/trecho (ex.: 'Handoff Account Manager - dados cadastrais Walmaq')."
+            },
+            "source_location": {
+              "description": "Caminho ou identificador estavel da fonte em si (ex.: 'private/shared/handoffs/account-manager.pdf'). Pode apontar para um arquivo que nao existe neste clone (private/ nunca e versionado) - isso e esperado e nao invalida o ledger: o objetivo e registrar QUAL fonte, nao garantir acesso a ela.",
+              "type": ["string", "null"]
+            },
+            "page": {
+              "description": "Pagina (ou intervalo de paginas) dentro da fonte, quando aplicavel (ex.: documentos PDF).",
+              "type": ["string", "number", "null"]
+            },
+            "section": {
+              "description": "Secao, titulo ou marcador estrutural dentro da fonte, quando disponivel (ex.: '1. Dados cadastrais').",
+              "type": ["string", "null"]
+            },
+            "uri": {
+              "type": ["string", "null"]
+            }
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "added_at": {
+          "description": "Timestamp de execucao: momento real em que esta evidencia entrou no ledger canonico (nao e observed_at - added_at e sobre a promocao para memoria canonica, observed_at e sobre a leitura original da fonte). Do relogio do sistema, UTC RFC3339. Ver CLAUDE.md secao 26.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "added_by": {
+          "description": "Skill que escreveu esta evidencia no ledger canonico (tipicamente 'promote-client-memory').",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

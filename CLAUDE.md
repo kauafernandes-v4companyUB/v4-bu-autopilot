@@ -645,7 +645,49 @@ Somente então executar.
 
 ---
 
-## 26. Regra final
+## 26. Timestamps de Execução
+
+Todo timestamp gerado por uma skill durante sua própria execução é um FATO OBSERVÁVEL sobre o momento em que o sistema agiu — não uma informação de conteúdo. Ele está sujeito à mesma regra de não invenção da seção 6.
+
+### 26.1 Quais campos são timestamps de execução
+
+Incluem, sem se limitar a:
+
+- `generated_at`;
+- `observed_at`;
+- `promoted_at`;
+- `historized_at`;
+- `applied_at`;
+- `updated_at`;
+- `created_at`, quando o registro é criado pela própria execução.
+
+### 26.2 Regra central
+
+Esses campos devem ser obtidos do **relógio real do sistema no momento da execução** — nunca estimados, arredondados, inferidos pelo horário da conversa, copiados de um exemplo, ou definidos como um horário plausível "de cabeça".
+
+Formato: UTC, RFC3339 (ex.: `2026-09-14T06:40:27Z`).
+
+Antes de preencher qualquer timestamp de execução, obter o horário real do ambiente, por exemplo via `date -u +"%Y-%m-%dT%H:%M:%SZ"` ou equivalente confiável do sistema em execução. Nunca usar um horário futuro em relação ao relógio real no momento da execução.
+
+### 26.3 `observed_at` não é `source_date`
+
+Estes são conceitos distintos e não substituíveis um pelo outro:
+
+- **`observed_at`** = quando o sistema leu/observou a evidência (timestamp de execução, regido pela seção 26.2).
+- **`source_date`** = data explicitamente sustentada pela própria fonte (ex.: data de emissão de um documento, data de um fechamento mensal citado no texto).
+
+Se a fonte não informa sua própria data, `source_date` deve permanecer `null`/ausente conforme o schema aplicável — nunca preenchido com a data de execução. Da mesma forma, `observed_at` nunca deve ser preenchido com uma data inferida do conteúdo da fonte; ele reflete apenas quando o sistema fez a leitura.
+
+### 26.4 Sanity check obrigatório
+
+Antes de concluir qualquer skill, comparar todo timestamp de execução gerado com o relógio atual do sistema:
+
+- um timestamp de execução não pode estar significativamente no futuro em relação ao momento real da execução;
+- se estiver, isso é uma falha de validação — registrar em `warnings`, e refletir isso no `status` (`partial`/`failed`, conforme a severidade e as regras específicas de cada skill) — nunca aceitar silenciosamente.
+
+---
+
+## 27. Regra final
 
 O objetivo deste sistema não é produzir mais trabalho.
 

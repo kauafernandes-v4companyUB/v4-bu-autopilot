@@ -369,6 +369,14 @@ Registrar, quando disponível:
 
 Não assumir que informação de um handoff antigo continua vigente. Quando algo parecer temporalmente sensível (ex.: estratégia, budget, responsável), preservar a data e sinalizar isso via warning, permitindo que workflows posteriores confrontem com fontes mais recentes.
 
+### 19.1 Timestamps de execução vs. data da fonte
+
+Ver CLAUDE.md seção 26 (regra completa).
+
+- `generated_at` (do output) e `observed_at` (de cada evidência) são timestamps de execução: devem vir do relógio real do sistema no momento em que esta skill efetivamente rodou, nunca estimados, arredondados ou copiados de um exemplo. Formato UTC RFC3339.
+- `source.source_date` (e qualquer data associada a um trecho específico da fonte) é o conceito oposto: é o que a própria fonte declara sobre si mesma (ex.: data de um fechamento mensal citado no texto). Quando a fonte não expõe sua própria data — como um handoff sem data de emissão — `source_date` permanece `null`. Nunca preencher `source_date` com a data em que a leitura foi feita, e nunca preencher `observed_at`/`generated_at` com uma data inferida do conteúdo (ex.: não usar "setembro/2026" mencionado no texto como se fosse quando a skill rodou).
+- Antes de finalizar o output, comparar `generated_at` e todo `observed_at` com o relógio atual do sistema; um valor significativamente no futuro é erro de execução, não um dado válido.
+
 ---
 
 ## 20. Confiança
@@ -446,6 +454,8 @@ Antes de concluir, verificar:
 10. nenhuma ação externa foi executada?
 11. o output valida contra `output.schema.json`?
 12. o `status` reflete corretamente o resultado (success/partial/failed)?
+13. `generated_at` e todo `observed_at` vieram do relógio real do sistema, sem estar no futuro (CLAUDE.md seção 26)?
+14. `source.source_date` não foi preenchido com a data de execução nem inferido do conteúdo da fonte quando a fonte não declara sua própria data?
 
 ---
 

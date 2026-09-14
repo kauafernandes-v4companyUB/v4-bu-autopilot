@@ -33,6 +33,7 @@
       "minLength": 1
     },
     "generated_at": {
+      "description": "Timestamp de execucao: momento real em que este output foi gerado, do relogio do sistema (UTC RFC3339). Nunca estimado/arredondado/inferido do conteudo de uma fonte ou de um source_output consumido. Ver CLAUDE.md secao 26.",
       "type": "string",
       "format": "date-time"
     },
@@ -103,6 +104,7 @@
           },
           "action": { "$ref": "#/$defs/promotion_action" },
           "applied_at": {
+            "description": "Timestamp de execucao: momento real em que esta escrita foi aplicada, do relogio do sistema (UTC RFC3339). Ver CLAUDE.md secao 26.",
             "type": "string",
             "format": "date-time"
           },
@@ -169,6 +171,7 @@
       }
     },
     "evidence": {
+      "description": "Evidencias consideradas durante esta execucao (working set transitorio da propria promocao) - nao e o ledger canonico. A partir de mode=apply, os evidence_ids usados por candidatos promote/historize sao copiados (deduplicados) para clients/<client_id>/evidence.json (schemas/client-evidence.schema.json), que e a fonte de verdade duravel de provenance.",
       "type": "array",
       "items": {
         "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/evidence.schema.json"
@@ -226,6 +229,7 @@
   },
   "$defs": {
     "target_file": {
+      "description": "'evidence.json' identifica escritas no ledger canonico de evidencias (clients/<client_id>/evidence.json, schemas/client-evidence.schema.json). Essas escritas sao derivadas automaticamente pela sincronizacao do evidence ledger (SKILL.md secao 17.1) a partir dos evidence_ids usados por candidatos promote/historize - normalmente nao aparecem como candidato independente em promotion_plan, mas podem aparecer em applied_changes e em conflicts.",
       "type": "string",
       "enum": [
         "client.json",
@@ -234,7 +238,8 @@
         "strategy.md",
         "current-state.json",
         "decisions.json",
-        "history"
+        "history",
+        "evidence.json"
       ]
     },
     "promotion_action": {
@@ -310,9 +315,11 @@
           "type": ["string", "null"]
         },
         "source_output": {
+          "description": "Caminho do output TEMPORARIO consumido nesta execucao (ex.: context/generated/<client_id>/client-context.json). Metadado transitorio de execucao - nao e requerido para auditoria futura, que depende de evidence_ids resolvidos em clients/<client_id>/evidence.json.",
           "type": ["string", "null"]
         },
         "observed_at": {
+          "description": "Timestamp de execucao herdado da evidencia de origem (nao a data da fonte - ver source_date em schemas/evidence.schema.json). Ver CLAUDE.md secao 26.",
           "type": ["string", "null"],
           "format": "date-time"
         }

@@ -159,6 +159,19 @@ Não criar evidência sem fonte.
 
 ---
 
+## 11.1 Timestamps de Execução
+
+Ver CLAUDE.md seção 26 (regra completa).
+
+Resumo obrigatório para toda skill:
+
+- campos como `generated_at`, `observed_at`, `promoted_at`, `historized_at`, `applied_at`, `updated_at` e `created_at` (quando criado pela execução) devem vir do relógio REAL do sistema no momento da execução — nunca estimados, arredondados, inferidos pelo horário da conversa, copiados de um exemplo, ou definidos como horário futuro;
+- formato UTC RFC3339, obtido por exemplo via `date -u +"%Y-%m-%dT%H:%M:%SZ"` ou equivalente confiável do ambiente;
+- `observed_at` (quando o sistema observou/leu algo) nunca deve ser confundido com `source_date` (data que a própria fonte declara); se a fonte não informa data, `source_date` fica `null`/ausente — nunca preenchido com a data de execução;
+- antes de concluir, comparar os timestamps de execução gerados com o relógio atual: um timestamp significativamente no futuro é falha de validação, não um resultado aceitável.
+
+---
+
 ## 12. Output
 
 O output estruturado deve validar contra:
@@ -318,6 +331,8 @@ Antes de concluir, verificar:
 7. A skill ultrapassou sua responsabilidade?
 8. Alguma informação importante foi descartada?
 9. O status de execução está correto?
+10. Todo timestamp de execução veio do relógio real do sistema, e nenhum está no futuro (CLAUDE.md seção 26)?
+11. `observed_at` e `source_date` não foram confundidos entre si?
 
 ---
 

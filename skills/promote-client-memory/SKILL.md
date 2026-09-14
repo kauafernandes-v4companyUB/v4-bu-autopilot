@@ -59,7 +59,8 @@ Esta skill é responsável por:
 - montar um `promotion_plan` completo e auditável antes de qualquer escrita;
 - em modo `apply`, escrever somente o que está no plano validado, preservando histórico e provenance;
 - registrar conflitos não resolvidos em vez de sobrescrever silenciosamente;
-- criar `schemas/client-knowledge.schema.json` como contrato de `clients/<client_id>/knowledge.json` (o arquivo em si só é criado na primeira promoção real).
+- em modo `apply`, sincronizar `clients/<client_id>/evidence.json` (ledger canônico de evidências, contrato `schemas/client-evidence.schema.json`) para que toda memória promovida continue auditável mesmo sem `context/generated/` (seção 9.3/17.1);
+- usar `schemas/client-knowledge.schema.json` como contrato de `clients/<client_id>/knowledge.json` (o arquivo em si só é criado na primeira promoção real).
 
 Esta skill NÃO é responsável por:
 
@@ -98,11 +99,12 @@ A skill pode ler:
   - `clients/<client_id>/client.json`;
   - `clients/<client_id>/sources.json`;
   - `clients/<client_id>/knowledge.json` (se existir);
+  - `clients/<client_id>/evidence.json` (se existir) — ledger canônico de evidências, ver seção 9.3;
   - `clients/<client_id>/current-state.json`;
   - `clients/<client_id>/decisions.json`;
   - `clients/<client_id>/strategy.md`;
   - `clients/<client_id>/history/`;
-- `schemas/evidence.schema.json` e `schemas/client-knowledge.schema.json`, para validação.
+- `schemas/evidence.schema.json`, `schemas/client-knowledge.schema.json` e `schemas/client-evidence.schema.json`, para validação.
 
 A skill NUNCA lê diretamente:
 
@@ -136,14 +138,16 @@ Se alguma pré-condição falhar, registrar o problema em `missing_data`/`warnin
 | `clients/<client_id>/current-state.json` | Situação atual, metas atuais, flags, pendências e dependências vigentes, estado operacional temporário. |
 | `clients/<client_id>/decisions.json` | Decisões explícitas, com data, evidência, origem e vigência/status quando aplicável. |
 | `clients/<client_id>/history/` | Snapshots que merecem preservação histórica, contextos substituídos relevantes, decisões superadas que não devem ser apagadas. |
+| `clients/<client_id>/evidence.json` | Ledger canônico e durável de evidências que sustentam memória promovida/historizada. Contrato: `schemas/client-evidence.schema.json`. Escrito automaticamente pela sincronização do evidence ledger (seção 9.3/17.1) — normalmente não é um destino escolhido item a item como os demais. |
 
-Resumo semântico obrigatório dos cinco destinos com conteúdo substantivo (a memorizar antes de classificar qualquer candidato):
+Resumo semântico obrigatório dos seis destinos com conteúdo substantivo (a memorizar antes de classificar qualquer candidato):
 
 - **`knowledge.json`** = fatos e conhecimentos relativamente estáveis/semiestáveis sobre o cliente, independentes de qual mês ou campanha está em curso.
 - **`strategy.md`** = orientação estratégica e operacional qualitativa — como pensar e decidir, não o que está acontecendo agora.
 - **`current-state.json`** = fotografia temporal do agora — o que muda de mês a mês ou de campanha a campanha. Nunca um depósito genérico para qualquer `dependency`/`pending` só porque a fonte usou esse rótulo.
 - **`decisions.json`** = decisões explícitas, tomadas de fato, nunca hipóteses, pedidos ou pendências.
 - **`history/`** = informação passada relevante que não é mais vigente, mas merece rastreabilidade.
+- **`evidence.json`** = a PROVA durável de tudo o que está nos outros cinco — de onde veio, com que confiança, e a partir de qual localização exata na fonte. É a única coisa da qual a auditoria de uma memória canônica pode depender; `context/generated/` nunca pode ser essa dependência (ver seção 9.3).
 
 Cada `promotion_candidate` deve declarar exatamente um `target_file`.
 
@@ -181,6 +185,43 @@ Quando uma fonte narrativa/histórica (ex.: handoff sem data de emissão confiá
 Ao promover esse tipo de informação (tipicamente a `knowledge.json/operation_context`), o `statement` deve deixar explícito que se trata de uma base documentada na origem, não de um fato confirmado como vigente hoje. Formulação recomendada: prefixar com algo como "Base contratual documentada na fonte:" (ou equivalente), preservando `knowledge_type: "fact"` apenas para a existência do registro documental, nunca para a alegação implícita de que o valor é o vigente atualmente.
 
 Isso não impede a promoção — impede a promoção **como se fosse confirmação de vigência atual**.
+
+---
+
+## 9.3 Evidence Ledger Canônico — rastreabilidade sem depender de `context/generated/`
+
+### 9.3.1 O problema que esta seção resolve
+
+`context/generated/` é intencionalmente ignorado pelo Git (CLAUDE.md seção 13). Isso significa que um clone limpo do repositório — ou a mesma máquina depois de uma limpeza de workspace — pode simplesmente não ter mais `context/generated/<client_id>/client-context.json` nem `context/generated/<client_id>/memory-promotion.json`.
+
+**Arquivos canônicos (`clients/<client_id>/**`) nunca podem depender desses arquivos temporários para sua própria rastreabilidade.** Se a única forma de saber de onde um `knowledge_item` veio é abrir um arquivo que o Git nunca versionou, a promoção falhou seu propósito de memória durável — mesmo que o dado em si esteja correto.
+
+### 9.3.2 A solução: `clients/<client_id>/evidence.json`
+
+Todo cliente com memória canônica promovida possui, ou passa a possuir na primeira promoção, um ledger próprio:
+
+```
+clients/<client_id>/evidence.json
+```
+
+Contrato: `schemas/client-evidence.schema.json`.
+
+Este ledger contém **somente** as evidências que efetivamente sustentam algo em `knowledge.json`, `strategy.md`, `current-state.json`, `decisions.json` ou `history/` — nunca um dump de tudo que uma skill de observação já produziu. Cada evidência canônica preserva, no mínimo: `evidence_id`, `client_id`, `type` (nunca elevado), `statement`, `confidence`, `observed_at`, `source_date` (quando conhecida), `source_id`, `source_kind` e `source_reference` (label + localização — página/seção quando aplicável).
+
+`source_reference.source_location` pode apontar para um arquivo em `private/` que não existe neste clone (ex.: `private/shared/handoffs/account-manager.pdf`) — isso é esperado e não invalida o ledger. O objetivo é registrar **qual** fonte e **qual** localização sustentaram o conhecimento, não garantir acesso ao arquivo físico. `private/` nunca é versionado (CLAUDE.md seção 15); o ledger é o registro durável que sobrevive à ausência do arquivo original.
+
+### 9.3.3 `client.json` (referência futura, não implementar agora)
+
+`clients/<client_id>/client.json` pode, no futuro, declarar `memory.evidence: "evidence.json"` ao lado dos demais ponteiros de memória (`sources`, `strategy`, `state`, `decisions`, `history`), para que outras skills descubram o ledger sem assumir o caminho por convenção. Enquanto esse campo não existir em um `client.json` específico, `clients/<client_id>/evidence.json` continua sendo o caminho padrão assumido por esta skill.
+
+### 9.3.4 Regra central
+
+- `context/generated/` continua permitido e útil como **workspace transitório durante a execução** — é de lá que `source_outputs` são lidos.
+- Mas `context/generated/` **nunca** pode ser a única fonte de provenance de uma memória canônica depois que a execução termina.
+- `provenance.evidence_ids` em `knowledge.json`, os `evidence_ids` citados em `strategy.md`, e os `evidence_ids` de registros em `history/` devem todos ser **resolvíveis em `clients/<client_id>/evidence.json`** — não apenas em `context/generated/<client_id>/*.json`.
+- `source_output` (caminho para o arquivo temporário) pode continuar sendo registrado como metadado de execução — mas é sempre opcional/transitório, nunca essencial (ver seção 15).
+
+Ver seção 17.1 para o procedimento exato de sincronização em modo `apply`.
 
 ---
 
@@ -294,12 +335,28 @@ Quando a data de qualquer um dos lados for `unknown`/ausente, tratar como sinal 
 Toda promoção relevante deve preservar:
 
 - `source_skill` — skill que produziu o output de origem;
-- `source_output` — caminho do output de origem;
-- `evidence_ids` — IDs (não o texto completo) das evidências que sustentam o item, referenciáveis em `schemas/evidence.schema.json`;
-- `observed_at` — data observada na origem, quando disponível;
-- `promoted_at` / `promoted_by: "promote-client-memory"` — metadados da própria promoção.
+- `evidence_ids` — IDs (não o texto completo) das evidências que sustentam o item, **resolvíveis em `clients/<client_id>/evidence.json`** (ver seção 9.3) — este é o vínculo duradouro, não `schemas/evidence.schema.json` isoladamente (que é apenas o contrato de formato, não um ledger);
+- `observed_at` — timestamp de execução herdado da evidência de origem (ver seção 15.1), quando disponível;
+- `promoted_at` / `promoted_by: "promote-client-memory"` — metadados de execução da própria promoção (ver seção 15.1);
+- `source_output` — caminho do output temporário de origem, **opcional e transitório**: útil para depurar a execução específica enquanto `context/generated/` ainda existir, mas nunca requerido para auditoria. Nunca escrever ou implicar que a rastreabilidade completa de um item depende deste campo ou de `context/generated/` continuar existindo.
 
-Não duplicar o texto completo da evidência no destino canônico se um ID/referência for suficiente para rastreabilidade.
+Não duplicar o texto completo da evidência no destino canônico se um ID/referência for suficiente para rastreabilidade — o texto completo mora em `clients/<client_id>/evidence.json`, não em `knowledge.json`/`strategy.md`/`history/`.
+
+`strategy.md` pode citar `evidence_ids` de forma enxuta (ex.: "Fonte canônica: `walmaq-cc-031` — confidence: high"), desde que esses IDs existam em `clients/<client_id>/evidence.json`. Nunca escrever em `strategy.md` (ou em qualquer arquivo canônico) que a rastreabilidade completa está em `context/generated/`.
+
+---
+
+## 15.1 Timestamps de Execução
+
+Ver CLAUDE.md seção 26 (regra completa) — aplica-se integralmente a esta skill.
+
+Campos afetados nesta skill: `generated_at` (do próprio output), `observed_at` (herdado de cada evidência), `promoted_at` (knowledge_item.provenance), `historized_at` e `added_at`/`updated_at` (registros de `history/` e de `clients/<client_id>/evidence.json`), `applied_at` (cada `applied_changes[]`).
+
+Regras específicas desta skill:
+
+- todo timestamp acima deve vir do relógio real do sistema no momento em que esta skill efetivamente executa o `apply` (ou gera o `preview`) — nunca estimado, arredondado, copiado de um exemplo anterior, ou inferido de datas mencionadas no conteúdo da fonte (ex.: "setembro/2026" citado no texto NÃO é o horário de execução);
+- `source_date` (da evidência canônica) permanece um conceito à parte — é a data que a própria fonte declara, `null` quando a fonte não a informa, e nunca preenchido com o horário de execução (seção 26.3 do CLAUDE.md);
+- antes de concluir `preview` ou `apply`, comparar todo timestamp de execução gerado com o relógio atual do sistema; um valor significativamente no futuro é falha de validação — refletir em `warnings` e em `status` (nunca aceitar silenciosamente).
 
 ---
 
@@ -342,16 +399,51 @@ Nunca assumir `apply` sem pedido explícito. Na ausência de indicação, usar `
 
 ---
 
+## 17.1 Sincronização do Evidence Ledger (obrigatória em todo `apply`)
+
+Antes de — ou junto com — escrever `knowledge.json`, `strategy.md`, `current-state.json`, `decisions.json` e `history/`, todo `apply` deve sincronizar `clients/<client_id>/evidence.json`. Esta sincronização não é opcional e não depende de um `promotion_candidate` próprio: é uma consequência automática de aplicar candidatos `promote`/`historize`.
+
+Procedimento:
+
+1. **Coletar o conjunto de `evidence_ids` efetivamente usados** por todo candidato do `promotion_plan` aplicado com `action` em `{promote, historize}` (candidatos `skip`/`conflict` não contribuem evidências ao ledger).
+2. **Localizar a evidência completa** de cada `evidence_id` desse conjunto no bloco `evidence` do plano aprovado (ou do `source_output` original), validando-a contra `schemas/evidence.schema.json`.
+3. **Ler o ledger canônico atual**, `clients/<client_id>/evidence.json`, se existir; se não existir, tratar como ledger vazio (`evidences: []`) — será criado nesta execução.
+4. Para cada `evidence_id` do conjunto coletado no passo 1:
+   - se já existe no ledger canônico com conteúdo semanticamente idêntico (mesmo `statement`, `type`, `confidence`, `source_reference`, `source_date`) → **skip** (idempotência — já promovido; ver seção 27);
+   - se não existe → **adicionar** ao ledger (dedup por `evidence_id`), preenchendo `source_id`/`source_kind`/`source_reference` a partir da evidência de origem e de `clients/<client_id>/sources.json` quando aplicável, e `added_at`/`added_by` com o timestamp real de execução (seção 15.1) e `"promote-client-memory"`;
+   - se já existe mas com conteúdo **diferente** (mesmo `evidence_id`, `statement`/`type`/`confidence`/`source_reference` divergentes) → **NUNCA sobrescrever silenciosamente**. Registrar em `conflicts` (`target_file: "evidence.json"`, `resolution: "needs_user_decision"`), manter o valor canônico existente inalterado, e refletir isso em `warnings`/`status` (`partial`).
+5. **Persistir** `clients/<client_id>/evidence.json`, validando o resultado contra `schemas/client-evidence.schema.json` (side-effect safety, seção 18).
+6. Cada `knowledge_item`/registro de `strategy.md`/registro de `history/` recém-escrito nesta mesma execução deve referenciar apenas `evidence_ids` agora resolvíveis neste ledger — nunca um `evidence_id` que não foi sincronizado.
+
+Evidências já promovidas em execuções anteriores permanecem preservadas no ledger; esta sincronização nunca remove uma evidência canônica existente, apenas adiciona (ou registra conflito).
+
+---
+
 ## 18. Side Effect Safety (obrigatório em modo apply)
 
 Para cada escrita em `clients/<client_id>/`:
 
 1. **Backup/snapshot** — antes de qualquer `supersede` ou `historize` que remova ou substitua conteúdo vigente, copiar o estado anterior do trecho/arquivo afetado para `clients/<client_id>/history/` com nome que preserve rastreabilidade (ex.: `<arquivo-origem>-superseded-<timestamp>.json`). Nunca apagar histórico silenciosamente.
 2. **Escrita mínima** — aplicar apenas a mudança descrita no candidato; não reescrever seções do arquivo não relacionadas ao candidato.
-3. **Validação sintática** — após escrever, validar que o JSON resultante é sintaticamente válido e, quando existir schema aplicável (`knowledge.json` contra `schemas/client-knowledge.schema.json`; evidências contra `schemas/evidence.schema.json`), validar contra o schema.
+3. **Validação sintática** — após escrever, validar que o JSON resultante é sintaticamente válido e, quando existir schema aplicável (`knowledge.json` contra `schemas/client-knowledge.schema.json`; `evidence.json` contra `schemas/client-evidence.schema.json`; evidências individuais contra `schemas/evidence.schema.json`), validar contra o schema.
 4. **`git diff --check`** — rodar `git diff --check` sobre as mudanças antes de finalizar, para capturar erros de whitespace/conflito. Registrar o resultado em `validation.git_diff_check_passed`.
 5. **Sem commit, sem push** — a skill nunca executa `git commit` ou `git push`. Ela apenas prepara e apresenta as alterações (CLAUDE.md seção 21).
 6. Se qualquer validação falhar, reverter a escrita problemática (ou não prosseguir com ela), registrar em `warnings`, e refletir isso em `status` (`partial` ou `failed`).
+7. A sincronização do evidence ledger (seção 17.1) segue as mesmas regras 1–6 desta seção: nenhuma evidência canônica conflitante é sobrescrita silenciosamente, e o resultado é validado contra `schemas/client-evidence.schema.json` antes de finalizar.
+
+---
+
+## 18.1 Formato de registros em `history/`
+
+Todo registro criado em `clients/<client_id>/history/` (por `historize` isolado ou como parte de um `supersede`) deve conter, no mínimo:
+
+- `candidate_id` — rastreável ao `promotion_plan` que originou o registro;
+- `knowledge_type` — tipo semântico original (nunca elevado; ver seção 10.1);
+- `statement`, `confidence`;
+- `evidence_ids` — **resolvíveis em `clients/<client_id>/evidence.json`** (seção 9.3), nunca dependentes apenas de um caminho em `context/generated/`;
+- `provenance` com `source_skill`, `historized_at` (timestamp de execução real, seção 15.1) e `historized_by: "promote-client-memory"`.
+
+Quando útil para rastrear qual execução de `apply` originou o registro, `provenance` pode preservar `approved_plan_sha256` (o hash SHA-256 do `promotion_plan` aprovado que autorizou a escrita) — isso é válido e recomendado como prova adicional de que o `apply` seguiu um plano revisado. Mas esse hash nunca deve ser a única forma de auditar o registro, e o **caminho** do plano temporário (`context/generated/<client_id>/memory-promotion.json`) não deve ser tratado como parte necessária da rastreabilidade: o arquivo pode deixar de existir sem que isso comprometa o registro, desde que `evidence_ids` continuem resolvíveis no ledger canônico.
 
 ---
 
@@ -402,7 +494,8 @@ Registrar `missing_data` quando:
 - um candidato não puder ser avaliado por falta de `evidence_ids` suficientes;
 - a memória canônica de destino não existir ainda (ex.: `knowledge.json` ausente) — isso não bloqueia o preview, mas deve ser declarado;
 - um campo necessário para decidir temporalidade (data da fonte ou da memória existente) estiver ausente;
-- um `pending` sem freshness suficiente (seção 12.1) ficar de fora de `current-state.json` por falta de confirmação — declarar o que confirmaria a vigência (ex.: check-in mais recente, eKyte, CRM) e marcar `blocking: false`, salvo se a ausência dessa pendência comprometer decisão essencial.
+- um `pending` sem freshness suficiente (seção 12.1) ficar de fora de `current-state.json` por falta de confirmação — declarar o que confirmaria a vigência (ex.: check-in mais recente, eKyte, CRM) e marcar `blocking: false`, salvo se a ausência dessa pendência comprometer decisão essencial;
+- `clients/<client_id>/evidence.json` ainda não existir — isso não bloqueia o preview, mas deve ser declarado (a primeira promoção efetiva o criará).
 
 ---
 
@@ -416,7 +509,9 @@ Gerar warning quando:
 - uma validação de side-effect safety (seção 18) falhar em modo `apply`;
 - um output de origem estiver com `status: partial` ou `failed`, tornando os candidatos dele menos confiáveis;
 - `knowledge.json` ainda não existir e uma promoção for a primeira a criá-lo;
-- um `pending`, `dependency` ou termo contratual (fee/escopo/data de início) da fonte tiver sido mantido fora de `current-state.json`/tratado como "base documentada, não vigência confirmada" por falta de freshness (seções 9.1, 9.2, 12.1).
+- um `pending`, `dependency` ou termo contratual (fee/escopo/data de início) da fonte tiver sido mantido fora de `current-state.json`/tratado como "base documentada, não vigência confirmada" por falta de freshness (seções 9.1, 9.2, 12.1);
+- um `evidence_id` referenciado por um candidato `promote`/`historize` já existir em `clients/<client_id>/evidence.json` com conteúdo diferente do observado nesta execução (conflito no evidence ledger, seção 17.1) — a evidência canônica existente é preservada e nada é sobrescrito;
+- um timestamp de execução gerado nesta rodada (seção 15.1) estiver significativamente no futuro em relação ao relógio real do sistema.
 
 ---
 
@@ -443,7 +538,10 @@ Esta skill deve:
 - preservar rastreabilidade (provenance + evidence_ids) em toda promoção;
 - registrar conflitos em vez de decidir silenciosamente;
 - respeitar os níveis de confiança (seção 13) e temporalidade (seção 14);
-- aplicar side-effect safety (seção 18) em todo `apply`.
+- aplicar side-effect safety (seção 18) em todo `apply`;
+- sincronizar o evidence ledger canônico (`clients/<client_id>/evidence.json`, seção 17.1) em todo `apply`, antes de considerar a promoção concluída;
+- obter todo timestamp de execução do relógio real do sistema, nunca estimado (seção 15.1, CLAUDE.md seção 26);
+- garantir que nenhum arquivo canônico declare ou dependa de `context/generated/` como única fonte de rastreabilidade (seção 9.3).
 
 ---
 
@@ -466,7 +564,12 @@ promote-client-memory não pode:
 - promover para `current-state.json` uma regra permanente de operação (ex.: "validar estoque antes de campanha", "validar condição comercial antes de preço em arte", "validar área antes de expandir mídia") — essas pertencem a `knowledge.json`/`operation_context` ou `strategy.md` (seção 9.1);
 - promover um `pending` para `current-state.json` sem freshness suficiente (seção 12.1), mesmo que a fonte o descreva como pendência;
 - declarar fee, escopo ou data de início de contrato de uma fonte histórica sem data confiável como vigente hoje — deve ser preservado como base documentada na fonte, não como vigência confirmada (seção 9.2);
-- promover um item `confidence: medium` a fato estrutural estável quando uma fonte melhor puder confirmá-lo em breve (seção 13) — nesses casos, `skip` é a ação padrão.
+- promover um item `confidence: medium` a fato estrutural estável quando uma fonte melhor puder confirmá-lo em breve (seção 13) — nesses casos, `skip` é a ação padrão;
+- sobrescrever silenciosamente uma evidência canônica conflitante em `clients/<client_id>/evidence.json` (seção 17.1) — todo conflito de evidência é registrado, nunca decidido automaticamente;
+- escrever em qualquer arquivo canônico (`knowledge.json`, `strategy.md`, `history/`, etc.) uma afirmação de que a rastreabilidade completa depende de `context/generated/` — a fonte de verdade durável é sempre `clients/<client_id>/evidence.json` (seção 9.3);
+- referenciar, em `provenance.evidence_ids` de um item recém-escrito, um `evidence_id` que não esteja (ou não tenha acabado de ser) sincronizado em `clients/<client_id>/evidence.json`;
+- estimar, arredondar, inferir do conteúdo da fonte, copiar de um exemplo, ou definir como horário futuro qualquer timestamp de execução (`generated_at`, `observed_at`, `promoted_at`, `historized_at`, `applied_at`, `updated_at`, `added_at`) — todos devem vir do relógio real do sistema (CLAUDE.md seção 26);
+- preencher `source_date` de uma evidência canônica com a data de execução, ou inferi-la do conteúdo da fonte, quando a fonte não declara sua própria data.
 
 ---
 
@@ -476,7 +579,7 @@ promote-client-memory não pode:
 
 Em modo `preview`: nenhum side effect — apenas leitura e geração de `context/generated/<client_id>/memory-promotion.json`.
 
-Em modo `apply`: pode criar/atualizar arquivos em `clients/<client_id>/`, incluindo `clients/<client_id>/history/`. Nunca side effect `EXTERNAL` — esta skill não toca sistemas fora deste repositório.
+Em modo `apply`: pode criar/atualizar arquivos em `clients/<client_id>/`, incluindo `clients/<client_id>/history/` e `clients/<client_id>/evidence.json` (ledger canônico, seção 9.3/17.1). Nunca side effect `EXTERNAL` — esta skill não toca sistemas fora deste repositório.
 
 ---
 
@@ -485,6 +588,8 @@ Em modo `apply`: pode criar/atualizar arquivos em `clients/<client_id>/`, inclui
 Executar `promote-client-memory` novamente com os mesmos `source_outputs`, sobre a mesma memória canônica, deve produzir o mesmo `promotion_plan` (mesmas ações, mesmos candidatos).
 
 Em modo `apply`, reaplicar um plano já aplicado não deve duplicar itens em `knowledge.json`, `decisions.json` ou `sources.json` — um candidato já promovido (mesmo `knowledge_id`/fato equivalente já presente com a mesma proveniência) deve ser reavaliado como `skip` ("já promovido") na execução seguinte, não promovido de novo.
+
+O mesmo vale para `clients/<client_id>/evidence.json`: reaplicar a sincronização do evidence ledger sobre uma evidência já presente com conteúdo idêntico não duplica a entrada (seção 17.1, passo 4) — apenas uma evidência com o mesmo `evidence_id` mas conteúdo diferente gera `conflict`, nunca uma segunda entrada.
 
 ---
 
@@ -508,6 +613,12 @@ Antes de concluir, verificar:
 14. todo `pending` proposto para `current-state.json` possui freshness suficiente para sustentar vigência atual (seção 12.1)?
 15. todo dado de fee/escopo/contrato vindo de fonte histórica sem data confiável foi preservado como "base documentada na fonte", não como vigência confirmada (seção 9.2)?
 16. nenhum item `confidence: medium` foi promovido a fato estrutural estável quando uma fonte melhor poderia confirmá-lo em breve (seção 13)?
+17. em modo `apply`, o evidence ledger (`clients/<client_id>/evidence.json`) foi sincronizado para todo `evidence_id` usado por candidatos `promote`/`historize` (seção 17.1)?
+18. `clients/<client_id>/evidence.json` resultante valida contra `schemas/client-evidence.schema.json`?
+19. todo `evidence_id` citado em `knowledge.json`, `strategy.md` ou `history/` é resolvível em `clients/<client_id>/evidence.json` — nenhum depende apenas de `context/generated/`?
+20. todo timestamp de execução (`generated_at`, `observed_at`, `promoted_at`, `historized_at`, `applied_at`, `updated_at`, `added_at`) veio do relógio real do sistema, sem estar no futuro (CLAUDE.md seção 26)?
+21. nenhum `source_date` foi preenchido com a data de execução ou inferido do conteúdo da fonte?
+22. nenhum conflito de evidência canônica foi sobrescrito silenciosamente?
 
 ---
 
@@ -519,7 +630,8 @@ Em caso de falha:
 - registrar o motivo em `warnings`/`missing_data`;
 - preservar a memória canônica existente exatamente como estava — nunca escrever parcialmente um destino e deixá-lo inconsistente;
 - se uma escrita em `apply` falhar a validação (seção 18), reverter essa escrita específica antes de finalizar, mantendo as demais escritas já validadas;
-- informar o que seria necessário para uma nova tentativa (ex.: `source_output` ausente, conflito a resolver, `client_id` divergente).
+- se a sincronização do evidence ledger (seção 17.1) encontrar um conflito, não interromper as demais escritas por causa disso — registrar o conflito, seguir aplicando o restante do plano, e refletir `status: partial`;
+- informar o que seria necessário para uma nova tentativa (ex.: `source_output` ausente, conflito a resolver, `client_id` divergente, conflito de evidência canônica a resolver).
 
 ---
 

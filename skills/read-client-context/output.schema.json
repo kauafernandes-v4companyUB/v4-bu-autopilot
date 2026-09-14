@@ -32,6 +32,7 @@
       "minLength": 1
     },
     "generated_at": {
+      "description": "Timestamp de execucao: momento real em que esta skill gerou este output, do relogio do sistema (UTC RFC3339). Nunca estimado/arredondado/inferido do conteudo da fonte. Distinto de 'source.source_date'. Ver CLAUDE.md secao 26.",
       "type": "string",
       "format": "date-time"
     },
@@ -55,7 +56,7 @@
         },
         "source_date": {
           "type": ["string", "null"],
-          "description": "Data do documento/fonte, quando disponivel. Nao necessariamente ISO se a fonte so expuser data parcial."
+          "description": "Data explicitamente declarada PELA PROPRIA FONTE (nao a data em que a leitura foi feita). Nao necessariamente ISO se a fonte so expuser data parcial. null quando a fonte nao expoe sua propria data - nunca preencher com a data de execucao da skill nem inferir do conteudo. Distinto de 'generated_at' e de 'observed_at' de cada evidencia. Ver CLAUDE.md secao 26.3."
         },
         "client_selector_used": {
           "type": ["string", "null"],
