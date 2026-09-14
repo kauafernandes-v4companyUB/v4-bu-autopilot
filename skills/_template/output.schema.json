@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "V4 BU Autopilot Skill Output Template",
+  "description": "Estrutura-base para outputs de skills. Cada skill deve possuir seu proprio schema especifico.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "client_id",
+    "generated_at",
+    "status",
+    "evidence",
+    "data",
+    "missing_data",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "skill": {
+      "type": "string",
+      "minLength": 1
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "partial",
+        "failed"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "../../schemas/evidence.schema.json"
+      }
+    },
+    "data": {
+      "type": "object"
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "impact",
+          "blocking"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "expected_source": {
+            "type": ["string", "null"]
+          },
+          "impact": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

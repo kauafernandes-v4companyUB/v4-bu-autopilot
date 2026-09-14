@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "evidence.schema.json",
+  "title": "V4 BU Autopilot Evidence",
+  "description": "Contrato universal para evidencias geradas pelas skills.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_id",
+    "client_id",
+    "source_type",
+    "observed_at",
+    "type",
+    "statement",
+    "confidence",
+    "reference"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_name": {
+      "type": ["string", "null"]
+    },
+    "source_date": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "fact",
+        "metric",
+        "decision",
+        "hypothesis",
+        "request",
+        "commitment",
+        "pending",
+        "risk",
+        "idea",
+        "dependency"
+      ]
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": ["string", "null"]
+        },
+        "path": {
+          "type": ["string", "null"]
+        },
+        "location": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "value": {
+      "type": [
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "null"
+      ]
+    },
+    "unit": {
+      "type": ["string", "null"]
+    },
+    "period": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "to": {
+          "type": ["string", "null"],
+          "format": "date"
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  }
+}
