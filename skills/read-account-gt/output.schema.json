@@ -1,0 +1,658 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/read-account-gt/output.schema.json",
+  "title": "Read Account x GT Output",
+  "description": "Contrato de output para a skill read-account-gt. Ver skills/read-account-gt/SKILL.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "client_id",
+    "generated_at",
+    "status",
+    "source",
+    "source_qualification",
+    "meeting",
+    "client_section",
+    "speakers",
+    "data",
+    "evidence",
+    "missing_data",
+    "warnings"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_qualification": {
+            "properties": {
+              "source_compatible": { "const": false }
+            },
+            "required": ["source_compatible"]
+          }
+        },
+        "required": ["source_qualification"]
+      },
+      "then": {
+        "properties": {
+          "status": { "const": "failed" },
+          "client_section": {
+            "properties": {
+              "client_found": { "const": false }
+            },
+            "required": ["client_found"]
+          },
+          "data": { "maxProperties": 0 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "client_section": {
+            "properties": {
+              "client_found": { "const": false }
+            },
+            "required": ["client_found"]
+          }
+        },
+        "required": ["client_section"]
+      },
+      "then": {
+        "properties": {
+          "status": { "const": "failed" },
+          "data": { "maxProperties": 0 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "success" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "source_qualification": {
+            "properties": {
+              "source_compatible": { "const": true }
+            },
+            "required": ["source_compatible"]
+          },
+          "client_section": {
+            "properties": {
+              "client_found": { "const": true }
+            },
+            "required": ["client_found"]
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "skill": {
+      "const": "read-account-gt"
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "description": "Timestamp de execucao: momento real em que esta skill gerou este output, do relogio do sistema (UTC RFC3339). Nunca estimado/arredondado/inferido do conteudo da fonte. Distinto de 'meeting.source_date'. Ver CLAUDE.md secao 26.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed"]
+    },
+    "source": {
+      "description": "Identificacao da fonte lida, independentemente do resultado da qualificacao.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference"],
+      "properties": {
+        "source_id": {
+          "type": ["string", "null"],
+          "description": "Identificador da fonte em clients/<client_id>/sources.json, quando aplicavel."
+        },
+        "reference": {
+          "type": "string",
+          "description": "Caminho ou URL da fonte lida."
+        },
+        "client_selector_used": {
+          "type": ["string", "null"],
+          "description": "Termo efetivamente usado para localizar o cliente na reuniao."
+        }
+      }
+    },
+    "source_qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_kind", "source_compatible", "confidence"],
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "account_gt_transcript",
+            "account_gt_meeting_notes",
+            "client_checkin_transcript",
+            "client_handoff",
+            "account_handoff",
+            "whatsapp_export",
+            "bi_dashboard",
+            "crm_export",
+            "task_export",
+            "task_list",
+            "unrelated_document",
+            "unknown"
+          ]
+        },
+        "source_compatible": {
+          "type": "boolean",
+          "description": "true somente para os source_kind listados como compativeis na SKILL.md secao 8.2 (account_gt_transcript, account_gt_meeting_notes)."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "suggested_skill": {
+          "type": ["string", "null"],
+          "description": "Preenchido somente quando source_compatible = false. Sugestao textual da skill/categoria adequada, sem executa-la."
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "enum": ["account_gt_transcript", "account_gt_meeting_notes"]
+              }
+            },
+            "required": ["source_kind"]
+          },
+          "then": {
+            "properties": {
+              "source_compatible": { "const": true }
+            },
+            "required": ["source_compatible"]
+          },
+          "else": {
+            "properties": {
+              "source_compatible": { "const": false }
+            },
+            "required": ["source_compatible"]
+          }
+        }
+      ]
+    },
+    "meeting": {
+      "description": "Metadados da reuniao, somente o que for explicitamente sustentado pela fonte.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["meeting_type", "source_date", "period_discussed"],
+      "properties": {
+        "meeting_type": {
+          "type": ["string", "null"],
+          "description": "Ex.: account_gt_weekly. null quando nao sustentado."
+        },
+        "source_date": {
+          "description": "Data da reuniao, explicitamente sustentada pela propria fonte. Distinto de 'generated_at'. null quando nao sustentada - nunca preenchido com a data de execucao nem inferido do conteudo. Ver CLAUDE.md secao 26.3.",
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "period_discussed": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "from": { "type": ["string", "null"], "format": "date" },
+            "to": { "type": ["string", "null"], "format": "date" }
+          }
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "client_section": {
+      "description": "Resultado do Client Isolation (SKILL.md secao 9): delimitacao da discussao pertencente ao client_id solicitado dentro da reuniao.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client_found", "selector", "start_reference", "end_reference", "confidence"],
+      "properties": {
+        "client_found": {
+          "type": "boolean"
+        },
+        "selector": {
+          "type": ["string", "null"],
+          "description": "Termo usado para localizar o cliente (client_selector, display_name ou client_id)."
+        },
+        "start_reference": {
+          "type": ["string", "null"],
+          "description": "Referencia (timestamp, trecho, marcador) de onde a discussao do cliente comeca."
+        },
+        "end_reference": {
+          "type": ["string", "null"],
+          "description": "Referencia de onde a discussao do cliente termina."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "method": {
+          "type": ["string", "null"],
+          "description": "Como a delimitacao foi feita (ex.: mencao explicita ao nome, mudanca de assunto, marcador textual)."
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "speakers": {
+      "description": "Speaker attribution preservada dentro da secao do cliente. Nunca inventar identidade.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["speaker_label", "normalized_role"],
+        "properties": {
+          "speaker_label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Rotulo original do speaker na fonte."
+          },
+          "normalized_role": {
+            "type": "string",
+            "enum": ["account", "traffic_manager", "other_internal", "client", "unknown"]
+          },
+          "name": {
+            "type": ["string", "null"],
+            "description": "Somente quando a identidade puder ser inferida com seguranca."
+          }
+        }
+      }
+    },
+    "data": {
+      "description": "Blocos semanticos extraidos da discussao isolada do cliente. Todos os blocos sao opcionais; ausencia de um bloco nao e, por si so, um erro.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "performance_mentions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/performance_mention_item" }
+        },
+        "campaigns_and_initiatives": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/campaign_item" }
+        },
+        "commercial_feedback": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/commercial_feedback_item" }
+        },
+        "client_reported_context": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/client_reported_context_item" }
+        },
+        "decisions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/decision_item" }
+        },
+        "planning_proposals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/planning_proposal_item" }
+        },
+        "planned_actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/planned_action_item" }
+        },
+        "requests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/request_item" }
+        },
+        "commitments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/commitment_item" }
+        },
+        "pending": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pending_item" }
+        },
+        "risks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/risk_item" }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dependency_item" }
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reference_item" }
+        },
+        "missing_relevant_information": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/evidence.schema.json"
+      }
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "impact", "blocking"],
+        "properties": {
+          "field": { "type": "string" },
+          "expected_source": { "type": ["string", "null"] },
+          "impact": { "type": "string" },
+          "blocking": { "type": "boolean" }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "period": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": ["string", "null"], "format": "date" },
+        "to": { "type": ["string", "null"], "format": "date" }
+      }
+    },
+    "performance_mention_item": {
+      "description": "Metrica ou resultado citado verbalmente na reuniao. Nunca substitui BI/CRM/plataforma.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["statement", "type", "reported_in_meeting", "confidence", "evidence_ids"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "metric_name": { "type": ["string", "null"] },
+        "value": { "type": ["string", "number", "boolean", "null"] },
+        "unit": { "type": ["string", "null"] },
+        "period": { "$ref": "#/$defs/period" },
+        "type": { "const": "metric" },
+        "reported_in_meeting": {
+          "const": true,
+          "description": "Sempre true. Marca explicitamente que esta metrica foi reportada verbalmente em reuniao interna Account x GT, nao extraida de BI/CRM/plataforma."
+        },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "campaign_item": {
+      "description": "Campanha, iniciativa, teste ou frente de midia mencionada na discussao do cliente.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["statement", "campaign_status", "type", "confidence", "evidence_ids"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "campaign_name": { "type": ["string", "null"] },
+        "campaign_status": {
+          "type": "string",
+          "enum": ["active", "planned", "to_pause", "test", "unknown"]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["fact", "hypothesis", "idea"]
+        },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "commercial_feedback_item": {
+      "description": "Vendas relatadas, qualidade de leads, feedback de vendedores, motivos de perda, estoque, prioridade comercial e outras informacoes comerciais relatadas na reuniao.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["statement", "type", "confidence", "evidence_ids"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "topic": { "type": ["string", "null"], "description": "Ex.: sales, lead_quality, stock, loss_reason, commercial_priority." },
+        "type": {
+          "type": "string",
+          "enum": ["fact", "metric", "hypothesis", "risk", "idea"]
+        },
+        "reported_in_meeting": {
+          "const": true,
+          "description": "Obrigatorio somente quando type e metric: a metrica foi reportada verbalmente na reuniao, nao extraida de BI/CRM/plataforma."
+        },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      },
+      "if": {
+        "properties": { "type": { "const": "metric" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["reported_in_meeting"]
+      }
+    },
+    "client_reported_context_item": {
+      "description": "Informacao que o Account relata ter vindo do cliente. Sempre relato indireto - nunca equivalente a fala direta do cliente.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["statement", "reported_by", "attributed_to_client", "indirect", "type", "confidence", "evidence_ids"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "reported_by": { "type": "string", "minLength": 1, "description": "Quem relatou (ex.: Account)." },
+        "attributed_to_client": { "type": "string", "minLength": 1, "description": "A quem, do lado do cliente, o relato e atribuido (ex.: Jean)." },
+        "indirect": {
+          "const": true,
+          "description": "Sempre true. Este bloco nunca representa fala direta do cliente."
+        },
+        "corroborated": {
+          "type": "boolean",
+          "description": "true somente quando a propria fonte lida nesta execucao ja evidencia corroboracao por check-in/WhatsApp/fonte direta. Ausente ou false por padrao."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["fact", "metric", "hypothesis", "request", "commitment", "pending", "risk", "idea", "dependency"]
+        },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      },
+      "if": {
+        "not": {
+          "required": ["corroborated"],
+          "properties": { "corroborated": { "const": true } }
+        }
+      },
+      "then": {
+        "properties": {
+          "confidence": { "type": "string", "enum": ["low", "medium"] }
+        }
+      }
+    },
+    "decision_item": {
+      "description": "Decisao interna Account x GT explicitamente tomada entre os participantes.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["statement", "type", "requires_client_validation", "confidence", "evidence_ids"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "type": { "const": "decision" },
+        "owner": { "type": ["string", "null"] },
+        "deadline": { "type": ["string", "null"] },
+        "requires_client_validation": {
+          "type": "boolean",
+          "description": "true quando a decisao interna ainda depende de validacao do cliente."
+        },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Obrigatorio e nao vazio: nenhuma decisao pode ser registrada sem evidencia rastreavel."
+        }
+      }
+    },
+    "planning_proposal_item": {
+      "description": "Ideia ou proposta ainda nao decidida. Nunca classificada como decision.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["statement", "type", "confidence", "evidence_ids"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["idea", "hypothesis"],
+          "description": "Restrito a idea/hypothesis: uma proposta de planejamento nunca e promovida a decision por esta skill."
+        },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "planned_action_item": {
+      "description": "Movimento operacional combinado ou pretendido. NUNCA equivale a uma tarefa ja existente no eKyte.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["statement", "status", "confidence", "evidence_ids"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "owner": { "type": ["string", "null"] },
+        "deadline": { "type": ["string", "null"] },
+        "status": {
+          "type": "string",
+          "enum": ["proposed", "agreed_internal", "requires_client_validation", "blocked", "unknown"]
+        },
+        "confidence": { "type": ["string", "null"], "enum": ["low", "medium", "high", null] },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "typed_evidence_item": {
+      "description": "Item generico para requests, commitments, pending, risks e dependencies. O campo type deve corresponder ao bloco em que o item esta inserido.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["statement", "type", "confidence", "evidence_ids"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["request", "commitment", "pending", "risk", "dependency"]
+        },
+        "owner": { "type": ["string", "null"] },
+        "deadline": { "type": ["string", "null"] },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "request_item": {
+      "allOf": [
+        { "$ref": "#/$defs/typed_evidence_item" },
+        { "properties": { "type": { "const": "request" } }, "required": ["type"] }
+      ]
+    },
+    "commitment_item": {
+      "allOf": [
+        { "$ref": "#/$defs/typed_evidence_item" },
+        { "properties": { "type": { "const": "commitment" } }, "required": ["type"] }
+      ]
+    },
+    "pending_item": {
+      "allOf": [
+        { "$ref": "#/$defs/typed_evidence_item" },
+        { "properties": { "type": { "const": "pending" } }, "required": ["type"] }
+      ]
+    },
+    "risk_item": {
+      "allOf": [
+        { "$ref": "#/$defs/typed_evidence_item" },
+        { "properties": { "type": { "const": "risk" } }, "required": ["type"] }
+      ]
+    },
+    "dependency_item": {
+      "allOf": [
+        { "$ref": "#/$defs/typed_evidence_item" },
+        { "properties": { "type": { "const": "dependency" } }, "required": ["type"] }
+      ]
+    },
+    "reference_item": {
+      "description": "Link ou anexo mencionado na reuniao. Nunca aberto por esta skill.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference", "opened"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "website",
+            "landing_page",
+            "whatsapp",
+            "whatsapp_group",
+            "google_doc",
+            "spreadsheet",
+            "drive_folder",
+            "contract",
+            "crm",
+            "bi",
+            "social_profile",
+            "public_registry",
+            "attachment",
+            "documentation",
+            "unknown"
+          ]
+        },
+        "label": { "type": ["string", "null"] },
+        "reference": {
+          "type": "string",
+          "description": "URL ou referencia textual do link/anexo."
+        },
+        "opened": {
+          "const": false,
+          "description": "Sempre false. Esta skill nunca abre links descobertos."
+        },
+        "context": {
+          "type": ["string", "null"],
+          "description": "Trecho ou contexto proximo de onde o link foi mencionado."
+        }
+      }
+    }
+  }
+}
