@@ -44,6 +44,8 @@ Para parsing/matching: CRLF→LF, Unicode NFC e remoção de caracteres invisív
 
 `message_fingerprint` = SHA-256 (hexadecimal minúsculo) do JSON UTF-8 sem whitespace extra, com chaves nesta ordem: `message_date` (ISO), `local_time_reference` (literal da fonte), `participant_matching`, `body_matching` e `attachment_filenames` (na ordem em que aparecem no body). Os campos `*_matching` usam somente CRLF→LF, NFC e remoção de controles/formatação invisíveis estritamente necessária ao matching. Não depende de execução, linha ou apenas data; não é evidência de negócio e deve reproduzir a mesma mensagem em novo export.
 
+Nas etapas determinísticas de parsing, normalização/fingerprint e resolução de cursor, preferir o helper `scripts/parse_export.py`; seu JSON é artefato intermediário estrutural e não substitui o output final da skill.
+
 `anchor_fingerprints` contém, em source order, as três últimas mensagens parseadas. Cursor só é emitido quando essas três âncoras existem; a resolução incremental exige exatamente essa sequência contígua uma única vez. O cursor não inclui body completo.
 
 O range de conversa vem dos timestamps suportados de mensagens parseadas, e não da primeira/última linha física.
