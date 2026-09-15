@@ -3,7 +3,6 @@
 import argparse
 import csv
 import hashlib
-import importlib.util
 import io
 import json
 import shutil
@@ -86,23 +85,34 @@ def extract_csv(path):
     return {"extractor": "python-csv", "delimiter": delimiter_name, "headers": headers, "rows": records, "row_count": len(records), "page_count": None}
 
 
-def extract_pdf(path):
-    if shutil.which("pdftotext"):
-        result = subprocess.run(["pdftotext", "-layout", str(path), "-"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+def pdf_page_count(path):
+    if not shutil.which("pdfinfo"):
+        return None
+    result = subprocess.run(["pdfinfo", str(path)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if result.returncode:
+        raise ExtractionError("pdf_extraction_failed", result.stderr.strip() or "pdfinfo failed.")
+    match = next((line for line in result.stdout.splitlines() if line.startswith("Pages:")), None)
+    return int(match.split(":", 1)[1].strip()) if match else None
+
+
+def extract_pdf(path, render_dir=None):
+    """Prepare visual PDF inspection; this function performs no OCR or semantic reading."""
+    if not shutil.which("pdftoppm"):
+        raise ExtractionError("pdf_visual_unavailable", "Local PDF visual rendering is unavailable; pdftotext is not a semantic fallback.")
+    page_count = pdf_page_count(path)
+    pages = []
+    if render_dir is not None:
+        render_dir.mkdir(parents=True, exist_ok=True)
+        prefix = render_dir / "page"
+        result = subprocess.run(["pdftoppm", "-png", "-r", "150", str(path), str(prefix)], capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode:
-            raise ExtractionError("pdf_extraction_failed", result.stderr.strip() or "pdftotext failed.")
-        # Form-feed is the page boundary emitted by pdftotext.
-        page_texts = result.stdout.split("\f")
-        if result.stdout.endswith("\f"):
-            page_texts.pop()
-        pages = [{"page": index, "text": text} for index, text in enumerate(page_texts, start=1)]
-        return {"extractor": "pdftotext-layout", "pages": pages, "page_count": len(pages), "row_count": None}
-    if importlib.util.find_spec("pypdf"):
-        from pypdf import PdfReader
-        reader = PdfReader(str(path))
-        pages = [{"page": index, "text": page.extract_text() or ""} for index, page in enumerate(reader.pages, start=1)]
-        return {"extractor": "pypdf", "pages": pages, "page_count": len(pages), "row_count": None}
-    raise ExtractionError("pdf_extractor_unavailable", "Neither pdftotext nor importable pypdf is available; OCR is not used.")
+            raise ExtractionError("pdf_visual_unavailable", result.stderr.strip() or "pdftoppm rendering failed.")
+        images = sorted(render_dir.glob("page-*.png"))
+        pages = [{"page": index, "image_path": str(image)} for index, image in enumerate(images, start=1)]
+        if page_count is not None and len(images) != page_count:
+            raise ExtractionError("pdf_visual_unavailable", "Rendered page count differs from PDF page count.")
+        page_count = len(images)
+    return {"extractor": "pdf-render-ready", "pages": pages, "page_count": page_count, "row_count": None, "rendering_available": True}
 
 
 class ExtractionError(Exception):
@@ -115,6 +125,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--render-dir", type=Path, help="Explicit temporary directory for rendered PDF page PNGs.")
     args = parser.parse_args()
     path = args.file
     observed_at = now_utc()
@@ -124,7 +135,9 @@ def main():
         suffix = path.suffix.lower()
         if suffix not in (".pdf", ".csv"):
             raise ExtractionError("unsupported_file_type", "Only .pdf and .csv files are accepted in v1.")
-        extracted = extract_pdf(path) if suffix == ".pdf" else extract_csv(path)
+        if args.render_dir is not None and suffix != ".pdf":
+            raise ExtractionError("render_dir_not_applicable", "--render-dir is valid only for PDF input.")
+        extracted = extract_pdf(path, args.render_dir) if suffix == ".pdf" else extract_csv(path)
         output = {"status": "success", "source": {"type": suffix[1:], "path": str(path), "filename": path.name, "file_sha256": file_hash(path), "observed_at": observed_at, "source_date": None, "extractor": extracted.pop("extractor"), "page_count": extracted.pop("page_count"), "row_count": extracted.pop("row_count")}, "extraction": extracted}
         exit_code = 0
     except ExtractionError as exc:
