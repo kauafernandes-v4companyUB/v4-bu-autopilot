@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/prepare-ropre/output.schema.json",
+  "title": "Prepare ROPRE Output",
+  "description": "Read-only, transient weekly ROPRE preparation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "quarter_id", "generated_at", "status", "readiness", "source_files", "previous_check_in", "quarter_summary", "continuity_summary", "objective_summary", "media_summary", "task_summary", "flag_summary", "ropre_draft", "task_candidates", "candidate_observations", "conflicts", "missing_data", "warnings", "validation"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "skill": {"const": "prepare-ropre"},
+    "client_id": {"$ref": "#/$defs/clientId"},
+    "quarter_id": {"oneOf": [{"$ref": "#/$defs/quarterId"}, {"type": "null"}]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "error", "conflict"]},
+    "readiness": {"enum": ["ready", "partial", "blocked"]},
+    "source_files": {"type": "array", "items": {"$ref": "#/$defs/sourceFile"}},
+    "previous_check_in": {"$ref": "#/$defs/previousCheckIn"},
+    "quarter_summary": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/skills/read-quarter/output.schema.json"}]},
+    "continuity_summary": {"$ref": "#/$defs/continuitySummary"},
+    "objective_summary": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/objectiveSummary"}]},
+    "media_summary": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/skills/read-quarter/output.schema.json#/$defs/mediaSummary"}]},
+    "task_summary": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/taskSummary"}]},
+    "flag_summary": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/flagSummary"}]},
+    "ropre_draft": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/check-in-ropre.schema.json"}]},
+    "task_candidates": {"type": "array", "items": {"$ref": "#/$defs/taskCandidate"}},
+    "candidate_observations": {"type": "array", "items": {"$ref": "#/$defs/candidateObservation"}},
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "missing_data": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "validation": {"$ref": "#/$defs/validation"}
+  },
+  "allOf": [
+    {"if": {"properties": {"status": {"const": "success"}}, "required": ["status"]}, "then": {"properties": {"readiness": {"const": "ready"}, "ropre_draft": {"not": {"type": "null"}}}, "required": ["readiness", "ropre_draft"]}},
+    {"if": {"properties": {"status": {"const": "partial"}}, "required": ["status"]}, "then": {"properties": {"readiness": {"const": "partial"}}, "required": ["readiness"]}},
+    {"if": {"properties": {"status": {"const": "error"}}, "required": ["status"]}, "then": {"properties": {"readiness": {"const": "blocked"}, "ropre_draft": {"type": "null"}}, "required": ["readiness", "ropre_draft"]}},
+    {"if": {"properties": {"status": {"const": "conflict"}}, "required": ["status"]}, "then": {"properties": {"readiness": {"const": "blocked"}, "ropre_draft": {"type": "null"}}, "required": ["readiness", "ropre_draft"]}}
+  ],
+  "$defs": {
+    "clientId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarterId": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "date": {"type": "string", "format": "date"},
+    "dateTimeOrNull": {"type": ["string", "null"], "format": "date-time"},
+    "evidenceIds": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "sourceFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "path", "exists", "validated", "validation_errors"],
+      "properties": {
+        "kind": {"enum": ["quarter_context", "tasks", "evidence", "strategy", "previous_check_in", "open_current_check_in"]},
+        "path": {"type": "string", "minLength": 1},
+        "exists": {"type": "boolean"},
+        "validated": {"type": ["boolean", "null"]},
+        "validation_errors": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "notice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {"code": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1}, "path": {"type": ["string", "null"]}}
+    },
+    "previousCheckIn": {
+      "type": "object", "additionalProperties": false,
+      "required": ["found", "check_in", "temporal_reference", "source_path", "ambiguity", "existing_open_check_in"],
+      "properties": {
+        "found": {"type": "boolean"},
+        "check_in": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/check-in-ropre.schema.json"}]},
+        "temporal_reference": {"$ref": "#/$defs/dateTimeOrNull"},
+        "source_path": {"type": ["string", "null"]},
+        "ambiguity": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/notice"}]},
+        "existing_open_check_in": {"type": "boolean"}
+      }
+    },
+    "continuityRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["statement", "task_id", "evidence_ids"],
+      "properties": {"statement": {"type": "string", "minLength": 1}, "task_id": {"type": ["string", "null"]}, "evidence_ids": {"$ref": "#/$defs/evidenceIds"}}
+    },
+    "continuitySummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["first_known_check_in", "previous_next_steps_total", "promised_completed", "promised_pending", "promised_overdue", "promised_cancelled", "unresolved_task_references", "ambiguous_task_references", "unlinked_next_steps"],
+      "properties": {
+        "first_known_check_in": {"type": "boolean"},
+        "previous_next_steps_total": {"type": "integer", "minimum": 0},
+        "promised_completed": {"type": "array", "items": {"$ref": "#/$defs/continuityRecord"}},
+        "promised_pending": {"type": "array", "items": {"$ref": "#/$defs/continuityRecord"}},
+        "promised_overdue": {"type": "array", "items": {"$ref": "#/$defs/continuityRecord"}},
+        "promised_cancelled": {"type": "array", "items": {"$ref": "#/$defs/continuityRecord"}},
+        "unresolved_task_references": {"type": "array", "items": {"$ref": "#/$defs/continuityRecord"}},
+        "ambiguous_task_references": {"type": "array", "items": {"$ref": "#/$defs/continuityRecord"}},
+        "unlinked_next_steps": {"type": "array", "items": {"$ref": "#/$defs/continuityRecord"}}
+      }
+    },
+    "objectiveSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["statement", "metric", "baseline", "target", "deadline", "current_value", "progress_percent", "monitoring_status", "objective_gap"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1}, "metric": {"type": "string", "minLength": 1},
+        "baseline": {"oneOf": [{"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-plan.schema.json#/$defs/measurement"}, {"type": "null"}]},
+        "target": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-plan.schema.json#/$defs/measurement"}, "deadline": {"$ref": "#/$defs/date"},
+        "current_value": {"type": ["number", "null"]}, "progress_percent": {"type": ["number", "null"]},
+        "monitoring_status": {"enum": ["unknown", "on_track", "at_risk", "off_track", "achieved", null]}, "objective_gap": {"type": ["number", "null"]}
+      }
+    },
+    "taskRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task_id", "quarter_id", "status", "due_at", "is_overdue", "is_due_today"],
+      "properties": {"task_id": {"type": "string", "minLength": 1}, "quarter_id": {"$ref": "#/$defs/quarterId"}, "status": {"enum": ["pending", "completed", "cancelled"]}, "due_at": {"$ref": "#/$defs/date"}, "is_overdue": {"type": "boolean"}, "is_due_today": {"type": "boolean"}}
+    },
+    "taskSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["as_of_date", "total", "pending", "completed", "cancelled", "overdue", "due_today", "current_quarter_origin", "prior_quarter_origin", "tasks"],
+      "properties": {"as_of_date": {"$ref": "#/$defs/date"}, "total": {"type": "integer", "minimum": 0}, "pending": {"type": "integer", "minimum": 0}, "completed": {"type": "integer", "minimum": 0}, "cancelled": {"type": "integer", "minimum": 0}, "overdue": {"type": "integer", "minimum": 0}, "due_today": {"type": "integer", "minimum": 0}, "current_quarter_origin": {"type": "integer", "minimum": 0}, "prior_quarter_origin": {"type": "integer", "minimum": 0}, "tasks": {"type": "array", "items": {"$ref": "#/$defs/taskRecord"}}}
+    },
+    "flagRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["flag_id", "statement", "first_seen_at", "last_validated_at", "evidence_ids"],
+      "properties": {"flag_id": {"type": "string", "minLength": 1}, "statement": {"type": "string", "minLength": 1}, "first_seen_at": {"type": "string", "format": "date-time"}, "last_validated_at": {"type": "string", "format": "date-time"}, "evidence_ids": {"$ref": "#/$defs/evidenceIds"}}
+    },
+    "flagSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["open_premises", "open_risks", "resolved_since_previous"],
+      "properties": {"open_premises": {"type": "array", "items": {"$ref": "#/$defs/flagRecord"}}, "open_risks": {"type": "array", "items": {"$ref": "#/$defs/flagRecord"}}, "resolved_since_previous": {"type": "array", "items": {"$ref": "#/$defs/flagRecord"}}}
+    },
+    "taskCandidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["statement", "suggested_quarter_id", "evidence_ids", "reason", "source"],
+      "properties": {"statement": {"type": "string", "minLength": 1}, "suggested_quarter_id": {"$ref": "#/$defs/quarterId"}, "evidence_ids": {"$ref": "#/$defs/evidenceIds"}, "reason": {"type": "string", "minLength": 1}, "source": {"type": "string", "minLength": 1}}
+    },
+    "candidateObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["statement", "evidence_ids", "source"],
+      "properties": {"statement": {"type": "string", "minLength": 1}, "evidence_ids": {"$ref": "#/$defs/evidenceIds"}, "source": {"type": "string", "minLength": 1}}
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["read_quarter_valid", "tasks_valid", "check_ins_valid", "evidence_valid", "strategy_available", "ropre_draft_valid", "errors"],
+      "properties": {"read_quarter_valid": {"type": ["boolean", "null"]}, "tasks_valid": {"type": ["boolean", "null"]}, "check_ins_valid": {"type": ["boolean", "null"]}, "evidence_valid": {"type": ["boolean", "null"]}, "strategy_available": {"type": ["boolean", "null"]}, "ropre_draft_valid": {"type": ["boolean", "null"]}, "errors": {"type": "array", "items": {"$ref": "#/$defs/notice"}}}
+    }
+  }
+}
