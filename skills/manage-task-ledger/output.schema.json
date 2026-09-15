@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/manage-task-ledger/output.schema.json",
+  "title": "Manage Task Ledger Output",
+  "description": "Preview or atomic apply result for explicit local task-ledger mutations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "generated_at", "mode", "status", "source_files", "operations", "mutation_plan", "preview_hash", "before", "after", "task_summary", "applied_changes", "conflicts", "missing_data", "warnings", "validation"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "skill": {"const": "manage-task-ledger"},
+    "client_id": {"$ref": "#/$defs/clientId"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["preview", "apply"]},
+    "status": {"enum": ["success", "partial", "error", "conflict", "no_change"]},
+    "source_files": {"type": "array", "items": {"$ref": "#/$defs/sourceFile"}},
+    "operations": {"description": "Items are strict by type. operation_id uniqueness is enforced before planning.", "type": "array", "items": {"$ref": "#/$defs/operation"}},
+    "mutation_plan": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/mutationPlan"}]},
+    "preview_hash": {"oneOf": [{"type": "string", "pattern": "^[a-f0-9]{64}$"}, {"type": "null"}]},
+    "before": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/task-ledger.schema.json"}]},
+    "after": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/task-ledger.schema.json"}]},
+    "task_summary": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/taskSummary"}]},
+    "applied_changes": {"type": "array", "items": {"$ref": "#/$defs/appliedChange"}},
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "missing_data": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "validation": {"$ref": "#/$defs/validation"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mode": {"const": "apply"}}, "required": ["mode"]},
+      "then": {"properties": {"status": {"enum": ["success", "no_change", "conflict", "error"]}}, "required": ["status"]}
+    }
+  ],
+  "$defs": {
+    "clientId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarterId": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "date": {"type": "string", "format": "date"},
+    "taskId": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+    "operationId": {"type": "string", "minLength": 1},
+    "evidenceIds": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "nonEmptyEvidenceIds": {"allOf": [{"$ref": "#/$defs/evidenceIds"}, {"minItems": 1}]},
+    "origin": {
+      "type": "object", "additionalProperties": false, "required": ["type", "evidence_ids"],
+      "properties": {
+        "type": {"enum": ["whatsapp", "account_gt", "check_in", "replanning", "manual", "other"]},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+      }
+    },
+    "sourceFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "path", "exists", "validated", "validation_errors"],
+      "properties": {
+        "kind": {"enum": ["tasks", "evidence", "quarter_plan"]},
+        "path": {"type": "string", "minLength": 1},
+        "exists": {"type": "boolean"},
+        "validated": {"type": ["boolean", "null"]},
+        "validation_errors": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "operation": {
+      "oneOf": [
+        {"$ref": "#/$defs/createTask"},
+        {"$ref": "#/$defs/completeTask"},
+        {"$ref": "#/$defs/cancelTask"},
+        {"$ref": "#/$defs/rescheduleTask"},
+        {"$ref": "#/$defs/linkEkyte"}
+      ]
+    },
+    "createTask": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "type", "task_id", "title", "description", "raised_at", "due_at", "origin", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "create_task"},
+        "task_id": {"$ref": "#/$defs/taskId"},
+        "quarter_id": {"$ref": "#/$defs/quarterId"},
+        "title": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1},
+        "raised_at": {"$ref": "#/$defs/date"},
+        "due_at": {"$ref": "#/$defs/date"},
+        "origin": {"$ref": "#/$defs/origin"},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"},
+        "ekyte_url": {"type": ["string", "null"], "format": "uri"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"origin": {"properties": {"type": {"const": "manual"}}, "required": ["type"]}}, "required": ["origin"]},
+          "then": {},
+          "else": {
+            "properties": {
+              "origin": {"allOf": [{"$ref": "#/$defs/origin"}, {"properties": {"evidence_ids": {"minItems": 1}}}]},
+              "evidence_ids": {"minItems": 1}
+            }
+          }
+        }
+      ]
+    },
+    "completeTask": {
+      "type": "object", "additionalProperties": false,
+      "description": "An empty evidence_ids array is syntactically allowed solely for an already-completed no_change; the skill rejects it for a material pending completion.",
+      "required": ["operation_id", "type", "task_id", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "complete_task"},
+        "task_id": {"$ref": "#/$defs/taskId"},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+      }
+    },
+    "cancelTask": {
+      "type": "object", "additionalProperties": false,
+      "description": "An empty evidence_ids array is syntactically allowed solely for an already-cancelled no_change; the skill rejects it for a material pending cancellation.",
+      "required": ["operation_id", "type", "task_id", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "cancel_task"},
+        "task_id": {"$ref": "#/$defs/taskId"},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+      }
+    },
+    "rescheduleTask": {
+      "type": "object", "additionalProperties": false,
+      "description": "An empty evidence_ids array is syntactically allowed solely for an already-reflected same-date no_change; the skill rejects it for a material reschedule or provenance update.",
+      "required": ["operation_id", "type", "task_id", "due_at", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "reschedule_task"},
+        "task_id": {"$ref": "#/$defs/taskId"},
+        "due_at": {"$ref": "#/$defs/date"},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+      }
+    },
+    "linkEkyte": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "type", "task_id", "ekyte_url"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "link_ekyte"},
+        "task_id": {"$ref": "#/$defs/taskId"},
+        "ekyte_url": {"type": "string", "format": "uri"}
+      }
+    },
+    "normalizedCreateTask": {
+      "allOf": [
+        {"$ref": "#/$defs/createTask"},
+        {"required": ["quarter_id"]}
+      ],
+      "description": "Normalized create operation: quarter_id is always explicit after resolution."
+    },
+    "normalizedOperation": {
+      "oneOf": [
+        {"$ref": "#/$defs/normalizedCreateTask"},
+        {"$ref": "#/$defs/completeTask"},
+        {"$ref": "#/$defs/cancelTask"},
+        {"$ref": "#/$defs/rescheduleTask"},
+        {"$ref": "#/$defs/linkEkyte"}
+      ]
+    },
+    "mutationPlan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["canonical_path", "base_state_hash", "normalized_operations", "changes", "will_write"],
+      "properties": {
+        "canonical_path": {"type": "string", "minLength": 1},
+        "base_state_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "normalized_operations": {"type": "array", "items": {"$ref": "#/$defs/normalizedOperation"}},
+        "changes": {"type": "array", "items": {"$ref": "#/$defs/change"}},
+        "will_write": {"type": "boolean"}
+      }
+    },
+    "change": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "action", "path", "material"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "action": {"enum": ["create_ledger", "create_task", "complete_task", "cancel_task", "reschedule_task", "link_ekyte", "no_change"]},
+        "path": {"type": "string", "minLength": 1},
+        "material": {"type": "boolean"}
+      }
+    },
+    "appliedChange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "action", "path", "applied_at"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "action": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "applied_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "overdueTask": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task_id", "title", "due_at", "is_overdue", "overdue_days"],
+      "properties": {
+        "task_id": {"$ref": "#/$defs/taskId"},
+        "title": {"type": "string", "minLength": 1},
+        "due_at": {"$ref": "#/$defs/date"},
+        "is_overdue": {"const": true},
+        "overdue_days": {"type": "integer", "minimum": 1}
+      }
+    },
+    "taskSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["as_of_date", "total", "pending", "completed", "cancelled", "overdue", "due_today", "overdue_tasks"],
+      "properties": {
+        "as_of_date": {"$ref": "#/$defs/date"},
+        "total": {"type": "integer", "minimum": 0},
+        "pending": {"type": "integer", "minimum": 0},
+        "completed": {"type": "integer", "minimum": 0},
+        "cancelled": {"type": "integer", "minimum": 0},
+        "overdue": {"type": "integer", "minimum": 0},
+        "due_today": {"type": "integer", "minimum": 0},
+        "overdue_tasks": {"type": "array", "items": {"$ref": "#/$defs/overdueTask"}}
+      }
+    },
+    "notice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "operation_id": {"type": ["string", "null"]}
+      }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tasks_valid", "evidence_valid", "quarter_plans_valid", "after_valid", "base_state_current", "atomic", "errors"],
+      "properties": {
+        "tasks_valid": {"type": ["boolean", "null"]},
+        "evidence_valid": {"type": ["boolean", "null"]},
+        "quarter_plans_valid": {"type": ["boolean", "null"]},
+        "after_valid": {"type": ["boolean", "null"]},
+        "base_state_current": {"type": ["boolean", "null"]},
+        "atomic": {"type": "boolean"},
+        "errors": {"type": "array", "items": {"$ref": "#/$defs/notice"}}
+      }
+    }
+  }
+}
