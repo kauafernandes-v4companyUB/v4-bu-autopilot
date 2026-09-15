@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/read-quarter/output.schema.json",
+  "title": "Read Quarter Output",
+  "description": "Transient, read-only tactical Quarter context produced by the read-quarter SOURCE skill.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "client_id",
+    "generated_at",
+    "status",
+    "quarter_resolution",
+    "source_files",
+    "quarter",
+    "media_summary",
+    "flag_summary",
+    "missing_data",
+    "warnings",
+    "validation"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "skill": {
+      "type": "string",
+      "const": "read-quarter"
+    },
+    "client_id": {
+      "$ref": "#/$defs/clientId"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "error"]
+    },
+    "quarter_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_quarter_id",
+        "resolved_quarter_id",
+        "method",
+        "ambiguity"
+      ],
+      "properties": {
+        "requested_quarter_id": {
+          "oneOf": [
+            { "$ref": "#/$defs/quarterId" },
+            { "type": "null" }
+          ]
+        },
+        "resolved_quarter_id": {
+          "oneOf": [
+            { "$ref": "#/$defs/quarterId" },
+            { "type": "null" }
+          ]
+        },
+        "method": {
+          "type": "string",
+          "enum": ["explicit", "active_status", "system_date", "unresolved"]
+        },
+        "ambiguity": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason", "candidate_quarter_ids"],
+              "properties": {
+                "reason": { "type": "string", "minLength": 1 },
+                "candidate_quarter_ids": {
+                  "type": "array",
+                  "minItems": 2,
+                  "uniqueItems": true,
+                  "items": { "$ref": "#/$defs/quarterId" }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "source_files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourceFile" }
+    },
+    "quarter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "monitoring"],
+      "properties": {
+        "plan": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-plan.schema.json" }
+          ]
+        },
+        "monitoring": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-monitoring.schema.json" }
+          ]
+        }
+      }
+    },
+    "media_summary": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/mediaSummary" }
+      ]
+    },
+    "flag_summary": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/flagSummary" }
+      ]
+    },
+    "missing_data": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/notice" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/notice" }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_valid", "monitoring_valid", "errors"],
+      "properties": {
+        "plan_valid": {
+          "oneOf": [{ "type": "boolean" }, { "type": "null" }]
+        },
+        "monitoring_valid": {
+          "oneOf": [{ "type": "boolean" }, { "type": "null" }]
+        },
+        "errors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/notice" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "clientId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "quarterId": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-Q[1-4]$"
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "exists", "validated", "validation_errors"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["plan", "monitoring"] },
+        "path": { "type": "string", "minLength": 1 },
+        "exists": { "type": "boolean" },
+        "validated": {
+          "oneOf": [{ "type": "boolean" }, { "type": "null" }]
+        },
+        "validation_errors": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "moneyOrNull": {
+      "oneOf": [{ "type": "number" }, { "type": "null" }]
+    },
+    "numberOrNull": {
+      "oneOf": [{ "type": "number" }, { "type": "null" }]
+    },
+    "mediaRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "month",
+        "channel",
+        "planned_budget",
+        "actual_spend",
+        "remaining_budget",
+        "attainment_percent",
+        "variance_value",
+        "pacing_percent",
+        "actual_status"
+      ],
+      "properties": {
+        "month": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
+        "channel": { "type": "string", "minLength": 1 },
+        "planned_budget": { "$ref": "#/$defs/moneyOrNull" },
+        "actual_spend": { "$ref": "#/$defs/moneyOrNull" },
+        "remaining_budget": { "$ref": "#/$defs/moneyOrNull" },
+        "attainment_percent": { "$ref": "#/$defs/numberOrNull" },
+        "variance_value": { "$ref": "#/$defs/moneyOrNull" },
+        "pacing_percent": { "$ref": "#/$defs/numberOrNull" },
+        "actual_status": { "type": "string", "enum": ["observed", "missing", "ambiguous"] }
+      }
+    },
+    "totalByDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "planned_total", "actual_total", "actual_coverage"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "planned_total": { "$ref": "#/$defs/moneyOrNull" },
+        "actual_total": { "$ref": "#/$defs/moneyOrNull" },
+        "actual_coverage": { "type": "string", "enum": ["complete", "partial", "not_observed"] }
+      }
+    },
+    "mediaSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "records",
+        "unplanned_actuals",
+        "planned_total_by_month",
+        "actual_total_by_month",
+        "planned_total_by_channel",
+        "actual_total_by_channel",
+        "planned_total_quarter",
+        "actual_total_quarter",
+        "remaining_total_quarter",
+        "quarter_attainment_percent",
+        "actual_coverage"
+      ],
+      "properties": {
+        "records": { "type": "array", "items": { "$ref": "#/$defs/mediaRecord" } },
+        "unplanned_actuals": { "type": "array", "items": { "type": "object" } },
+        "planned_total_by_month": { "type": "array", "items": { "$ref": "#/$defs/totalByDimension" } },
+        "actual_total_by_month": { "type": "array", "items": { "$ref": "#/$defs/totalByDimension" } },
+        "planned_total_by_channel": { "type": "array", "items": { "$ref": "#/$defs/totalByDimension" } },
+        "actual_total_by_channel": { "type": "array", "items": { "$ref": "#/$defs/totalByDimension" } },
+        "planned_total_quarter": { "$ref": "#/$defs/moneyOrNull" },
+        "actual_total_quarter": { "$ref": "#/$defs/moneyOrNull" },
+        "remaining_total_quarter": { "$ref": "#/$defs/moneyOrNull" },
+        "quarter_attainment_percent": { "$ref": "#/$defs/numberOrNull" },
+        "actual_coverage": { "type": "string", "enum": ["complete", "partial", "not_observed"] }
+      }
+    },
+    "flagWithAge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flag_id",
+        "type",
+        "statement",
+        "status",
+        "first_seen_at",
+        "last_validated_at",
+        "resolved_at",
+        "evidence_ids",
+        "age_days"
+      ],
+      "properties": {
+        "flag_id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "enum": ["premise", "risk", "media_budget", "objective", "commercial", "operation", "other"] },
+        "statement": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["open", "resolved"] },
+        "first_seen_at": { "type": "string", "format": "date-time" },
+        "last_validated_at": { "type": "string", "format": "date-time" },
+        "resolved_at": { "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+        "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "age_days": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] }
+      }
+    },
+    "flagSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["open", "resolved"],
+      "properties": {
+        "open": { "type": "array", "items": { "$ref": "#/$defs/flagWithAge" } },
+        "resolved": { "type": "array", "items": { "$ref": "#/$defs/flagWithAge" } }
+      }
+    },
+    "notice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
