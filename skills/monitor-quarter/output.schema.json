@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/monitor-quarter/output.schema.json",
+  "title": "Monitor Quarter Output",
+  "description": "Preview or atomic apply result for evidence-backed Quarter monitoring mutations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "quarter_id", "generated_at", "mode", "status", "source_files", "operations", "mutation_plan", "preview_hash", "before", "after", "applied_changes", "conflicts", "missing_data", "warnings", "validation"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "skill": {"const": "monitor-quarter"},
+    "client_id": {"$ref": "#/$defs/clientId"},
+    "quarter_id": {"oneOf": [{"$ref": "#/$defs/quarterId"}, {"type": "null"}]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["preview", "apply"]},
+    "status": {"enum": ["success", "partial", "error", "conflict", "no_change"]},
+    "source_files": {"type": "array", "items": {"$ref": "#/$defs/sourceFile"}},
+    "operations": {"description": "Each item is strict by type. operation_id uniqueness is enforced by the skill before planning.", "type": "array", "items": {"$ref": "#/$defs/operation"}},
+    "mutation_plan": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/mutationPlan"}]},
+    "preview_hash": {"oneOf": [{"type": "string", "pattern": "^[a-f0-9]{64}$"}, {"type": "null"}]},
+    "before": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-monitoring.schema.json"}]},
+    "after": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-monitoring.schema.json"}]},
+    "applied_changes": {"type": "array", "items": {"$ref": "#/$defs/appliedChange"}},
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "missing_data": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "validation": {"$ref": "#/$defs/validation"}
+  },
+  "$defs": {
+    "clientId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarterId": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "evidenceIds": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "nonEmptyEvidenceIds": {"allOf": [{"$ref": "#/$defs/evidenceIds"}, {"minItems": 1}]},
+    "operationId": {"type": "string", "minLength": 1},
+    "sourceFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "path", "exists", "validated", "validation_errors"],
+      "properties": {
+        "kind": {"enum": ["plan", "monitoring", "evidence"]},
+        "path": {"type": "string", "minLength": 1},
+        "exists": {"type": "boolean"},
+        "validated": {"type": ["boolean", "null"]},
+        "validation_errors": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "operation": {
+      "oneOf": [
+        {"$ref": "#/$defs/updateObjectiveProgress"},
+        {"$ref": "#/$defs/upsertMediaActual"},
+        {"$ref": "#/$defs/createFlag"},
+        {"$ref": "#/$defs/validateFlag"},
+        {"$ref": "#/$defs/resolveFlag"}
+      ]
+    },
+    "updateObjectiveProgress": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "type", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "update_objective_progress"},
+        "evidence_ids": {"$ref": "#/$defs/nonEmptyEvidenceIds"},
+        "status": {"enum": ["unknown", "on_track", "at_risk", "off_track", "achieved"]},
+        "current_value": {"type": ["number", "null"]},
+        "target_value": {"type": "number"},
+        "progress_percent": {"type": ["number", "null"], "minimum": 0},
+        "observed_at": {"type": ["string", "null"], "format": "date-time"}
+      },
+      "anyOf": [{"required": ["status"]}, {"required": ["current_value"]}, {"required": ["target_value"]}, {"required": ["progress_percent"]}, {"required": ["observed_at"]}]
+    },
+    "upsertMediaActual": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "type", "month", "channel", "actual_spend", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "upsert_media_actual"},
+        "month": {"type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"},
+        "channel": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "actual_spend": {"type": "number", "minimum": 0},
+        "evidence_ids": {"$ref": "#/$defs/nonEmptyEvidenceIds"},
+        "pacing_percent": {"type": ["number", "null"], "minimum": 0},
+        "observed_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "createFlag": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "type", "flag_id", "flag_type", "statement", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "create_flag"},
+        "flag_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "flag_type": {"enum": ["premise", "risk", "media_budget", "objective", "commercial", "operation", "other"]},
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_ids": {"$ref": "#/$defs/nonEmptyEvidenceIds"}
+      }
+    },
+    "validateFlag": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "type", "flag_id", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "validate_flag"},
+        "flag_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "evidence_ids": {"$ref": "#/$defs/nonEmptyEvidenceIds"}
+      }
+    },
+    "resolveFlag": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "type", "flag_id", "evidence_ids"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "type": {"const": "resolve_flag"},
+        "flag_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+      }
+    },
+    "mutationPlan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["canonical_path", "base_state_hash", "normalized_operations", "changes", "will_write"],
+      "properties": {
+        "canonical_path": {"type": "string", "minLength": 1},
+        "base_state_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of canonical {plan, monitoring} state."},
+        "normalized_operations": {"type": "array", "items": {"$ref": "#/$defs/operation"}},
+        "changes": {"type": "array", "items": {"$ref": "#/$defs/change"}},
+        "will_write": {"type": "boolean"}
+      }
+    },
+    "change": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "action", "path", "material"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "action": {"enum": ["create_monitoring", "update_objective_progress", "upsert_media_actual", "create_flag", "validate_flag", "resolve_flag", "no_change"]},
+        "path": {"type": "string", "minLength": 1},
+        "material": {"type": "boolean"}
+      }
+    },
+    "appliedChange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "action", "path", "applied_at"],
+      "properties": {
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "action": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "applied_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "notice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "operation_id": {"type": ["string", "null"]}
+      }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_valid", "monitoring_valid", "evidence_valid", "after_valid", "base_state_current", "atomic", "errors"],
+      "properties": {
+        "plan_valid": {"type": ["boolean", "null"]},
+        "monitoring_valid": {"type": ["boolean", "null"]},
+        "evidence_valid": {"type": ["boolean", "null"]},
+        "after_valid": {"type": ["boolean", "null"]},
+        "base_state_current": {"type": ["boolean", "null"]},
+        "atomic": {"type": "boolean"},
+        "errors": {"type": "array", "items": {"$ref": "#/$defs/notice"}}
+      }
+    }
+  }
+}
