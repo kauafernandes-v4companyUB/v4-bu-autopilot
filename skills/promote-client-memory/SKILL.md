@@ -379,6 +379,8 @@ A skill deve **sempre** gerar primeiro um `promotion_plan`, com um item por cand
 
 Nenhuma escrita em memória canônica pode ocorrer sem que o candidato correspondente exista, com essa forma, no `promotion_plan`. Um `apply` nunca inventa uma ação fora do que já estava no plano gerado (ou fornecido) previamente.
 
+Uma observação externa normalizada pode ser promovida diretamente ao ledger com `target_file: "evidence.json"` e `action: "promote"`. Esse candidato promove somente a prova canônica: não cria decisão, hipótese, tarefa, estado atual ou outro conhecimento substantivo. O `evidence_id` do candidato deve apontar para a evidência normalizada no bloco `evidence` do output.
+
 ---
 
 ## 17. Modo de execução
@@ -420,6 +422,16 @@ Procedimento:
 6. Cada `knowledge_item`/registro de `strategy.md`/registro de `history/` recém-escrito nesta mesma execução deve referenciar apenas `evidence_ids` agora resolvíveis neste ledger — nunca um `evidence_id` que não foi sincronizado.
 
 Evidências já promovidas em execuções anteriores permanecem preservadas no ledger; esta sincronização nunca remove uma evidência canônica existente, apenas adiciona (ou registra conflito).
+
+### 17.1.1 Observações externas normalizadas
+
+Um `source_output` confiável pode conter uma observação externa, sem `evidence_id` prévio, desde que forneça `client_id`, tipo semântico explícito, `observed_at`, `statement`, `confidence`, referência de origem e um `source_observation_id` estável. A skill pode normalizá-la em uma evidência do contrato `schemas/evidence.schema.json` e propor sua promoção direta a `evidence.json`.
+
+- Preserve o tipo semântico fornecido: `metric` permanece `metric`, `fact` permanece `fact`; nunca reclassifique automaticamente como `decision`, `hypothesis`, `request` ou `commitment`.
+- Reutilize `source_type`, `period` e `reference` do contrato universal. Registre `source_skill`, `source_observation_id`, `source_file_sha256` e `source_output`, quando disponíveis, nos campos opcionais de provenance. Ao copiar ao ledger, preserve a mesma cadeia em `source_kind`/`source_reference` e `external_provenance`.
+- Quando faltar `evidence_id`, gere `evobs-<16 primeiros hex>` de SHA-256 do JSON canônico UTF-8 (`sort_keys=true`, separadores compactos) de `client_id`, `source_skill` (ou `null`), `source_type`, `source_observation_id` e `source_file_sha256` (ou `null`). Nunca use timestamps, valores calculados ou a ordem de descoberta na identidade.
+- Se o mesmo ID existir e todos os campos materiais forem idênticos — `statement`, `type`, `value`, `unit`, `confidence`, `source_date`, `period`, `source_type`, `reference`, `source_skill` e `external_provenance` — a promoção é `skip`/idempotente e não escreve duplicata. Se a identidade for igual, mas qualquer um desses campos divergir, registre `conflict` em `evidence.json`, preserve o ledger e não sobrescreva.
+- Ausência de `source_observation_id` torna a observação inelegível para esta extensão: registre `missing_data`; não invente uma identidade com timestamp ou conteúdo variável.
 
 ---
 

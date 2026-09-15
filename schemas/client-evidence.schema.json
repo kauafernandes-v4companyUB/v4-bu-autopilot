@@ -115,6 +115,10 @@
           "type": "string",
           "minLength": 1
         },
+        "source_skill": {
+          "description": "Skill que normalizou a observacao de origem, quando aplicavel. source_kind continua descrevendo a natureza da fonte.",
+          "type": ["string", "null"]
+        },
         "source_reference": {
           "description": "Localizacao conceitual da evidencia dentro da fonte, suficiente para permitir auditoria mesmo sem context/generated/ e mesmo que o arquivo fisico da fonte (ex.: em private/) nao exista neste clone.",
           "type": "object",
@@ -134,11 +138,39 @@
               "description": "Pagina (ou intervalo de paginas) dentro da fonte, quando aplicavel (ex.: documentos PDF).",
               "type": ["string", "number", "null"]
             },
+            "row": {
+              "description": "Linha logica da fonte tabular, quando aplicavel.",
+              "type": ["integer", "null"],
+              "minimum": 1
+            },
+            "column": {
+              "description": "Coluna da fonte tabular, quando aplicavel.",
+              "type": ["string", "null"]
+            },
             "section": {
               "description": "Secao, titulo ou marcador estrutural dentro da fonte, quando disponivel (ex.: '1. Dados cadastrais').",
               "type": ["string", "null"]
             },
             "uri": {
+              "type": ["string", "null"]
+            }
+          }
+        },
+        "external_provenance": {
+          "description": "Identidade opcional da observacao externa normalizada. source_kind, period e source_reference permanecem nos campos canonicos existentes; este bloco evita perder observation ID, hash do arquivo e referencia transitória ao output.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "source_observation_id": {
+              "type": ["string", "null"],
+              "minLength": 1
+            },
+            "source_file_sha256": {
+              "type": ["string", "null"],
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source_output": {
+              "description": "Referencia transitória ao output consumido; nunca substitui o ledger como provenance duravel.",
               "type": ["string", "null"]
             }
           }

@@ -229,7 +229,7 @@
   },
   "$defs": {
     "target_file": {
-      "description": "'evidence.json' identifica escritas no ledger canonico de evidencias (clients/<client_id>/evidence.json, schemas/client-evidence.schema.json). Essas escritas sao derivadas automaticamente pela sincronizacao do evidence ledger (SKILL.md secao 17.1) a partir dos evidence_ids usados por candidatos promote/historize - normalmente nao aparecem como candidato independente em promotion_plan, mas podem aparecer em applied_changes e em conflicts.",
+      "description": "'evidence.json' identifica escritas no ledger canonico de evidencias (clients/<client_id>/evidence.json, schemas/client-evidence.schema.json). Normalmente a escrita e derivada da sincronizacao do evidence ledger a partir de candidatos promote/historize. Uma observacao externa normalizada tambem pode ter candidato direto para evidence.json, conforme SKILL.md secao 17.1.1; isso promove somente a evidencia, sem reinterpretar a observacao nem exigir outra memoria substantiva.",
       "type": "string",
       "enum": [
         "client.json",

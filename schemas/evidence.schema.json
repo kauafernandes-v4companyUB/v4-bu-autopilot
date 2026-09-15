@@ -28,6 +28,10 @@
       "type": "string",
       "minLength": 1
     },
+    "source_skill": {
+      "description": "Skill que normalizou a observacao de origem, quando a evidencia veio de um output de skill. source_type continua sendo a natureza da fonte; este campo nao o substitui.",
+      "type": ["string", "null"]
+    },
     "source_name": {
       "type": ["string", "null"]
     },
@@ -87,6 +91,17 @@
         },
         "location": {
           "type": ["string", "null"]
+        },
+        "page": {
+          "type": ["integer", "string", "null"],
+          "minimum": 1
+        },
+        "row": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "column": {
+          "type": ["string", "null"]
         }
       }
     },
@@ -113,6 +128,25 @@
         "to": {
           "type": ["string", "null"],
           "format": "date"
+        }
+      }
+    },
+    "external_provenance": {
+      "description": "Identidade opcional de uma observacao externa normalizada. source_type, period e reference permanecem nos campos universais existentes; este bloco registra somente identificadores que eles nao cobrem.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "source_observation_id": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "source_file_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source_output": {
+          "description": "Referencia transitória ao output normalizado consumido na promocao; nunca e a unica provenance duravel.",
+          "type": ["string", "null"]
         }
       }
     },
