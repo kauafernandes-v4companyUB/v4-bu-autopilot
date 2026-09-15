@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/close-ropre/output.schema.json",
+  "title": "Close ROPRE Output",
+  "description": "Preview or safe apply result for a canonical ROPRE lifecycle transition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "quarter_id", "generated_at", "mode", "status", "source_files", "operation", "before_current", "after_current", "history_before", "history_after", "mutation_plan", "preview_hash", "applied_changes", "conflicts", "missing_data", "warnings", "validation"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "skill": {"const": "close-ropre"},
+    "client_id": {"$ref": "#/$defs/clientId"},
+    "quarter_id": {"$ref": "#/$defs/quarterId"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["preview", "apply"]},
+    "status": {"enum": ["success", "partial", "error", "conflict", "no_change"]},
+    "source_files": {"type": "array", "items": {"$ref": "#/$defs/sourceFile"}},
+    "operation": {"$ref": "#/$defs/operation"},
+    "before_current": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/check-in-ropre.schema.json"}]},
+    "after_current": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/check-in-ropre.schema.json"}]},
+    "history_before": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/check-in-ropre.schema.json"}]},
+    "history_after": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/check-in-ropre.schema.json"}]},
+    "mutation_plan": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/mutationPlan"}]},
+    "preview_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "applied_changes": {"type": "array", "items": {"$ref": "#/$defs/appliedChange"}},
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "missing_data": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "validation": {"$ref": "#/$defs/validation"}
+  },
+  "allOf": [
+    {"if": {"properties": {"mode": {"const": "apply"}}, "required": ["mode"]}, "then": {"properties": {"status": {"enum": ["success", "no_change", "conflict", "error"]}}, "required": ["status"]}}
+  ],
+  "$defs": {
+    "clientId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarterId": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sourceFile": {"type": "object", "additionalProperties": false, "required": ["kind", "path", "exists", "validated", "validation_errors"], "properties": {"kind": {"enum": ["quarter_plan", "evidence", "tasks", "current_check_in", "history_check_in", "prepare_ropre_output"]}, "path": {"type": "string", "minLength": 1}, "exists": {"type": "boolean"}, "validated": {"type": ["boolean", "null"]}, "validation_errors": {"type": "array", "items": {"type": "string", "minLength": 1}}}},
+    "operation": {"oneOf": [{"$ref": "#/$defs/saveDraft"}, {"$ref": "#/$defs/markReady"}, {"$ref": "#/$defs/completeCheckIn"}]},
+    "saveDraft": {"type": "object", "additionalProperties": false, "required": ["operation_id", "type", "ropre_draft"], "properties": {"operation_id": {"type": "string", "minLength": 1}, "type": {"const": "save_draft"}, "ropre_draft": {"allOf": [{"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/check-in-ropre.schema.json"}, {"required": ["status", "completed_at"], "properties": {"status": {"const": "draft"}, "completed_at": {"type": "null"}}}]}}},
+    "markReady": {"type": "object", "additionalProperties": false, "required": ["operation_id", "type"], "properties": {"operation_id": {"type": "string", "minLength": 1}, "type": {"const": "mark_ready"}}},
+    "completeCheckIn": {"type": "object", "additionalProperties": false, "required": ["operation_id", "type"], "properties": {"operation_id": {"type": "string", "minLength": 1}, "type": {"const": "complete_check_in"}}},
+    "mutationPlan": {"type": "object", "additionalProperties": false, "required": ["current_path", "history_path", "base_state_hash", "proposed_history_effect", "completion_time_policy", "business_content_hash", "will_write"], "properties": {"current_path": {"type": "string", "minLength": 1}, "history_path": {"type": ["string", "null"]}, "base_state_hash": {"$ref": "#/$defs/sha256"}, "proposed_history_effect": {"enum": ["none", "create", "verify_identical", "recover_current", "repair_history"]}, "completion_time_policy": {"enum": [null, "apply_clock", "existing_history"]}, "business_content_hash": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}, "will_write": {"type": "boolean"}}},
+    "appliedChange": {"type": "object", "additionalProperties": false, "required": ["path", "action", "applied_at"], "properties": {"path": {"type": "string", "minLength": 1}, "action": {"enum": ["save_draft", "rotate_closed_current_to_new_draft", "mark_ready", "create_history", "repair_history", "complete_current", "recover_current"]}, "applied_at": {"type": "string", "format": "date-time"}}},
+    "notice": {"type": "object", "additionalProperties": false, "required": ["code", "message"], "properties": {"code": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1}, "path": {"type": ["string", "null"]}}},
+    "validation": {"type": "object", "additionalProperties": false, "required": ["quarter_plan_valid", "current_valid", "history_valid", "evidence_valid", "tasks_valid", "after_valid", "base_state_current", "single_file_atomic", "multi_file_recovery_valid", "errors"], "properties": {"quarter_plan_valid": {"type": ["boolean", "null"]}, "current_valid": {"type": ["boolean", "null"]}, "history_valid": {"type": ["boolean", "null"]}, "evidence_valid": {"type": ["boolean", "null"]}, "tasks_valid": {"type": ["boolean", "null"]}, "after_valid": {"type": ["boolean", "null"]}, "base_state_current": {"type": ["boolean", "null"]}, "single_file_atomic": {"description": "Each individual replace is atomic; this does not assert ACID atomicity across current and history.", "type": "boolean"}, "multi_file_recovery_valid": {"description": "The resulting state is complete or safely recoverable under the documented protocol, not multi-file ACID.", "type": "boolean"}, "errors": {"type": "array", "items": {"$ref": "#/$defs/notice"}}}}
+  }
+}

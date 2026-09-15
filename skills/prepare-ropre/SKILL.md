@@ -48,11 +48,20 @@ ledger whenever it exists; an orphan is `unresolved_evidence`, never invented.
 
 From valid check-ins in the resolved Quarter, select the most recent
 `status: completed` by its valid `completed_at` timestamp. Do not use filename
-order. `previous_check_in.temporal_reference` is exactly the selected
+order. Before selection, deduplicate logical check-ins: `current.json` and a
+history entry with the same check_in_id, client_id, quarter_id and semantically
+identical canonical JSON represent one check-in. Use sorted-key compact UTF-8
+JSON comparison (not file bytes or whitespace) and prefer history as the
+longitudinal source; current completed is its canonical mirror. `previous_check_in.temporal_reference` is exactly the selected
 `completed_at`. Equal greatest timestamps are `previous_check_in_ambiguity`:
 return `conflict`, `blocked`, and `ropre_draft: null`. With none, set
 `continuity_summary.first_known_check_in: true`; this is not an error and never
 means the client or project is new.
+
+The deduplication exception is narrow. Equal check_in_id with divergent semantic
+content is `check_in_id_collision`, conflict and blocked. Different IDs with
+the same greatest completed_at remain `previous_check_in_ambiguity`; never
+collapse distinct meetings merely by timestamp.
 
 Every current or historical check-in considered must have `client_id` equal to
 the input and `quarter_id` equal to the resolved Quarter. Any mismatch is
