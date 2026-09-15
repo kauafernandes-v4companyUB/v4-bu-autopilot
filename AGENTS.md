@@ -17,6 +17,7 @@ Este repositório é um cérebro operacional versionado, não uma aplicação tr
 - `CLAUDE.md`: constituição operacional completa. Leia somente quando a tarefa envolver regras globais, arquitetura, memória, evidência, temporalidade ou quando houver ambiguidade.
 - `skills/_template/`: contrato-base para novas skills.
 - `schemas/`: contratos JSON compartilhados.
+- `schemas/quarter-*.schema.json`, `schemas/check-in-ropre.schema.json` e `schemas/task-ledger.schema.json`: contratos táticos e operacionais; a convenção está em `docs/project-orchestration.md`.
 - `skills/<skill>/`: comportamento específico.
 - `clients/<client_id>/`: memória canônica.
 - `context/generated/`: workspace temporário; não é memória permanente.

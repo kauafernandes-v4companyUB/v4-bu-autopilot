@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/check-in-ropre.schema.json",
+  "title": "V4 BU Autopilot Check-in ROPRE",
+  "description": "Check-in semanal ROPRE: Resultados, Objetivos, Premissas, Riscos, Próximos Passos e Visão de Longo Prazo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "client_id", "quarter_id", "check_in_id", "scheduled_for", "status", "results", "objectives", "premises", "risks", "next_steps", "long_term_view", "task_ids", "evidence_ids", "generated_at", "completed_at"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "client_id": {"type": "string", "minLength": 1},
+    "quarter_id": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "check_in_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
+    "scheduled_for": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["draft", "ready", "completed"]},
+    "results": {"type": "array", "items": {"$ref": "#/$defs/statement_item"}},
+    "objectives": {"type": "array", "items": {"$ref": "#/$defs/objective_item"}},
+    "premises": {"type": "array", "items": {"$ref": "#/$defs/flag_item"}},
+    "risks": {"type": "array", "items": {"$ref": "#/$defs/flag_item"}},
+    "next_steps": {"type": "array", "items": {"$ref": "#/$defs/next_step"}},
+    "long_term_view": {"type": "string", "minLength": 1},
+    "task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": ["string", "null"], "format": "date-time"}
+  },
+  "allOf": [
+    {"if": {"properties": {"status": {"const": "completed"}}, "required": ["status"]}, "then": {"properties": {"completed_at": {"type": "string", "format": "date-time"}}, "required": ["completed_at"]}},
+    {"if": {"properties": {"status": {"enum": ["draft", "ready"]}}, "required": ["status"]}, "then": {"properties": {"completed_at": {"type": "null"}}}}
+  ],
+  "$defs": {
+    "statement_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "evidence_ids"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "objective_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["smart_objective_reference", "statement", "evidence_ids"],
+      "properties": {
+        "smart_objective_reference": {"const": "quarter_plan.smart_objective"},
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "flag_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flag_id", "statement"],
+      "properties": {
+        "flag_id": {"type": "string", "minLength": 1},
+        "statement": {"type": "string", "minLength": 1}
+      }
+    },
+    "next_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "task_id", "evidence_ids"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "task_id": {"type": ["string", "null"], "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    }
+  }
+}

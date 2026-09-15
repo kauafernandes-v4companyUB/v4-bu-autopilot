@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-plan.schema.json",
+  "title": "V4 BU Autopilot Quarter Plan",
+  "description": "Planejamento tático de um Quarter. Registra somente o planejado; realizado pertence a quarter-monitoring.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "client_id", "quarter_id", "period", "status", "planned_at", "smart_objective", "planning", "media_plan"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "client_id": {"type": "string", "minLength": 1},
+    "quarter_id": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "period": {"$ref": "#/$defs/period"},
+    "status": {"enum": ["planned", "active", "closed"]},
+    "planned_at": {"type": "string", "format": "date-time"},
+    "smart_objective": {"$ref": "#/$defs/smart_objective"},
+    "planning": {"$ref": "#/$defs/planning"},
+    "media_plan": {"$ref": "#/$defs/media_plan"}
+  },
+  "$defs": {
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "string", "format": "date"},
+        "end": {"type": "string", "format": "date"}
+      }
+    },
+    "measurement": {
+      "description": "Valor mensurável não formatado. Para BRL, usar número decimal sem símbolo monetário.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": {"type": "number"},
+        "unit": {"enum": ["count", "percent", "brl", "other"]},
+        "other_unit": {"type": ["string", "null"], "minLength": 1}
+      },
+      "allOf": [
+        {"if": {"properties": {"unit": {"const": "other"}}, "required": ["unit"]}, "then": {"required": ["other_unit"]}}
+      ]
+    },
+    "smart_objective": {
+      "description": "Objetivo SMART exclusivo deste Quarter; não deve ser carregado silenciosamente para o próximo. A baseline pode ser desconhecida (null), mas o target é sempre mensurável.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "metric", "baseline", "target", "deadline"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "metric": {"type": "string", "minLength": 1},
+        "baseline": {"oneOf": [{"$ref": "#/$defs/measurement"}, {"type": "null"}]},
+        "target": {"$ref": "#/$defs/measurement"},
+        "deadline": {"type": "string", "format": "date"}
+      }
+    },
+    "planning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategic_priorities", "assumptions", "evidence_ids"],
+      "properties": {
+        "strategic_priorities": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "assumptions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "media_plan": {
+      "description": "Planejado por mês e canal. planned_budget é decimal em BRL, sem strings formatadas.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "monthly"],
+      "properties": {
+        "currency": {"const": "BRL"},
+        "monthly": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["month", "channel", "planned_budget"],
+            "properties": {
+              "month": {"type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"},
+              "channel": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+              "planned_budget": {"type": "number", "minimum": 0}
+            }
+          }
+        }
+      }
+    }
+  }
+}

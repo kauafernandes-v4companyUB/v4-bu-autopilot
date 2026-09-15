@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/task-ledger.schema.json",
+  "title": "V4 BU Autopilot Task Ledger",
+  "description": "Ledger local longitudinal de tarefas. Datas operacionais são YYYY-MM-DD. overdue é derivado em runtime quando status=pending e due_at já passou; nunca é status persistido.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "client_id", "updated_at", "tasks"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "client_id": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "tasks": {"type": "array", "items": {"$ref": "#/$defs/task"}}
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "client_id", "quarter_id", "title", "description", "raised_at", "due_at", "status", "completed_at", "ekyte_url", "evidence_ids", "origin"],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "client_id": {"type": "string", "minLength": 1},
+        "quarter_id": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+        "title": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1},
+        "raised_at": {"type": "string", "format": "date"},
+        "due_at": {"type": "string", "format": "date"},
+        "status": {"enum": ["pending", "completed", "cancelled"]},
+        "completed_at": {"type": ["string", "null"], "format": "date"},
+        "ekyte_url": {"type": ["string", "null"], "format": "uri"},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "evidence_ids"],
+          "properties": {
+            "type": {"enum": ["whatsapp", "account_gt", "check_in", "replanning", "manual", "other"]},
+            "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+          }
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "completed"}}, "required": ["status"]}, "then": {"properties": {"completed_at": {"type": "string", "format": "date"}}, "required": ["completed_at"]}},
+        {"if": {"properties": {"status": {"enum": ["pending", "cancelled"]}}, "required": ["status"]}, "then": {"properties": {"completed_at": {"type": "null"}}}}
+      ]
+    }
+  }
+}

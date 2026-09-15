@@ -687,7 +687,11 @@ Antes de concluir qualquer skill, comparar todo timestamp de execução gerado c
 
 ---
 
-## 27. Regra final
+## 27. Project Orchestration
+
+Quarter (`YYYY-QN`) é a unidade oficial de planejamento tático. Todo Quarter exige replanejamento novo; o SMART é versionado por Quarter e nunca é carregado silenciosamente. `plan.json` preserva o planejado e não recebe realizado; `monitoring.json` registra realizado/observado e não redefine o plano. Check-ins usam ROPRE (Resultados, Objetivos, Premissas, Riscos, Próximos Passos e Visão de Longo Prazo); próximos passos materiais podem gerar tarefas. Tasks são longitudinais, `overdue` é derivado em runtime e eKyte é sistema externo opcional — o ledger local permanece a referência operacional. Não inventar valores ausentes; mídia planejada e realizada devem manter rastreabilidade por evidência.
+
+## 28. Regra final
 
 O objetivo deste sistema não é produzir mais trabalho.
 

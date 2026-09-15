@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-monitoring.schema.json",
+  "title": "V4 BU Autopilot Quarter Monitoring",
+  "description": "Acompanhamento do realizado/observado de um Quarter. Não reescreve o quarter-plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "client_id", "quarter_id", "updated_at", "objective_progress", "media_monitoring", "flags"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "client_id": {"type": "string", "minLength": 1},
+    "quarter_id": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "objective_progress": {"$ref": "#/$defs/objective_progress"},
+    "media_monitoring": {"type": "array", "items": {"$ref": "#/$defs/media_record"}},
+    "flags": {"type": "array", "items": {"$ref": "#/$defs/flag"}}
+  },
+  "$defs": {
+    "objective_progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "current_value", "target_value", "progress_percent", "observed_at", "evidence_ids"],
+      "properties": {
+        "status": {"enum": ["unknown", "on_track", "at_risk", "off_track", "achieved"]},
+        "current_value": {"type": ["number", "null"]},
+        "target_value": {"type": ["number", "null"]},
+        "progress_percent": {"type": ["number", "null"], "minimum": 0},
+        "observed_at": {"type": ["string", "null"], "format": "date-time"},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "media_record": {
+      "description": "planned_budget vem do quarter-plan. attainment_percent = actual_spend / planned_budget * 100; variance_value = actual_spend - planned_budget. pacing_percent compara o ritmo observado ao esperado quando calculável; nenhum threshold é inferido por este schema.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["month", "channel", "actual_spend", "observed_at", "evidence_ids"],
+      "properties": {
+        "month": {"type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"},
+        "channel": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "actual_spend": {"type": "number", "minimum": 0},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "planned_budget": {"type": ["number", "null"], "minimum": 0},
+        "attainment_percent": {"type": ["number", "null"], "minimum": 0},
+        "variance_value": {"type": ["number", "null"]},
+        "pacing_percent": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "flag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flag_id", "type", "statement", "status", "first_seen_at", "last_validated_at", "resolved_at", "evidence_ids"],
+      "properties": {
+        "flag_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "type": {"enum": ["premise", "risk", "media_budget", "objective", "commercial", "operation", "other"]},
+        "statement": {"type": "string", "minLength": 1},
+        "status": {"enum": ["open", "resolved"]},
+        "first_seen_at": {"type": "string", "format": "date-time"},
+        "last_validated_at": {"type": "string", "format": "date-time"},
+        "resolved_at": {"type": ["string", "null"], "format": "date-time"},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "resolved"}}, "required": ["status"]}, "then": {"properties": {"resolved_at": {"type": "string", "format": "date-time"}}, "required": ["resolved_at"]}},
+        {"if": {"properties": {"status": {"const": "open"}}, "required": ["status"]}, "then": {"properties": {"resolved_at": {"type": "null"}}}}
+      ]
+    }
+  }
+}
