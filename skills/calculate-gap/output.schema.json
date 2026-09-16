@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/calculate-gap/output.schema.json",
+  "title": "Calculate Gap Output",
+  "description": "INTELLIGENCE, read-only. Measures the difference between observed state and objective/plan ONLY when mathematically possible. Never invents current=0 when current is unknown — see the calculable/current/delta invariant below.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "gap_set_id", "client_id", "quarter_id", "generated_at", "status", "context_pack_ref", "diagnosis_ref", "gaps", "missing_data", "warnings"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "calculate-gap"},
+    "gap_set_id": {"type": "string", "minLength": 1},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"oneOf": [{"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"}, {"type": "null"}]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+    "context_pack_ref": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"},
+    "diagnosis_ref": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"},
+    "gaps": {"type": "array", "items": {"$ref": "#/$defs/gap"}},
+    "missing_data": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/context-pack.schema.json#/$defs/missingDataItem"}},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "gap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["gap_id", "type", "target", "current", "delta", "unit", "calculable", "evidence_ids", "interpretation", "limitations"],
+      "properties": {
+        "gap_id": {"type": "string", "minLength": 1},
+        "type": {"enum": ["objective_gap", "media_gap", "execution_gap", "measurement_gap", "data_gap", "dependency_gap"]},
+        "target": {"type": ["number", "string", "null"]},
+        "current": {"type": ["number", "string", "null"]},
+        "delta": {"type": ["number", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "calculable": {"type": "boolean"},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "interpretation": {"type": "string", "minLength": 1, "description": "Arithmetic fact only (e.g. 'actual is 24.294% of planned'). Never a pacing/quality judgment — that belongs to diagnose-client, not here."},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"calculable": {"const": false}}, "required": ["calculable"]},
+          "then": {"properties": {"current": {"type": "null"}, "delta": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"calculable": {"const": true}}, "required": ["calculable"]},
+          "then": {"required": ["target", "current", "delta"], "properties": {"target": {"type": ["number", "string"]}, "current": {"type": ["number", "string"]}, "delta": {"type": "number"}}}
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/diagnose-client/output.schema.json",
+  "title": "Diagnose Client Output",
+  "description": "INTELLIGENCE, read-only. Distinguishes OBSERVED_ISSUE / OBSERVATION / HYPOTHESIS / MISSING_DATA / RISK explicitly (SKILL.md). Never a numeric health score.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "diagnosis_id", "client_id", "quarter_id", "generated_at", "status", "context_pack_ref", "executive_summary", "findings", "missing_data", "warnings"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "diagnose-client"},
+    "diagnosis_id": {"type": "string", "minLength": 1},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"oneOf": [{"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"}, {"type": "null"}]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+    "context_pack_ref": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"},
+    "executive_summary": {"type": "string", "minLength": 1},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "missing_data": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/context-pack.schema.json#/$defs/missingDataItem"}},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["finding_id", "domain", "finding_class", "statement", "semantic_type", "impact", "impact_rationale", "confidence", "evidence_ids", "supporting_observations", "opposing_evidence", "limitations", "hypothesis_when_applicable"],
+      "properties": {
+        "finding_id": {"type": "string", "minLength": 1},
+        "domain": {"enum": ["objective", "acquisition", "media", "creative", "funnel", "commercial", "client_dependency", "operation", "measurement", "retention", "other"]},
+        "finding_class": {
+          "description": "OBSERVED_ISSUE: a problem directly evidenced. OBSERVATION: a neutral evidenced fact, not necessarily a problem. HYPOTHESIS: a plausible-but-unproven explanation — never presented as fact. MISSING_DATA: absence of data blocks or limits conclusions — absence is not itself a problem to fix. RISK: a potential negative outcome, evidenced or structurally implied by the measurement/operational setup.",
+          "enum": ["observed_issue", "observation", "hypothesis", "missing_data", "risk"]
+        },
+        "statement": {"type": "string", "minLength": 1},
+        "semantic_type": {"enum": ["fact", "metric", "decision", "hypothesis", "request", "commitment", "pending", "risk", "idea", "dependency"]},
+        "impact": {
+          "description": "Qualitative, explained by impact_rationale — never a numeric/composite score.",
+          "enum": ["unknown", "low", "medium", "high"]
+        },
+        "impact_rationale": {"type": "string", "minLength": 1},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "supporting_observations": {"type": "array", "items": {"type": "string"}},
+        "opposing_evidence": {"type": "array", "items": {"type": "string"}, "description": "evidence_ids (from context_pack.evidence_index) that complicate or partially contradict this finding — never hidden."},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "hypothesis_when_applicable": {
+          "type": ["object", "null"], "additionalProperties": false,
+          "properties": {
+            "statement": {"type": "string", "minLength": 1},
+            "would_be_confirmed_by": {"type": "string", "minLength": 1}
+          },
+          "required": ["statement", "would_be_confirmed_by"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"finding_class": {"enum": ["observed_issue", "observation", "risk"]}}, "required": ["finding_class"]},
+          "then": {"properties": {"evidence_ids": {"minItems": 1}}}
+        },
+        {
+          "if": {"properties": {"finding_class": {"const": "hypothesis"}}, "required": ["finding_class"]},
+          "then": {"properties": {"hypothesis_when_applicable": {"type": "object"}}}
+        },
+        {
+          "if": {"properties": {"finding_class": {"not": {"const": "hypothesis"}}}, "required": ["finding_class"]},
+          "then": {"properties": {"hypothesis_when_applicable": {"type": "null"}}}
+        }
+      ]
+    }
+  }
+}
