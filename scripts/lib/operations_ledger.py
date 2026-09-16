@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 
 class OperationsLedgerError(ValueError):
@@ -67,6 +69,33 @@ def add_operation(ledger: dict, operation: dict, now: str) -> tuple[dict, str]:
     result["operations"] = [*ledger.get("operations", []), operation]
     result["updated_at"] = now
     return result, "created"
+
+
+def apply_add_operation(path: Path, operation: dict, now: str) -> str:
+    """Atomically persist an explicit add operation, or return no_change on replay.
+
+    This is intentionally only a local-ledger writer. It cannot create a task
+    or invoke an external transport.
+    """
+    if path.is_file():
+        ledger = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        ledger = {
+            "schema_version": "1.0.0", "client_id": operation["client_id"],
+            "updated_at": now, "operations": [],
+        }
+    updated, result = add_operation(ledger, operation, now)
+    if result == "no_change":
+        return result
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
+    with NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as temp:
+        temp.write(payload)
+        temp.flush()
+        os.fsync(temp.fileno())
+        temp_name = temp.name
+    os.replace(temp_name, path)
+    return result
 
 
 def validate_semantics(ledger: dict, tasks: dict | None = None, receipts_dir: Path | None = None) -> list[str]:

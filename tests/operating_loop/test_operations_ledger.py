@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
 from scripts.lib.operations_ledger import (
-    OperationsLedgerError, add_operation, approval_is_stale, canonical_hash,
+    OperationsLedgerError, add_operation, apply_add_operation, approval_is_stale, canonical_hash,
     rebuild_operator_inbox, transition, validate_semantics,
 )
 
@@ -92,6 +92,15 @@ def test_same_operation_apply_is_idempotent_and_duplicate_divergence_is_blocked(
     divergent = copy.deepcopy(item); divergent["statement"] = "changed"
     with pytest.raises(OperationsLedgerError, match="divergent"):
         add_operation(state, divergent, "2026-01-03T00:00:00Z")
+
+
+def test_local_apply_writes_once_and_replay_does_not_rewrite(tmp_path):
+    path = tmp_path / "clients/acme-demo/operations.json"
+    item = operation("scheduled")
+    assert apply_add_operation(path, item, "2026-01-02T00:00:00Z") == "created"
+    before = path.read_bytes()
+    assert apply_add_operation(path, item, "2026-01-03T00:00:00Z") == "no_change"
+    assert path.read_bytes() == before
 
 
 def test_duplicate_ids_and_missing_materialized_task_are_reported():
