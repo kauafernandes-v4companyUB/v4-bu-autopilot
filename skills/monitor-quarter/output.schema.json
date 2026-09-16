@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "skill", "client_id", "quarter_id", "generated_at", "mode", "status", "source_files", "operations", "mutation_plan", "preview_hash", "before", "after", "applied_changes", "conflicts", "missing_data", "warnings", "validation"],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"enum": ["1.0.0", "1.1.0"]},
     "skill": {"const": "monitor-quarter"},
     "client_id": {"$ref": "#/$defs/clientId"},
     "quarter_id": {"oneOf": [{"$ref": "#/$defs/quarterId"}, {"type": "null"}]},
@@ -24,8 +24,30 @@
     "conflicts": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
     "missing_data": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
     "warnings": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
-    "validation": {"$ref": "#/$defs/validation"}
+    "validation": {"$ref": "#/$defs/validation"},
+    "evidence_overlay_report": {
+      "description": "Preview-only (SKILL.md secao 5.1). Eco/validacao de cada item recebido em evidence_overlay, aceito ou nao, com motivo. Vazio quando nenhum overlay foi fornecido ou em mode=apply (apply nunca consome overlay).",
+      "type": "array",
+      "items": {"$ref": "#/$defs/evidenceOverlayItemReport"}
+    },
+    "evidence_resolution": {
+      "description": "Preview-only (SKILL.md secao 5.1). Para cada evidence_id referenciado por alguma operacao, de onde ele foi resolvido nesta execucao. Vazio em mode=apply (resolucao em apply e sempre canonical/unresolved implicitamente, sem overlay).",
+      "type": "array",
+      "items": {"$ref": "#/$defs/evidenceResolutionEntry"}
+    }
   },
+  "allOf": [
+    {
+      "description": "Outputs que usam evidence_overlay (SKILL.md secao 5.1) devem declarar schema_version 1.1.0; 1.0.0 e aceito somente para outputs legados sem overlay.",
+      "if": {
+        "anyOf": [
+          {"required": ["evidence_overlay_report"], "properties": {"evidence_overlay_report": {"minItems": 1}}},
+          {"required": ["evidence_resolution"], "properties": {"evidence_resolution": {"minItems": 1}}}
+        ]
+      },
+      "then": {"properties": {"schema_version": {"const": "1.1.0"}}}
+    }
+  ],
   "$defs": {
     "clientId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "quarterId": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
@@ -164,6 +186,29 @@
         "base_state_current": {"type": ["boolean", "null"]},
         "atomic": {"type": "boolean"},
         "errors": {"type": "array", "items": {"$ref": "#/$defs/notice"}}
+      }
+    },
+    "evidenceOverlayItemReport": {
+      "description": "SKILL.md secao 5.1. Resultado da validacao de um item de evidence_overlay, nunca uma escrita no ledger canonico.",
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_id", "universal_schema_valid", "canonical_shape_valid", "conflicts_with_canonical", "accepted", "reason"],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1},
+        "universal_schema_valid": {"description": "Validou integralmente contra schemas/evidence.schema.json.", "type": "boolean"},
+        "canonical_shape_valid": {"description": "A projecao sintetica do item (SKILL.md 5.1, passo 3) validou contra schemas/client-evidence.schema.json. Nunca implica que o item foi escrito no ledger.", "type": "boolean"},
+        "conflicts_with_canonical": {"description": "true quando o mesmo evidence_id existe em clients/<client_id>/evidence.json com conteudo semanticamente diferente.", "type": "boolean"},
+        "accepted": {"description": "true somente quando todas as verificacoes da secao 5.1 passaram para este item.", "type": "boolean"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "evidenceResolutionEntry": {
+      "description": "SKILL.md secao 5.1. Rastreia de onde cada evidence_id usado por uma operacao foi resolvido nesta execucao de preview.",
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_id", "operation_id", "resolved_from"],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1},
+        "operation_id": {"$ref": "#/$defs/operationId"},
+        "resolved_from": {"enum": ["canonical", "overlay", "unresolved"]}
       }
     }
   }
