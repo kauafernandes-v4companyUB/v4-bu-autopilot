@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/skills-registry.schema.json",
+  "title": "V4 BU Autopilot Skills Registry",
+  "description": "Authoritative capability inventory. A skill mentioned conceptually in CLAUDE.md or a workflow doc does NOT mean it is implemented — implemented=true here means skills/<id>/SKILL.md and skills/<id>/output.schema.json both exist and are wired up. Claude must consult this registry, not assume from prose, before claiming a skill can be run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "skills"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "skills": {"type": "array", "items": {"$ref": "#/$defs/skill_entry"}}
+  },
+  "$defs": {
+    "skill_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "version", "status", "implemented", "canonical_side_effects", "skill_path", "output_schema_path", "dependencies"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+        "category": {"enum": ["SOURCE", "INTELLIGENCE", "ACTION"]},
+        "version": {"type": ["string", "null"], "description": "null only when implemented=false (no version to declare yet)."},
+        "status": {"enum": ["implemented", "planned"]},
+        "implemented": {"type": "boolean"},
+        "canonical_side_effects": {"type": ["string", "null"]},
+        "skill_path": {"type": ["string", "null"], "description": "Path to SKILL.md, relative to repo root. null when implemented=false."},
+        "output_schema_path": {"type": ["string", "null"], "description": "Path to output.schema.json, relative to repo root. null when implemented=false."},
+        "summary": {"type": "string"},
+        "dependencies": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"implemented": {"const": true}}, "required": ["implemented"]},
+          "then": {"required": ["version", "skill_path", "output_schema_path"], "properties": {"status": {"const": "implemented"}}}
+        },
+        {
+          "if": {"properties": {"implemented": {"const": false}}, "required": ["implemented"]},
+          "then": {"properties": {"status": {"const": "planned"}, "skill_path": {"type": "null"}, "output_schema_path": {"type": "null"}}}
+        }
+      ]
+    }
+  }
+}

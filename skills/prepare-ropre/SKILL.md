@@ -9,6 +9,7 @@ description: Assemble a read-only, evidence-traceable weekly ROPRE draft for one
 
 - **Class:** INTELLIGENCE
 - **Canonical Side Effects:** NONE
+- **Version:** 1.0.0
 - **Output contract:** `skills/prepare-ropre/output.schema.json`
 - **Transient artifact (optional):** `context/generated/<client_id>/ropre-draft.json`
 

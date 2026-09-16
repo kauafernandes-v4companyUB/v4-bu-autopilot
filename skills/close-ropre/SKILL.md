@@ -9,6 +9,7 @@ description: Safely preview and apply the canonical draft-to-ready-to-completed 
 
 - **Class:** ACTION
 - **Canonical Side Effects:** `ROPRE_CHECK_IN`
+- **Version:** 1.0.0
 - **Output contract:** `skills/close-ropre/output.schema.json`
 - **Only canonical targets:** `quarters/<quarter_id>/check-ins/current.json` and `history/<check_in_id>.json`
 

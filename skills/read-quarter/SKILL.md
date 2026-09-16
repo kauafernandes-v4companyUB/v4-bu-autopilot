@@ -9,6 +9,7 @@ description: Resolve, validate, and load a client's tactical Quarter plan and op
 
 - **Class:** SOURCE
 - **Canonical side effects:** NONE
+- **Version:** 1.0.0
 - **Inputs:** required `client_id`; optional `quarter_id` (`YYYY-QN`)
 - **Output contract:** `skills/read-quarter/output.schema.json`
 
