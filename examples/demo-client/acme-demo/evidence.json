@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "updated_at": "2026-01-15T12:00:00Z",
+  "evidences": [
+    {
+      "evidence_id": "acme-demo-ev-001",
+      "client_id": "acme-demo",
+      "type": "metric",
+      "statement": "[dado sintético] Meta Ads: investimento de R$ 400,00 observado no BI (dashboard fictício) para o período de 01/01/2026 a 15/01/2026, month-to-date até 15/01/2026.",
+      "value": 400.0,
+      "unit": "brl",
+      "confidence": "medium",
+      "observed_at": "2026-01-15T12:00:00Z",
+      "source_date": null,
+      "period": {
+        "from": "2026-01-01",
+        "to": "2026-01-15"
+      },
+      "source_id": "acme-demo-bi-export",
+      "source_kind": "bi_dashboard_export",
+      "source_skill": "read-bi",
+      "source_reference": {
+        "label": "BI Acme Demo — Investido Meta Ads (fictício)",
+        "source_location": "private/clients/acme-demo/bi/acme-demo-dashboard-2026-01.pdf",
+        "page": 1,
+        "row": null,
+        "column": null,
+        "section": null,
+        "uri": null
+      },
+      "external_provenance": {
+        "source_observation_id": "biobs-acme-demo-0001",
+        "source_file_sha256": "f524bb5df5154bbba56cbcae195f9712fd84ee0e492ed04565dd7564dc9488cc",
+        "source_output": "context/generated/acme-demo/bi/read-bi.json"
+      },
+      "tags": [
+        "spend",
+        "meta_ads",
+        "2026-01",
+        "synthetic_demo"
+      ],
+      "added_at": "2026-01-15T12:05:00Z",
+      "added_by": "promote-client-memory"
+    },
+    {
+      "evidence_id": "acme-demo-ev-002",
+      "client_id": "acme-demo",
+      "type": "fact",
+      "statement": "[dado sintético] Cliente relatou, via WhatsApp, boa resposta inicial ao criativo de vídeo da campanha de lançamento.",
+      "value": null,
+      "unit": null,
+      "confidence": "medium",
+      "observed_at": "2026-01-16T09:30:00Z",
+      "source_date": "2026-01-16",
+      "period": null,
+      "source_id": "acme-demo-whatsapp",
+      "source_kind": "client_whatsapp_export",
+      "source_skill": "read-whatsapp",
+      "source_reference": {
+        "label": "WhatsApp Acme Demo (fictício) — feedback sobre criativo de vídeo",
+        "source_location": "private/clients/acme-demo/whatsapp/export-fake.txt",
+        "page": null,
+        "row": null,
+        "column": null,
+        "section": "source_sequence=42",
+        "uri": null
+      },
+      "external_provenance": null,
+      "tags": [
+        "feedback",
+        "criativos",
+        "synthetic_demo"
+      ],
+      "added_at": "2026-01-16T09:35:00Z",
+      "added_by": "promote-client-memory"
+    }
+  ]
+}

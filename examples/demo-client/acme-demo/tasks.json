@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "updated_at": "2026-01-16T09:50:00Z",
+  "tasks": [
+    {
+      "task_id": "acme-demo-task-001",
+      "client_id": "acme-demo",
+      "quarter_id": "2026-Q1",
+      "title": "[dado sintético] Configurar pixel de conversão no site",
+      "description": "Configurar o pixel de conversão do Meta Ads no site fictício da Acme Demo antes de escalar o investimento.",
+      "raised_at": "2026-01-16",
+      "due_at": "2026-01-23",
+      "status": "pending",
+      "completed_at": null,
+      "ekyte_url": null,
+      "evidence_ids": ["acme-demo-ev-002"],
+      "origin": {
+        "type": "whatsapp",
+        "evidence_ids": ["acme-demo-ev-002"]
+      }
+    },
+    {
+      "task_id": "acme-demo-task-002",
+      "client_id": "acme-demo",
+      "quarter_id": "2026-Q1",
+      "title": "[dado sintético] Publicar criativo de vídeo de lançamento",
+      "description": "Publicar o criativo de vídeo curto de lançamento da campanha de janeiro.",
+      "raised_at": "2026-01-05",
+      "due_at": "2026-01-10",
+      "status": "completed",
+      "completed_at": "2026-01-09",
+      "ekyte_url": null,
+      "evidence_ids": ["acme-demo-ev-001"],
+      "origin": {
+        "type": "manual",
+        "evidence_ids": ["acme-demo-ev-001"]
+      }
+    },
+    {
+      "task_id": "acme-demo-task-003",
+      "client_id": "acme-demo",
+      "quarter_id": "2026-Q1",
+      "title": "[dado sintético] Testar canal fictício descontinuado",
+      "description": "Teste de canal alternativo (fictício) que foi descontinuado antes do início da campanha.",
+      "raised_at": "2026-01-03",
+      "due_at": "2026-01-08",
+      "status": "cancelled",
+      "completed_at": null,
+      "ekyte_url": null,
+      "evidence_ids": [],
+      "origin": {
+        "type": "manual",
+        "evidence_ids": []
+      }
+    }
+  ]
+}

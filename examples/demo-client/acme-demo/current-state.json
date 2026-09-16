@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "updated_at": "2026-01-16T09:40:00Z",
+  "status": "active",
+  "health": "unknown",
+  "goals": {},
+  "metrics": {},
+  "flags": [],
+  "pending": [
+    {
+      "statement": "[dado sintético] Configurar pixel de conversão no site fictício da Acme Demo antes de escalar mídia.",
+      "semantic_type": "request",
+      "status": "open",
+      "confidence": "high",
+      "source_date": "2026-01-16",
+      "evidence_ids": ["acme-demo-ev-002"],
+      "deadline": null,
+      "provenance": {
+        "source_id": "acme-demo-whatsapp",
+        "source_kind": "client_whatsapp_export",
+        "source_reference": {
+          "label": "WhatsApp Acme Demo (fictício) — pedido de configuração de pixel",
+          "source_location": "private/clients/acme-demo/whatsapp/export-fake.txt",
+          "section": "source_sequence=43"
+        }
+      }
+    }
+  ],
+  "dependencies": []
+}

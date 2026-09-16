@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "check_in_id": "demo-2026-01-20",
+  "scheduled_for": "2026-01-20T14:00:00Z",
+  "status": "draft",
+  "results": [
+    {
+      "statement": "[dado sintético] Meta Ads investiu R$ 400,00 até 15/01, 40% do planejado do mês.",
+      "evidence_ids": ["acme-demo-ev-001"]
+    }
+  ],
+  "objectives": [
+    {
+      "smart_objective_reference": "quarter_plan.smart_objective",
+      "statement": "[dado sintético] 8 vendas atribuídas até 2026-03-31 — sem resultado de vendas observado ainda.",
+      "evidence_ids": []
+    }
+  ],
+  "premises": [
+    {
+      "flag_id": "premise-demo-pixel",
+      "statement": "[dado sintético] Pixel de conversão ainda não configurado."
+    }
+  ],
+  "risks": [
+    {
+      "flag_id": "risk-demo-attribution",
+      "statement": "[dado sintético] Sem pixel, atribuição de vendas ao Meta Ads permanece incerta."
+    }
+  ],
+  "next_steps": [
+    {
+      "statement": "[dado sintético] Configurar pixel de conversão no site fictício.",
+      "task_id": "acme-demo-task-001",
+      "evidence_ids": ["acme-demo-ev-002"]
+    }
+  ],
+  "long_term_view": "[dado sintético] Se o canal Meta Ads validar CAC aceitável no Q1 demo, escalar budget no Q2 demo.",
+  "task_ids": ["acme-demo-task-001"],
+  "evidence_ids": ["acme-demo-ev-001", "acme-demo-ev-002"],
+  "generated_at": "2026-01-16T09:55:00Z",
+  "completed_at": null
+}

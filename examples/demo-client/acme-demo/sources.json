@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "sources": [
+    {
+      "source_id": "acme-demo-bi-export",
+      "type": "bi_dashboard_export",
+      "scope": "client",
+      "location": "private/clients/acme-demo/bi/acme-demo-dashboard-2026-01.pdf",
+      "contains_multiple_clients": false,
+      "client_selector": "Acme Demo",
+      "canonical": false,
+      "description": "Dashboard de BI fictício (dado sintético de demonstração) usado para popular o exemplo de investimento em Meta Ads."
+    },
+    {
+      "source_id": "acme-demo-whatsapp",
+      "type": "client_whatsapp_export",
+      "scope": "client",
+      "location": "private/clients/acme-demo/whatsapp/export-fake.txt",
+      "contains_multiple_clients": false,
+      "client_selector": "Acme Demo",
+      "canonical": false,
+      "description": "Exportação de WhatsApp fictícia (dado sintético) usada para popular o exemplo de feedback do cliente."
+    }
+  ]
+}

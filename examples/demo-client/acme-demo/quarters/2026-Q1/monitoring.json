@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "updated_at": "2026-01-16T09:45:00Z",
+  "objective_progress": {
+    "status": "unknown",
+    "current_value": null,
+    "target_value": 8,
+    "progress_percent": null,
+    "observed_at": null,
+    "evidence_ids": []
+  },
+  "media_monitoring": [
+    {
+      "month": "2026-01",
+      "channel": "meta_ads",
+      "actual_spend": 400.0,
+      "observed_at": "2026-01-15T12:00:00Z",
+      "evidence_ids": [
+        "acme-demo-ev-001"
+      ],
+      "planned_budget": 1000.0,
+      "attainment_percent": 40.0,
+      "variance_value": -600.0,
+      "pacing_percent": null
+    }
+  ],
+  "flags": [
+    {
+      "flag_id": "risk-demo-attribution",
+      "type": "risk",
+      "statement": "[dado sintético] Sem pixel de conversão configurado, atribuição de vendas ao Meta Ads permanece incerta.",
+      "status": "open",
+      "first_seen_at": "2026-01-16T09:30:00Z",
+      "last_validated_at": "2026-01-16T09:45:00Z",
+      "resolved_at": null,
+      "evidence_ids": [
+        "acme-demo-ev-002"
+      ]
+    }
+  ]
+}

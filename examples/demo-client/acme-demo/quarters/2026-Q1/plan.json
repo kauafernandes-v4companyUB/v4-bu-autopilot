@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "period": {
+    "start": "2026-01-01",
+    "end": "2026-03-31"
+  },
+  "status": "active",
+  "planned_at": "2026-01-05T10:00:00Z",
+  "smart_objective": {
+    "statement": "[dado sintético] Gerar 8 vendas atribuídas às ações digitais da Acme Demo até 2026-03-31.",
+    "metric": "vendas atribuídas às ações digitais",
+    "baseline": null,
+    "target": {
+      "value": 8,
+      "unit": "count"
+    },
+    "deadline": "2026-03-31"
+  },
+  "planning": {
+    "strategic_priorities": [
+      "[dado sintético] Validar canal Meta Ads como fonte de aquisição.",
+      "[dado sintético] Testar criativos de vídeo curto no funil de topo."
+    ],
+    "assumptions": [
+      "[dado sintético] Pixel de conversão precisa estar configurado antes de escalar budget."
+    ],
+    "evidence_ids": [
+      "acme-demo-ev-001",
+      "acme-demo-ev-002"
+    ]
+  },
+  "media_plan": {
+    "currency": "BRL",
+    "monthly": [
+      {
+        "month": "2026-01",
+        "channel": "meta_ads",
+        "planned_budget": 1000.0
+      },
+      {
+        "month": "2026-01",
+        "channel": "google_ads",
+        "planned_budget": 0.0
+      }
+    ]
+  }
+}

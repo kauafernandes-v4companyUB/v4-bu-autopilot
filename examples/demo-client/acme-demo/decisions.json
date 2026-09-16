@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "decisions": [
+    {
+      "decision_id": "acme-demo-dec-001",
+      "statement": "[dado sintético] Concentrar o budget de mídia paga do Q1 demo em Meta Ads, sem Google Ads neste ciclo.",
+      "decided_at": "2026-01-05",
+      "status": "active",
+      "evidence_ids": ["acme-demo-ev-001"]
+    }
+  ]
+}

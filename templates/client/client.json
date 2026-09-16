@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "__CLIENT_ID__",
+  "display_name": "__DISPLAY_NAME__",
+  "status": "unknown",
+  "health": "unknown",
+  "pilot_client": false,
+  "memory": {
+    "sources": "sources.json",
+    "strategy": "strategy.md",
+    "state": "current-state.json",
+    "decisions": "decisions.json",
+    "history": "history/",
+    "evidence": "evidence.json"
+  }
+}

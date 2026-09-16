@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "updated_at": "2026-01-16T09:40:00Z",
+  "categories": {
+    "business_identity": [
+      {
+        "knowledge_id": "acme-demo-kn-001",
+        "field": "segmento",
+        "knowledge_type": "fact",
+        "statement": "[dado sintético] Acme Demo Ltda atua no segmento de e-commerce de utilidades domésticas.",
+        "value": "e-commerce de utilidades domésticas",
+        "confidence": "high",
+        "status": "active",
+        "superseded_by": null,
+        "observed_at": "2026-01-16T09:30:00Z",
+        "valid_since": "2026-01-16",
+        "provenance": {
+          "source_skill": "read-whatsapp",
+          "source_output": "context/generated/acme-demo/whatsapp.json",
+          "evidence_ids": ["acme-demo-ev-002"],
+          "promoted_at": "2026-01-16T09:40:00Z",
+          "promoted_by": "promote-client-memory"
+        },
+        "tags": ["synthetic_demo"]
+      }
+    ],
+    "operation_context": [
+      {
+        "knowledge_id": "acme-demo-kn-002",
+        "field": "canal_midia_paga",
+        "knowledge_type": "fact",
+        "statement": "[dado sintético] Acme Demo veicula anúncios pagos no canal Meta Ads.",
+        "value": "meta_ads",
+        "confidence": "medium",
+        "status": "active",
+        "superseded_by": null,
+        "observed_at": "2026-01-15T12:00:00Z",
+        "valid_since": "2026-01-15",
+        "provenance": {
+          "source_skill": "read-bi",
+          "source_output": "context/generated/acme-demo/bi/read-bi.json",
+          "evidence_ids": ["acme-demo-ev-001"],
+          "promoted_at": "2026-01-16T09:40:00Z",
+          "promoted_by": "promote-client-memory"
+        },
+        "tags": ["synthetic_demo", "meta_ads"]
+      }
+    ]
+  }
+}

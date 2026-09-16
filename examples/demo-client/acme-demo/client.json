@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "display_name": "Acme Demo Ltda",
+  "status": "active",
+  "health": "unknown",
+  "pilot_client": false,
+  "memory": {
+    "sources": "sources.json",
+    "strategy": "strategy.md",
+    "state": "current-state.json",
+    "decisions": "decisions.json",
+    "history": "history/",
+    "evidence": "evidence.json"
+  }
+}

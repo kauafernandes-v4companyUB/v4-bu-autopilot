@@ -17,6 +17,18 @@ private/
 # Contexto temporário gerado pelas skills
 context/generated/
 
+# Memória canônica real de clientes NUNCA vive no engine público.
+# Ela vive em $V4_BU_WORKSPACE_ROOT (repo privado separado).
+# Se clients/ aparecer aqui de novo (ex.: alguém rodando skills sem
+# configurar o workspace), ele fica ignorado — nunca commitado.
+# Ver docs/security-model.md e scripts/lib/workspace.py.
+clients/
+
+# Outputs operacionais não curados (equivalente local a outputs/ do
+# workspace privado, quando skills rodam sem workspace configurado).
+/outputs/*
+!/outputs/.gitkeep
+
 # Sistema / editor
 .DS_Store
 Thumbs.db
@@ -31,3 +43,7 @@ Thumbs.db
 *.log
 __pycache__/
 *.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
