@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/action-receipt.schema.json",
+  "title": "V4 BU Autopilot Action Receipt",
+  "description": "Auditable record that a real ACTION executed (mission: 'toda ACTION real deve gerar receipt'). A receipt documents what an apply actually did — it never substitutes canonical state (clients/**, tasks.json, monitoring.json remain the source of truth for current state); this is a transient, workspace-local audit trail under context/generated/<client_id>/operating-loop/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_id", "action", "client_id", "executed_at", "input_hash", "approval_id", "status", "effects", "warnings", "errors"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "action": {"type": "string", "minLength": 1, "description": "skill_id that executed, e.g. 'manage-task-ledger', 'publish-ekyte'."},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "executed_at": {"description": "Execution timestamp, real system clock. CLAUDE.md section 26.", "type": "string", "format": "date-time"},
+    "input_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of the canonical JSON of the material input consumed (e.g. the approved operations list)."},
+    "approval_id": {"type": ["string", "null"], "description": "null only for an action with no approval gate (mission section 4/6) — every EXTERNAL or canonical-mutating action must carry one."},
+    "status": {"enum": ["success", "partial", "no_change", "failed"]},
+    "effects": {"type": "array", "items": {"$ref": "#/$defs/effect"}},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "errors": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "effect": {
+      "type": "object", "additionalProperties": false,
+      "required": ["target", "operation", "before_hash", "after_hash", "external_id", "external_url"],
+      "properties": {
+        "target": {"type": "string", "minLength": 1, "description": "e.g. 'clients/<client_id>/tasks.json', 'ekyte:task'."},
+        "operation": {"type": "string", "minLength": 1},
+        "before_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "after_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "external_id": {"type": ["string", "null"]},
+        "external_url": {"type": ["string", "null"], "format": "uri"}
+      }
+    }
+  }
+}

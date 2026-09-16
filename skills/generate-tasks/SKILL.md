@@ -8,7 +8,7 @@ description: Turn approved, audit-passed replanning actions into task proposals 
 ## 1. Identity
 
 - **Class:** ACTION
-- **Version:** 1.0.0
+- **Version:** 1.1.0
 - **Canonical Side Effects:** NONE in this MVP — `mode` is always `"preview"`; this skill never calls `manage-task-ledger`'s `apply` and never writes `tasks.json` (`operation/replanning-rules.md`, `operation/task-rules.md`).
 - **Output contract:** `skills/generate-tasks/output.schema.json`
 - **Policy:** `operation/replanning-rules.md` section "Task readiness", `operation/task-rules.md`.
@@ -60,6 +60,8 @@ not_task          -> not_task
 ## 8. `manage_task_operation`
 
 Quando presente, tem exatamente a forma de um `create_task` de `manage-task-ledger` (`skills/manage-task-ledger/SKILL.md` seção 6) **sem** `client_id` — `manage-task-ledger` sempre preenche `client_id` a partir do próprio contexto de execução, nunca de uma proposta upstream (`operation/task-rules.md`). Nunca inclui `responsible`/`owner`/`priority`/qualquer campo fora de `schemas/task-ledger.schema.json`.
+
+`task_id` **nunca** é escolhido livremente nem baseado em timestamp — é sempre `scripts/lib/task_identity.py::compute_task_id(client_id, quarter_id, action_id)`, determinístico a partir de `(client_id, quarter_id, action_proposal.action_id)`. Isso é o que impede que replanejar de novo duplique a mesma tarefa: a mesma action, no mesmo Quarter, do mesmo cliente, sempre produz o mesmo `task_id`, e `manage-task-ledger`'s própria proteção `duplicate_task_id` faz a deduplicação real na hora do `apply` (`scripts/lib/task_bridge.py` também valida essa identidade antes de repassar a operação).
 
 ## 9. Procedimento
 

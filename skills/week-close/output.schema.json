@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/week-close/output.schema.json",
+  "title": "Week Close Output",
+  "description": "INTELLIGENCE, read-only. End-of-week operational snapshot. carry_forward_candidates is a list for the operator to review — this skill never creates a carried-over task automatically.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "skill", "client_id", "quarter_id", "generated_at", "status", "week_of",
+    "promised", "executed", "not_executed", "blockers", "bi_movement", "smart_evidence",
+    "open_flags", "carry_forward_candidates", "ropre_preparation_inputs", "missing_data", "warnings"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "week-close"},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"oneOf": [{"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"}, {"type": "null"}]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+    "week_of": {
+      "type": "object", "additionalProperties": false, "required": ["from", "to"],
+      "properties": {"from": {"type": "string", "format": "date"}, "to": {"type": "string", "format": "date"}}
+    },
+    "promised": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/skills/midweek/output.schema.json#/$defs/taskRef"}},
+    "executed": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/skills/midweek/output.schema.json#/$defs/taskRef"}},
+    "not_executed": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/skills/midweek/output.schema.json#/$defs/taskRef"}},
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "bi_movement": {"type": ["object", "null"], "description": "Media monitoring snapshot for the week, when available — never fabricated when read-bi wasn't re-run."},
+    "smart_evidence": {"type": ["object", "null"], "description": "objective_progress as currently known — null/unknown fields preserved verbatim, never inferred."},
+    "open_flags": {"type": "array", "items": {"type": "object"}},
+    "carry_forward_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["task_id", "title", "reason"],
+        "properties": {"task_id": {"type": "string"}, "title": {"type": "string"}, "reason": {"type": "string", "minLength": 1}}
+      },
+      "description": "Candidates only — never auto-applied as a new task or a due_at change."
+    },
+    "ropre_preparation_inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["results_candidates", "next_steps_candidates"],
+      "properties": {
+        "results_candidates": {"type": "array", "items": {"type": "string"}},
+        "next_steps_candidates": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "missing_data": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/context-pack.schema.json#/$defs/missingDataItem"}},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

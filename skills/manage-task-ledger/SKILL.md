@@ -9,7 +9,7 @@ description: Safely preview and atomically apply explicit, evidence-backed chang
 
 - Class: ACTION
 - Canonical Side Effects: TASK_LEDGER
-- Version: 1.0.0
+- Version: 1.1.0
 - Canonical target: clients/<client_id>/tasks.json
 - Output contract: skills/manage-task-ledger/output.schema.json
 
@@ -160,9 +160,19 @@ unchanged.
 ### link_ekyte
 
 Require task_id and a URI valid under the canonical schema. It may target
-pending, completed or cancelled and changes only ekyte_url. The same URL is
-no_change. It does not require eKyte to operate and performs no eKyte API call,
-publication, remote update or remote-status interpretation.
+pending, completed or cancelled and changes only ekyte_url (and, when the
+optional `external` block is supplied, also `external.system` (always
+"ekyte"), `external.external_id`, `external.url` (must equal `ekyte_url`
+when both are given), `external.published_at` and `external.last_verified_at`
+— all additive, backward compatible: a caller that only passes a URL keeps
+working exactly as before, `external` stays null). The same URL (and same
+`external`, when supplied) is no_change. It does not require eKyte to operate
+and performs no eKyte API call, publication, remote update or remote-status
+interpretation — `external.published_at`/`last_verified_at` are metadata the
+caller (e.g. publish-ekyte, reconcile-ekyte) already established elsewhere,
+never invented here. A `link_ekyte` that would set `external.url` to a value
+different from an already-present `external.url` on the same task is a
+conflict (`external_binding_conflict`), never silently overwritten.
 
 Before every non-create operation, count matching task_id values: zero is
 error/missing, one may proceed, and more than one is

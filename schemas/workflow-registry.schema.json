@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/workflow-registry.schema.json",
+  "title": "V4 BU Autopilot Workflow Registry",
+  "description": "Authoritative list of natural-language-invocable operating workflows (workflows/registry.json), distinct from skills/registry.json (individual skill capabilities). A workflow chains one or more skills in a fixed order. Claude/Codex resolves a command like 'replaneje <cliente>' by looking up the matching workflow here instead of filesystem discovery. status=implemented does not mean every step is risk-free — approval_gate and side_effects still govern what may happen without explicit operator authorization.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "workflows"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "workflows": {"type": "array", "items": {"$ref": "#/$defs/workflow_entry"}}
+  },
+  "$defs": {
+    "workflow_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_id", "status", "description", "natural_language_triggers", "steps",
+        "inputs", "required_capabilities", "optional_capabilities", "side_effects",
+        "approval_gate", "output_path", "workspace_required"
+      ],
+      "properties": {
+        "workflow_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+        "status": {"enum": ["implemented", "partial", "planned"]},
+        "description": {"type": "string", "minLength": 1},
+        "natural_language_triggers": {
+          "description": "Example phrasings Claude/Codex should map to this workflow. Not a parser spec — illustrative only.",
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "steps": {
+          "description": "Ordered skill_ids this workflow chains. Each must resolve in skills/registry.json.",
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "inputs": {
+          "type": "object", "additionalProperties": false,
+          "required": ["required", "optional"],
+          "properties": {
+            "required": {"type": "array", "items": {"type": "string"}},
+            "optional": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "required_capabilities": {"type": "array", "items": {"type": "string"}},
+        "optional_capabilities": {"type": "array", "items": {"type": "string"}},
+        "side_effects": {
+          "description": "Aggregate of the side effects this workflow's steps may have. NONE if fully read-only.",
+          "type": "array",
+          "items": {"enum": ["NONE", "MEMORY", "QUARTER_MONITORING", "TASK_LEDGER", "ROPRE_CHECK_IN", "EXTERNAL"]}
+        },
+        "approval_gate": {
+          "type": "object", "additionalProperties": false,
+          "required": ["required", "description"],
+          "properties": {
+            "required": {"type": "boolean"},
+            "description": {"type": "string", "minLength": 1}
+          }
+        },
+        "output_path": {"type": "string", "minLength": 1, "description": "Template, relative to <workspace>/, e.g. 'context/generated/<client_id>/replanning/'."},
+        "workspace_required": {"type": "boolean"},
+        "notes": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

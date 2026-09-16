@@ -8,25 +8,37 @@ higher-quality operational decisions.
 
 ## Status
 
-- **Implemented and tested:** `read-bu`, `read-client-context`,
+- **Implemented and tested:** the full SOURCE → Intelligence →
+  operating-loop chain — `read-bu`, `read-client-context`,
   `read-account-gt`, `read-whatsapp`, `read-bi`, `read-quarter`,
   `promote-client-memory`, `monitor-quarter`, `manage-task-ledger`,
-  `prepare-ropre`, `close-ropre`, and the full Intelligence MVP
-  (`build-context-pack`, `diagnose-client`, `calculate-gap`,
-  `identify-priorities`, `replan-client`, `audit-plan`, `generate-tasks`
-  — the "replaneje `<cliente>`" workflow, `docs/workflows/replan-client.md`).
-  See `skills/registry.json` — it's the single source of truth for
-  `implemented` vs `planned`, not this file.
-- **Planned, not implemented:** `publish-ekyte` (eKyte integration —
-  see `operation/task-rules.md`).
-- Verified end to end: 119 automated tests (schemas, drift guards,
-  cross-artifact lint, hash-chain integrity, security hygiene,
-  synthetic integration) all pass; a real BI → evidence → Quarter
-  monitoring flow and a real "replaneje walmaq" Intelligence dry run
-  were both validated against a real client's workspace (never copied
-  into this repo — see `docs/security-model.md`) with
-  `scripts/doctor.py --workspace` reporting 15/15 checks passed and
-  zero canonical files changed.
+  `prepare-ropre`, `close-ropre`; the Intelligence MVP
+  (`build-context-pack` → `diagnose-client` → `calculate-gap` →
+  `identify-priorities` → `replan-client` → `audit-plan` →
+  `generate-tasks`, `docs/workflows/replan-client.md`); and the
+  operating loop that closes the cycle (`docs/workflows/operating-loop.md`)
+  — an explicit, hash-locked approval model (`schemas/approval.schema.json`),
+  a deterministic task-identity bridge into `manage-task-ledger`
+  (never duplicates a task across repeated replans), `publish-ekyte`,
+  `reconcile-ekyte`, `midweek` and `week-close`. See `skills/registry.json`
+  and `workflows/registry.json` — the single sources of truth for
+  `implemented`/`partial`/`planned`, not this file.
+- **Honest external-capability status:** `publish-ekyte` is
+  `IMPLEMENTED_DRY_RUN` — no real eKyte API/connector is documented or
+  available anywhere in this setup (full audit:
+  `docs/workflows/ekyte-publication.md`), so real publication today is
+  a manual-export packet, not a programmatic call. The contract,
+  payload mapping, approval gating and idempotency are real and tested
+  against `FakeEkyteTransport`.
+- Verified end to end: 196 automated tests (schemas, drift guards,
+  cross-artifact lint, hash-chain integrity, approval staleness,
+  idempotent task/publish replay, security hygiene, synthetic
+  integration) all pass; a real BI → evidence → Quarter monitoring flow
+  and a real "replaneje walmaq" Intelligence dry run were both
+  validated against a real client's workspace (never copied into this
+  repo — see `docs/security-model.md`) with
+  `scripts/doctor.py --workspace` passing every check and zero
+  canonical files changed.
 
 ## Architecture
 
@@ -163,6 +175,18 @@ re-validating everything against the approved hash before writing
 atomically. See any ACTION skill's `SKILL.md` section 5 for the exact
 mechanics.
 
+## Operating loop
+
+`replanejamento → audit → approval → local task → external action →
+reconciliation`. `INTELLIGENCE → EXTERNAL` directly never happens —
+every canonical or external mutation passes through an explicit,
+hash-locked `approval` first (`schemas/approval.schema.json`), and a
+new replanning run stales the previous approval for any changed item.
+`workflows/registry.json` is the authority on which natural-language
+workflows exist for real. Full picture: `docs/workflows/operating-loop.md`,
+`docs/workflows/task-approval.md`, `docs/workflows/ekyte-publication.md`,
+`docs/workflows/midweek.md`.
+
 ## Security
 
 See `SECURITY.md` and `docs/security-model.md`. In short: `clients/`,
@@ -179,26 +203,28 @@ history rewrite itself).
 ```
 CLAUDE.md, AGENTS.md   — operating constitution / agent map
 skills/                 — SKILL.md + output.schema.json per skill, registry.json
+workflows/               — registry.json: natural-language workflow authority
 schemas/                — shared JSON Schema contracts
 operation/               — consolidated cross-skill policy (evidence, Quarter, ROPRE, tasks, replanning)
 docs/                    — security model, workflows, project orchestration
 scripts/                 — workspace resolver, bootstrap_client, doctor, reference logic (scripts/lib/)
-tests/                   — contracts, skills, integration, security
+tests/                   — contracts, skills, integration, security, intelligence, operating_loop
 templates/client/        — schema-valid empty client skeleton
-examples/demo-client/    — synthetic client fixture (acme-demo)
+examples/demo-client/    — synthetic client fixture (acme-demo), full intelligence + operating-loop chain
 .github/workflows/       — CI (tests + doctor + gitleaks)
 ```
 
 ## Roadmap
 
-The Intelligence MVP (`build-context-pack` → `diagnose-client` →
-`calculate-gap` → `identify-priorities` → `replan-client` →
-`audit-plan` → `generate-tasks`) is implemented — see
-`operation/replanning-rules.md` and `docs/workflows/replan-client.md`.
+The Intelligence MVP and the operating loop (approval, task bridge,
+`publish-ekyte`, `reconcile-ekyte`, `midweek`, `week-close`) are
+implemented — see `operation/replanning-rules.md`,
+`operation/task-rules.md` and `docs/workflows/operating-loop.md`.
 
-Next phase: `publish-ekyte` (external eKyte integration, requires
-explicit authorization per CLAUDE.md section 20 — not started by
-design). Beyond that, deepening the Intelligence layer itself (CRM/
+Next: a real eKyte transport, if/when a real API, connector, or a
+deliberate browser-automation build exists (`docs/workflows/ekyte-publication.md`
+lists exactly what would unblock it — nothing is invented ahead of
+that). Beyond that, deepening the Intelligence layer itself (CRM/
 sales-evidence integration, a real pacing model) as those data sources
 and decisions become available — never invented ahead of real evidence
 (CLAUDE.md section 6).

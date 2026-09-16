@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/reconcile-ekyte/output.schema.json",
+  "title": "Reconcile eKyte Output",
+  "description": "INTELLIGENCE, read-only. Compares the local task ledger's external bindings against eKyte via whatever transport is available. Never auto-corrects — every divergence is reported for operator decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "generated_at", "status", "capability", "comparisons", "summary", "limitations", "warnings"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "reconcile-ekyte"},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+    "capability": {"enum": ["API", "CONNECTOR", "BROWSER_AUTOMATION", "MANUAL_EXPORT", "NONE"]},
+    "comparisons": {"type": "array", "items": {"$ref": "#/$defs/comparison"}},
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["matched", "local_only", "remote_only", "status_mismatch", "due_date_mismatch", "unknown"],
+      "properties": {
+        "matched": {"type": "integer", "minimum": 0},
+        "local_only": {"type": "integer", "minimum": 0},
+        "remote_only": {"type": "integer", "minimum": 0},
+        "status_mismatch": {"type": "integer", "minimum": 0},
+        "due_date_mismatch": {"type": "integer", "minimum": 0},
+        "unknown": {"type": "integer", "minimum": 0}
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "e.g. 'REMOTE_ONLY nao pode ser detectado sem uma lista de tasks remotas, que o transport minimo atual nao fornece' — never silently omitted."
+    },
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "comparison": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task_id", "classification", "local", "remote", "details"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "classification": {"enum": ["MATCHED", "LOCAL_ONLY", "REMOTE_ONLY", "STATUS_MISMATCH", "DUE_DATE_MISMATCH", "UNKNOWN"]},
+        "local": {
+          "type": ["object", "null"], "additionalProperties": false,
+          "properties": {"status": {"type": "string"}, "due_at": {"type": ["string", "null"]}, "external_id": {"type": ["string", "null"]}}
+        },
+        "remote": {
+          "type": ["object", "null"], "additionalProperties": false,
+          "properties": {"status": {"type": "string"}, "due_at": {"type": ["string", "null"]}}
+        },
+        "details": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

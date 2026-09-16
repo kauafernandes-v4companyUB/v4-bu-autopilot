@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "workflow": "replan-client",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "started_at": "2026-01-16T10:00:00Z",
+  "completed_at": "2026-01-16T10:30:00Z",
+  "skills_executed": [
+    "build-context-pack",
+    "diagnose-client",
+    "calculate-gap",
+    "identify-priorities",
+    "replan-client",
+    "audit-plan",
+    "generate-tasks"
+  ],
+  "artifacts": [
+    "examples/demo-client/acme-demo/intelligence/context-pack.json",
+    "examples/demo-client/acme-demo/intelligence/diagnosis.json",
+    "examples/demo-client/acme-demo/intelligence/gaps.json",
+    "examples/demo-client/acme-demo/intelligence/priorities.json",
+    "examples/demo-client/acme-demo/intelligence/replanning.json",
+    "examples/demo-client/acme-demo/intelligence/audit.json",
+    "examples/demo-client/acme-demo/intelligence/task-proposals.json"
+  ],
+  "canonical_changes": [],
+  "external_actions": [],
+  "approval_ids": [],
+  "warnings": [],
+  "errors": [],
+  "status": "success"
+}

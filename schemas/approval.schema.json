@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/approval.schema.json",
+  "title": "V4 BU Autopilot Approval",
+  "description": "Explicit contract between 'Claude proposed' and 'the operator authorized'. No skill may set status=approved/partially_approved on its own — only an explicit operator request does (operation/task-rules.md, operation/replanning-rules.md). Every approved_item is hash-locked to the exact payload it approves (scripts/lib/approval.py); if the source artifact changes afterward, the approval becomes stale and no material ACTION may consume it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "approval_id", "client_id", "quarter_id", "created_at", "approved_at", "approved_by", "source_artifact", "scope", "status"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "approval_id": {"type": "string", "minLength": 1},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"oneOf": [{"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"}, {"type": "null"}]},
+    "created_at": {"description": "Execution timestamp: when this approval record (candidate or real) was written. Real system clock.", "type": "string", "format": "date-time"},
+    "approved_at": {"description": "null while status=draft. Set only when the operator explicitly authorizes — never inferred, never defaulted to created_at.", "type": ["string", "null"], "format": "date-time"},
+    "approved_by": {
+      "description": "'operator' by default, or an explicit identifier actually available in this execution's context. Never a fabricated person.",
+      "type": ["string", "null"]
+    },
+    "source_artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "artifact_id", "artifact_hash", "path"],
+      "properties": {
+        "type": {"enum": ["task_proposals", "replanning", "ropre_draft", "other"]},
+        "artifact_id": {"type": "string", "minLength": 1},
+        "artifact_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of the source artifact's canonical JSON at the moment this approval was created — scripts/lib/artifact_hash.py."},
+        "path": {"type": "string", "minLength": 1}
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["approved_items", "rejected_items", "deferred_items"],
+      "properties": {
+        "approved_items": {"type": "array", "items": {"$ref": "#/$defs/approved_item"}},
+        "rejected_items": {"type": "array", "items": {"$ref": "#/$defs/decided_item"}},
+        "deferred_items": {"type": "array", "items": {"$ref": "#/$defs/decided_item"}}
+      }
+    },
+    "status": {"enum": ["draft", "approved", "partially_approved", "rejected", "superseded", "consumed"]},
+    "superseded_by": {"type": ["string", "null"], "description": "approval_id of the approval that replaced this one, when status=superseded."},
+    "notes": {"type": ["string", "null"]}
+  },
+  "$defs": {
+    "approved_item": {
+      "type": "object", "additionalProperties": false,
+      "required": ["item_id", "item_type", "approved_payload_hash", "conditions", "notes"],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1, "description": "e.g. a generate-tasks proposal_id."},
+        "item_type": {"enum": ["task_proposal", "ropre_transition", "ekyte_publication", "other"]},
+        "approved_payload_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of the exact item payload (e.g. the task_proposal object) being approved."},
+        "conditions": {"type": "array", "items": {"type": "string"}, "description": "Any condition the operator attached (e.g. 'somente após confirmar estoque')."},
+        "notes": {"type": ["string", "null"]}
+      }
+    },
+    "decided_item": {
+      "type": "object", "additionalProperties": false,
+      "required": ["item_id", "item_type", "notes"],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "item_type": {"enum": ["task_proposal", "ropre_transition", "ekyte_publication", "other"]},
+        "notes": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

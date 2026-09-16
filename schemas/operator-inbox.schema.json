@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/operator-inbox.schema.json",
+  "title": "V4 BU Autopilot Operator Inbox",
+  "description": "Transient, non-canonical consolidation of everything that needs a human decision for one client, so Claude/Codex can present one organized queue instead of asking scattered questions mid-execution (mission section 32). Never itself an approval, a decision, or a task — purely a summary view built from already-produced artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "client_id", "generated_at", "approvals_required", "scheduling_required", "decisions_required", "external_actions_required", "conflicts", "blocking_missing_data"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "approvals_required": {"type": "array", "items": {"$ref": "#/$defs/approvalItem"}},
+    "scheduling_required": {"type": "array", "items": {"$ref": "#/$defs/schedulingItem"}},
+    "decisions_required": {"type": "array", "items": {"$ref": "#/$defs/decisionItem"}},
+    "external_actions_required": {"type": "array", "items": {"$ref": "#/$defs/externalActionItem"}},
+    "conflicts": {"type": "array", "items": {"type": "object"}},
+    "blocking_missing_data": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/context-pack.schema.json#/$defs/missingDataItem"}}
+  },
+  "$defs": {
+    "approvalItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["item_id", "label", "summary", "due_at", "evidence_ids", "impact"],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1, "description": "e.g. 'A1' — a short human-facing label the operator can reference in a command like 'aprova A1'."},
+        "label": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "due_at": {"type": ["string", "null"]},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "impact": {"type": "string", "minLength": 1}
+      }
+    },
+    "schedulingItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["item_id", "label", "question"],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1},
+        "question": {"type": "string", "minLength": 1}
+      }
+    },
+    "decisionItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["decision_id", "question", "why_needed", "options_known_from_context", "evidence_ids", "downstream_effect"],
+      "properties": {
+        "decision_id": {"type": "string", "minLength": 1},
+        "question": {"type": "string", "minLength": 1},
+        "why_needed": {"type": "string", "minLength": 1},
+        "options_known_from_context": {"type": "array", "items": {"type": "string"}, "description": "Only options actually grounded in context — never invented alternatives."},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "downstream_effect": {"type": "string", "minLength": 1}
+      }
+    },
+    "externalActionItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["item_id", "label", "summary", "blocker_code"],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "blocker_code": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

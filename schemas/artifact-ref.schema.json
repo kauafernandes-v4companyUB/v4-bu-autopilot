@@ -8,7 +8,7 @@
   "required": ["artifact_id", "artifact_type", "content_sha256", "path"],
   "properties": {
     "artifact_id": {"type": "string", "minLength": 1, "description": "The upstream artifact's own id field (e.g. context_pack_id, diagnosis_id)."},
-    "artifact_type": {"enum": ["context_pack", "diagnosis", "gaps", "priorities", "replanning", "audit"]},
+    "artifact_type": {"enum": ["context_pack", "diagnosis", "gaps", "priorities", "replanning", "audit", "task_proposals", "approval", "receipt", "reconciliation"]},
     "content_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of the upstream artifact's canonical JSON (sorted keys, compact separators, UTF-8) — see scripts/lib/artifact_hash.py."},
     "path": {"type": "string", "minLength": 1, "description": "Transient path the upstream artifact was read from, e.g. context/generated/<client_id>/replanning/context-pack.json. Metadata only — content_sha256 is the actual integrity check."}
   }

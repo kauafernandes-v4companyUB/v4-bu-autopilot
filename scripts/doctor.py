@@ -134,6 +134,54 @@ def check_skill_registry(registry: Registry) -> tuple[str, list[str]]:
     return ("FAIL" if problems else "PASS"), problems
 
 
+def check_workflow_registry(registry: Registry) -> tuple[str, list[str]]:
+    problems = []
+    registry_path = REPO_ROOT / "workflows" / "registry.json"
+    if not registry_path.is_file():
+        return "FAIL", ["workflows/registry.json is missing"]
+    data = json.loads(registry_path.read_text(encoding="utf-8"))
+    errors = _validate(data, REPO_ROOT / "schemas" / "workflow-registry.schema.json", registry)
+    problems.extend(errors)
+
+    skills_registry_path = REPO_ROOT / "skills" / "registry.json"
+    known_skill_ids: set[str] = set()
+    implemented_skill_ids: set[str] = set()
+    if skills_registry_path.is_file():
+        skill_entries = json.loads(skills_registry_path.read_text(encoding="utf-8"))["skills"]
+        known_skill_ids = {e["id"] for e in skill_entries}
+        implemented_skill_ids = {e["id"] for e in skill_entries if e["implemented"]}
+
+    ids_seen: set[str] = set()
+    for wf in data.get("workflows", []):
+        if wf["workflow_id"] in ids_seen:
+            problems.append(f"duplicate workflow_id: {wf['workflow_id']}")
+        ids_seen.add(wf["workflow_id"])
+        unknown_steps = set(wf["steps"]) - known_skill_ids
+        if unknown_steps:
+            problems.append(f"workflow {wf['workflow_id']!r} references unknown skill_id(s) in steps: {sorted(unknown_steps)}")
+        if wf["status"] == "implemented":
+            unimplemented = [s for s in wf["steps"] if s not in implemented_skill_ids]
+            if unimplemented:
+                problems.append(f"workflow {wf['workflow_id']!r} is status=implemented but references non-implemented skill(s): {unimplemented}")
+
+    return ("FAIL" if problems else "PASS"), problems
+
+
+def check_approval_schema(registry: Registry) -> tuple[str, list[str]]:
+    problems = []
+    for f in ["schemas/approval.schema.json", "schemas/action-receipt.schema.json", "schemas/operator-inbox.schema.json", "schemas/workflow-report.schema.json"]:
+        p = REPO_ROOT / f
+        if not p.is_file():
+            problems.append(f"missing required schema: {f}")
+            continue
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            Draft202012Validator.check_schema(data)
+        except (json.JSONDecodeError, SchemaError) as e:
+            problems.append(f"{f}: invalid ({e})")
+    return ("FAIL" if problems else "PASS"), problems
+
+
 def check_skill_contracts() -> tuple[str, list[str]]:
     problems = []
     for skill_md in sorted((REPO_ROOT / "skills").glob("*/SKILL.md")):
@@ -313,6 +361,13 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
             task_ids = [t["task_id"] for t in tasks.get("tasks", [])]
             if len(task_ids) != len(set(task_ids)):
                 problems["Task integrity"].append(f"{client_id}/tasks.json: duplicate task_id(s)")
+            external_ids = [
+                t["external"]["external_id"]
+                for t in tasks.get("tasks", [])
+                if t.get("external") and t["external"].get("external_id")
+            ]
+            if len(external_ids) != len(set(external_ids)):
+                problems["Task integrity"].append(f"{client_id}/tasks.json: duplicate external.external_id — two local tasks bound to the same eKyte task")
             for t in tasks.get("tasks", []):
                 if t.get("client_id") != client_id:
                     problems["Client isolation"].append(f"{client_id}/tasks.json: task {t.get('task_id')} has client_id={t.get('client_id')!r}")
@@ -338,6 +393,8 @@ def main() -> int:
     RESULTS.append(("Workspace", ws_status, ws_details))
     check("Schemas")(lambda: check_schemas(registry))
     check("Skill registry")(lambda: check_skill_registry(registry))
+    check("Workflow registry")(lambda: check_workflow_registry(registry))
+    check("Approval schemas")(lambda: check_approval_schema(registry))
     check("Skill contracts")(lambda: check_skill_contracts())
 
     for label, (status, details) in check_client_workspace_integrity(ws, registry).items():
@@ -349,7 +406,8 @@ def main() -> int:
     check("Secrets hygiene")(lambda: check_secrets_hygiene())
 
     order = [
-        "Repository", "Workspace", "Schemas", "Skill registry", "Skill contracts",
+        "Repository", "Workspace", "Schemas", "Skill registry", "Workflow registry",
+        "Approval schemas", "Skill contracts",
         "Client isolation", "Evidence integrity", "Quarter integrity", "ROPRE integrity",
         "Task integrity", "Source references", "Replanning artifacts", "Private tracking",
         "Generated tracking", "Secrets hygiene",

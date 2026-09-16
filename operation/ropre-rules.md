@@ -62,3 +62,15 @@ A material next step in a completed check-in can generate a task
 (`manage-task-ledger`, origin type `check_in`), but this is never
 automatic just because a next step exists in a draft — see
 `operation/task-rules.md`.
+
+## Operating loop connection — ROPRE reads, never duplicates, the task ledger
+
+`replan -> approved tasks -> execution -> midweek -> week-close ->
+prepare-ropre -> close-ropre` is the full operating loop. ROPRE never
+keeps its own copy of task state: `prepare-ropre` reads
+`clients/<client_id>/tasks.json` directly (and, when available, the
+most recent `week-close` output as a curated summary) to see proposed,
+approved, executed and pending tasks — it never re-derives or
+duplicates that state inside a check-in. `results`/`next_steps` in the
+draft cite `evidence_ids`/`task_ids` exactly as `check-in-ropre.schema.json`
+already requires; they do not embed a second copy of the task's fields.

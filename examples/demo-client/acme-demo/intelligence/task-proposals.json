@@ -35,7 +35,7 @@
       "manage_task_operation": {
         "operation_id": "acme-demo-op-001",
         "type": "create_task",
-        "task_id": "acme-demo-task-001",
+        "task_id": "t-88089e96033baf68",
         "title": "Configurar pixel de conversao no site",
         "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
         "raised_at": "2026-01-16",

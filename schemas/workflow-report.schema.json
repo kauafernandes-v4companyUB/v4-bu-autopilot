@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/workflow-report.schema.json",
+  "title": "V4 BU Autopilot Workflow Report",
+  "description": "Audit trail for one execution of a workflows/registry.json workflow (replan, midweek, week-close, publish, apply-approved-tasks, ...). Transient, not canonical.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "workflow", "client_id", "quarter_id", "started_at", "completed_at", "skills_executed", "artifacts", "canonical_changes", "external_actions", "approval_ids", "warnings", "errors", "status"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "workflow": {"type": "string", "minLength": 1, "description": "workflow_id from workflows/registry.json."},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"oneOf": [{"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"}, {"type": "null"}]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": ["string", "null"], "format": "date-time"},
+    "skills_executed": {"type": "array", "items": {"type": "string"}},
+    "artifacts": {"type": "array", "items": {"type": "string"}, "description": "Paths to transient artifacts produced, relative to the workspace."},
+    "canonical_changes": {"type": "array", "items": {"type": "string"}, "description": "Canonical files actually modified. Empty for a preview-only or read-only workflow run — never omitted."},
+    "external_actions": {"type": "array", "items": {"type": "string"}, "description": "Empty unless a real external side effect actually happened (e.g. a programmatic eKyte publish)."},
+    "approval_ids": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "errors": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "status": {"enum": ["success", "partial", "failed"]}
+  }
+}

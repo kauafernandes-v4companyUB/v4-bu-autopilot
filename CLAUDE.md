@@ -734,6 +734,14 @@ build-context-pack -> diagnose-client -> calculate-gap -> identify-priorities
 
 Nenhuma dessas skills escreve memória canônica, plano/monitoring do Quarter, evidence ledger ou task ledger — são read-only até `generate-tasks`, que só produz propostas (`task_proposals`) compatíveis com `manage-task-ledger`, nunca aplicadas automaticamente. A lógica completa (o que entra como finding/gap/priority/action, como classificar prontidão de tarefa, como derivar `audit_status`) mora em cada `SKILL.md` e em `operation/replanning-rules.md` — esta seção não a duplica. Rastreabilidade entre artefatos usa `schemas/artifact-ref.schema.json` + `scripts/lib/artifact_hash.py`; `scripts/run_replanning_checks.py` valida a cadeia em disco (schema + invariantes cruzados) sem raciocinar sobre o conteúdo.
 
+## 27.7 Operating loop — de proposta a execução real
+
+`docs/workflows/operating-loop.md` é a referência completa. Regra central: `INTELLIGENCE → EXTERNAL` diretamente **nunca** acontece — todo passo que muta estado canônico ou toca sistema externo passa por `AUDIT → APPROVAL` primeiro (`schemas/approval.schema.json`, `scripts/lib/approval.py`, `operation/task-rules.md`). Nenhuma skill aprova a própria proposta; aprovação real sempre exige pedido explícito do operador, e é hash-locked ao payload exato aprovado — um replanejamento novo invalida (`STALE_APPROVAL`) a aprovação anterior sobre o mesmo item.
+
+`workflows/registry.json` (`schemas/workflow-registry.schema.json`) é a autoridade sobre quais workflows de comando natural existem de fato — consultar antes de assumir que "aplique as tarefas aprovadas", "publique no eKyte", "faça o midweek" ou "feche a semana" têm suporte real; `status: implemented/partial/planned` nunca é assumido pela prosa. Comandos naturais suportados hoje: "replaneje `<cliente>`", "aplique as tarefas aprovadas da `<cliente>`", "publique as tarefas aprovadas da `<cliente>` no ekyte" (capability real: `MANUAL_EXPORT` — ver `docs/workflows/ekyte-publication.md`), "faça o midweek da `<cliente>`", "feche a semana da `<cliente>`", "prepare o ropre da `<cliente>`". Nenhum parser NLP é criado — Claude/Codex interpreta a frase e resolve via `workflows/registry.json`.
+
+Autoridade sobre conclusão de tarefa (local vs. eKyte): `operation/task-rules.md`, seção "Task Completion Authority" — o ledger local é sempre a referência; `reconcile-ekyte` só propõe, nunca corrige sozinho.
+
 ## 28. Regra final
 
 O objetivo deste sistema não é produzir mais trabalho.

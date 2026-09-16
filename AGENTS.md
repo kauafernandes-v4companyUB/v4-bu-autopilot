@@ -22,6 +22,8 @@ Este repositório é um cérebro operacional versionado, não uma aplicação tr
 - `schemas/quarter-*.schema.json`, `schemas/check-in-ropre.schema.json` e `schemas/task-ledger.schema.json`: contratos táticos e operacionais; a convenção está em `docs/project-orchestration.md`.
 - `skills/<skill>/`: comportamento específico.
 - `skills/registry.json`: autoridade sobre quais skills existem de fato (`implemented` vs `planned`) — nunca assumir que uma skill existe só porque é mencionada em prosa.
+- `workflows/registry.json`: autoridade sobre quais comandos naturais ("replaneje", "aplique as tarefas aprovadas", "publique no ekyte", "faça o midweek", "feche a semana", "prepare o ropre") têm suporte real, qual cadeia de skills cada um encadeia, e se exigem aprovação (`approval_gate`) — consultar antes de executar, nunca assumir pela frase do operador sozinha.
+- `schemas/approval.schema.json` / `scripts/lib/approval.py`: nenhuma skill aprova a própria proposta — aprovação real exige pedido explícito do operador (`docs/workflows/task-approval.md`).
 - `docs/security-model.md`: fronteira engine público / workspace privado.
 - `clients/<client_id>/`: memória canônica — vive no **workspace privado** (`$V4_BU_WORKSPACE_ROOT`, resolvido por `scripts/lib/workspace.py`), nunca dentro deste repositório. Em `examples/demo-client/acme-demo/` há um exemplo 100% fictício com a mesma forma.
 - `context/generated/`: workspace temporário; não é memória permanente. Também vive no workspace privado para dados reais.

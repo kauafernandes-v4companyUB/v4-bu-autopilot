@@ -4,11 +4,11 @@
   "updated_at": "2026-01-16T09:50:00Z",
   "tasks": [
     {
-      "task_id": "acme-demo-task-001",
+      "task_id": "t-88089e96033baf68",
       "client_id": "acme-demo",
       "quarter_id": "2026-Q1",
-      "title": "[dado sintético] Configurar pixel de conversão no site",
-      "description": "Configurar o pixel de conversão do Meta Ads no site fictício da Acme Demo antes de escalar o investimento.",
+      "title": "Configurar pixel de conversao no site",
+      "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
       "raised_at": "2026-01-16",
       "due_at": "2026-01-23",
       "status": "pending",

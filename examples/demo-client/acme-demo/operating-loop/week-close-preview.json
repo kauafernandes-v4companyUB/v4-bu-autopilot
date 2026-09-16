@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "week-close",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "generated_at": "2026-01-20T09:25:00Z",
+  "status": "success",
+  "week_of": {
+    "from": "2026-01-19",
+    "to": "2026-01-25"
+  },
+  "promised": [
+    {
+      "task_id": "t-88089e96033baf68",
+      "title": "Configurar pixel de conversao no site",
+      "due_at": "2026-01-23",
+      "status": "pending"
+    }
+  ],
+  "executed": [],
+  "not_executed": [
+    {
+      "task_id": "t-88089e96033baf68",
+      "title": "Configurar pixel de conversao no site",
+      "due_at": "2026-01-23",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "bi_movement": {
+    "month": "2026-01",
+    "channel": "meta_ads",
+    "actual_spend": 400.0,
+    "planned_budget": 1000.0,
+    "attainment_percent": 40.0
+  },
+  "smart_evidence": {
+    "status": "unknown",
+    "current_value": null,
+    "target_value": 8
+  },
+  "open_flags": [
+    {
+      "flag_id": "risk-demo-attribution",
+      "type": "risk",
+      "status": "open"
+    }
+  ],
+  "carry_forward_candidates": [
+    {
+      "task_id": "t-88089e96033baf68",
+      "title": "Configurar pixel de conversao no site",
+      "reason": "devido date ainda nao definida"
+    }
+  ],
+  "ropre_preparation_inputs": {
+    "results_candidates": [
+      "Meta Ads investiu R$ 400,00 (40% do planejado) ate 15/01."
+    ],
+    "next_steps_candidates": [
+      "Configurar pixel de conversao (tarefa ja criada e publicada no eKyte fake)."
+    ]
+  },
+  "missing_data": [],
+  "warnings": []
+}

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "updated_at": "2026-09-16T12:45:49Z",
+  "updated_at": "2026-09-16T13:34:08Z",
   "skills": [
     {
       "id": "read-bu",
@@ -101,13 +101,13 @@
     {
       "id": "manage-task-ledger",
       "category": "ACTION",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "implemented",
       "implemented": true,
       "canonical_side_effects": "TASK_LEDGER",
       "skill_path": "skills/manage-task-ledger/SKILL.md",
       "output_schema_path": "skills/manage-task-ledger/output.schema.json",
-      "summary": "Previews/applies explicit, evidence-backed changes to one client's longitudinal task ledger.",
+      "summary": "Previews/applies explicit, evidence-backed changes to one client's longitudinal task ledger. v1.1.0: link_ekyte optionally also sets the additive external.* binding (schemas/task-ledger.schema.json), backward compatible with url-only usage.",
       "dependencies": []
     },
     {
@@ -209,26 +209,62 @@
     {
       "id": "generate-tasks",
       "category": "ACTION",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "implemented",
       "implemented": true,
       "canonical_side_effects": "NONE",
       "skill_path": "skills/generate-tasks/SKILL.md",
       "output_schema_path": "skills/generate-tasks/output.schema.json",
-      "summary": "Converts audit-passed replanning actions into task proposals compatible with manage-task-ledger's create_task. Preview only in this MVP — never writes tasks.json itself, never calls manage-task-ledger apply.",
+      "summary": "Converts audit-passed replanning actions into task proposals compatible with manage-task-ledger's create_task. Preview only in this MVP — never writes tasks.json itself, never calls manage-task-ledger apply. v1.1.0: task_id is always derived deterministically via scripts/lib/task_identity.py (client_id+quarter_id+action_id), preventing duplicate tasks across repeated replanning runs.",
       "dependencies": ["audit-plan", "manage-task-ledger"]
     },
     {
       "id": "publish-ekyte",
       "category": "ACTION",
-      "version": null,
-      "status": "planned",
-      "implemented": false,
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
       "canonical_side_effects": "EXTERNAL",
-      "skill_path": null,
-      "output_schema_path": null,
-      "summary": "Publish tasks to eKyte (external system, optional layer — local task ledger remains authoritative). Not implemented yet; requires explicit external-action authorization per CLAUDE.md section 20.",
-      "dependencies": ["generate-tasks"]
+      "skill_path": "skills/publish-ekyte/SKILL.md",
+      "output_schema_path": "skills/publish-ekyte/output.schema.json",
+      "summary": "Maps an approved, canonical task to an eKyte-shaped payload and previews/applies publication. Honest capability status: IMPLEMENTED_DRY_RUN — contract, payload mapping, approval gating and idempotency are real and tested (scripts/lib/ekyte_transport.py FakeEkyteTransport); no real eKyte API/connector is documented or available (see docs/workflows/ekyte-publication.md), so real-world apply currently only produces a manual_export packet, never a programmatic publish.",
+      "dependencies": ["generate-tasks", "manage-task-ledger"]
+    },
+    {
+      "id": "reconcile-ekyte",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/reconcile-ekyte/SKILL.md",
+      "output_schema_path": "skills/reconcile-ekyte/output.schema.json",
+      "summary": "Compares the local task ledger's external bindings against eKyte (via whatever transport is configured) and reports MATCHED/LOCAL_ONLY/STATUS_MISMATCH/DUE_DATE_MISMATCH/UNKNOWN. REMOTE_ONLY is a known, documented limitation of the minimal transport interface (no list_tasks). Never auto-corrects.",
+      "dependencies": ["manage-task-ledger"]
+    },
+    {
+      "id": "midweek",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/midweek/SKILL.md",
+      "output_schema_path": "skills/midweek/output.schema.json",
+      "summary": "Mid-week operational snapshot: planned/completed/pending/overdue/blocked, changed evidence/results, risks, actions needing decision. Never invents execution.",
+      "dependencies": ["manage-task-ledger", "read-quarter"]
+    },
+    {
+      "id": "week-close",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/week-close/SKILL.md",
+      "output_schema_path": "skills/week-close/output.schema.json",
+      "summary": "End-of-week operational snapshot: promised vs. executed, blockers, BI movement, SMART evidence, open flags, carry-forward candidates, ROPRE-prep inputs. Never creates carry-over automatically.",
+      "dependencies": ["manage-task-ledger", "read-quarter"]
     }
   ]
 }

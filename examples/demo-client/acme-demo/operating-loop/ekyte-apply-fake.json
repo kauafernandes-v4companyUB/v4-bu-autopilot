@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "publish-ekyte",
+  "mode": "apply",
+  "publication_id": "acme-demo-pub-001",
+  "client_id": "acme-demo",
+  "task_id": "t-88089e96033baf68",
+  "generated_at": "2026-01-20T09:10:00Z",
+  "status": "success",
+  "capability": "API",
+  "publication_mode": "programmatic",
+  "approval_id": "acme-demo-appr-001",
+  "approval_valid": true,
+  "local_task": {
+    "task_id": "t-88089e96033baf68",
+    "title": "Configurar pixel de conversao no site",
+    "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
+    "due_at": "2026-01-23",
+    "status": "pending",
+    "existing_external": null
+  },
+  "payload": {
+    "title": "Configurar pixel de conversao no site",
+    "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
+    "due_at": "2026-01-23",
+    "omitted_fields": [
+      "evidence_ids",
+      "origin"
+    ]
+  },
+  "blockers": [],
+  "remote_result": {
+    "external_id": "fake-1",
+    "url": "https://fake-ekyte.local/tasks/fake-1",
+    "status": "open"
+  },
+  "link_ekyte_operation": {
+    "operation_id": "link-t-88089e96033baf68",
+    "type": "link_ekyte",
+    "task_id": "t-88089e96033baf68",
+    "ekyte_url": "https://fake-ekyte.local/tasks/fake-1",
+    "external": {
+      "system": "ekyte",
+      "external_id": "fake-1",
+      "url": "https://fake-ekyte.local/tasks/fake-1",
+      "published_at": "2026-01-20T09:10:00Z",
+      "last_verified_at": "2026-01-20T09:10:00Z"
+    }
+  },
+  "receipt_ref": null,
+  "warnings": [
+    "FakeEkyteTransport usado — nenhuma chamada real foi feita a qualquer sistema externo."
+  ],
+  "errors": []
+}

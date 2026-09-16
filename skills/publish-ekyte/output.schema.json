@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/publish-ekyte/output.schema.json",
+  "title": "Publish eKyte Output",
+  "description": "EXTERNAL ACTION. Maps a canonical, approved task into an eKyte-shaped payload. preview never touches anything external. apply's actual behavior depends on capability: with a real/fake transport, it creates the remote task and returns a link_ekyte_operation for manage-task-ledger to persist the binding (publish-ekyte itself never writes tasks.json); with only MANUAL_EXPORT capability (the honest default today — no real eKyte API/connector is known), apply produces a ready-to-use manual export packet and never claims the remote task exists.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "skill", "mode", "publication_id", "client_id", "task_id", "generated_at", "status",
+    "capability", "publication_mode", "approval_id", "approval_valid", "local_task", "payload", "blockers",
+    "remote_result", "link_ekyte_operation", "receipt_ref", "warnings", "errors"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "publish-ekyte"},
+    "mode": {"enum": ["preview", "apply"]},
+    "publication_id": {"type": "string", "minLength": 1},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "task_id": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+    "capability": {"enum": ["API", "CONNECTOR", "BROWSER_AUTOMATION", "MANUAL_EXPORT", "NONE"]},
+    "publication_mode": {
+      "description": "'programmatic' when a real/fake transport actually created the remote task. 'manual_export' when only a packet for a human to paste manually was produced — success here means the packet is complete and correct, NOT that eKyte now has the task.",
+      "enum": ["programmatic", "manual_export", "not_applicable"]
+    },
+    "approval_id": {"type": ["string", "null"]},
+    "approval_valid": {"type": ["boolean", "null"], "description": "null in preview if no approval was supplied yet (preview may run without one); must be true for any apply."},
+    "local_task": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task_id", "title", "description", "due_at", "status", "existing_external"],
+      "properties": {
+        "task_id": {"type": "string"},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "due_at": {"type": ["string", "null"]},
+        "status": {"enum": ["pending", "completed", "cancelled"]},
+        "existing_external": {"oneOf": [{"type": "null"}, {"type": "object"}]}
+      }
+    },
+    "payload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["title", "description", "due_at", "omitted_fields"],
+      "properties": {
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "due_at": {"type": ["string", "null"]},
+        "omitted_fields": {"type": "array", "items": {"type": "string"}, "description": "Local fields that exist but have no sustained mapping to the eKyte payload (e.g. evidence_ids, origin) — never silently dropped without being listed here."}
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {"enum": ["EKYTE_RESPONSIBLE_REQUIRED", "STALE_APPROVAL", "NO_APPROVAL", "TASK_NOT_PENDING", "TRANSPORT_UNAVAILABLE", "EXISTING_EXTERNAL_BINDING_CONFLICT", "OTHER"]},
+          "message": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "remote_result": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["external_id", "url", "status"],
+          "properties": {
+            "external_id": {"type": "string"},
+            "url": {"type": "string", "format": "uri"},
+            "status": {"type": "string"}
+          }
+        }
+      ]
+    },
+    "link_ekyte_operation": {
+      "description": "Only populated after a successful programmatic apply — the operation an orchestrator must still pass to manage-task-ledger (link_ekyte) to persist the binding. publish-ekyte never applies it itself.",
+      "oneOf": [{"type": "null"}, {"type": "object"}]
+    },
+    "receipt_ref": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"}]},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "errors": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

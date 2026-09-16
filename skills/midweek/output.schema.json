@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/midweek/output.schema.json",
+  "title": "Midweek Output",
+  "description": "INTELLIGENCE, read-only. Mid-week operational snapshot. Never invents execution — a task not observed as completed is never presented as completed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "skill", "client_id", "quarter_id", "generated_at", "status", "week_of",
+    "planned_this_week", "completed", "pending", "overdue", "blocked",
+    "changed_evidence_or_results", "risks", "actions_needing_decision", "missing_data", "warnings"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "midweek"},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"oneOf": [{"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"}, {"type": "null"}]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+    "week_of": {
+      "type": "object", "additionalProperties": false, "required": ["from", "to"],
+      "properties": {"from": {"type": "string", "format": "date"}, "to": {"type": "string", "format": "date"}}
+    },
+    "planned_this_week": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}},
+    "completed": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}},
+    "pending": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}},
+    "overdue": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}, "description": "Derived at runtime from due_at < today AND status=pending — never a persisted status (operation/task-rules.md)."},
+    "blocked": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}},
+    "changed_evidence_or_results": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["statement", "evidence_ids"],
+        "properties": {"statement": {"type": "string", "minLength": 1}, "evidence_ids": {"type": "array", "items": {"type": "string"}}}
+      }
+    },
+    "risks": {"type": "array", "items": {"type": "object"}},
+    "actions_needing_decision": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["statement", "source"],
+        "properties": {"statement": {"type": "string", "minLength": 1}, "source": {"type": "string"}}
+      }
+    },
+    "missing_data": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/context-pack.schema.json#/$defs/missingDataItem"}},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "taskRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task_id", "title", "due_at", "status"],
+      "properties": {
+        "task_id": {"type": "string"},
+        "title": {"type": "string"},
+        "due_at": {"type": ["string", "null"]},
+        "status": {"enum": ["pending", "completed", "cancelled"]}
+      }
+    }
+  }
+}

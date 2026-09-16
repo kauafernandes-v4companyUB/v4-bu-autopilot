@@ -1,0 +1,221 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "manage-task-ledger",
+  "client_id": "acme-demo",
+  "generated_at": "2026-01-20T09:00:00Z",
+  "mode": "preview",
+  "status": "success",
+  "source_files": [
+    {
+      "kind": "tasks",
+      "path": "clients/acme-demo/tasks.json",
+      "exists": true,
+      "validated": true,
+      "validation_errors": []
+    },
+    {
+      "kind": "evidence",
+      "path": "clients/acme-demo/evidence.json",
+      "exists": true,
+      "validated": true,
+      "validation_errors": []
+    },
+    {
+      "kind": "quarter_plan",
+      "path": "clients/acme-demo/quarters/2026-Q1/plan.json",
+      "exists": true,
+      "validated": true,
+      "validation_errors": []
+    }
+  ],
+  "operations": [
+    {
+      "operation_id": "acme-demo-op-001",
+      "type": "create_task",
+      "task_id": "t-88089e96033baf68",
+      "title": "Configurar pixel de conversao no site",
+      "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
+      "raised_at": "2026-01-16",
+      "due_at": "2026-01-23",
+      "quarter_id": "2026-Q1",
+      "origin": {
+        "type": "whatsapp",
+        "evidence_ids": [
+          "acme-demo-ev-002"
+        ]
+      },
+      "evidence_ids": [
+        "acme-demo-ev-002"
+      ]
+    }
+  ],
+  "mutation_plan": {
+    "canonical_path": "clients/acme-demo/tasks.json",
+    "base_state_hash": "b99abe19049657b8a02476f337f090554d44353d0261b0bfc061c1dee7a60705",
+    "normalized_operations": [
+      {
+        "operation_id": "acme-demo-op-001",
+        "type": "create_task",
+        "task_id": "t-88089e96033baf68",
+        "title": "Configurar pixel de conversao no site",
+        "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
+        "raised_at": "2026-01-16",
+        "due_at": "2026-01-23",
+        "quarter_id": "2026-Q1",
+        "origin": {
+          "type": "whatsapp",
+          "evidence_ids": [
+            "acme-demo-ev-002"
+          ]
+        },
+        "evidence_ids": [
+          "acme-demo-ev-002"
+        ]
+      }
+    ],
+    "changes": [
+      {
+        "operation_id": "acme-demo-op-001",
+        "action": "create_task",
+        "path": "tasks[task_id=t-88089e96033baf68]",
+        "material": true
+      }
+    ],
+    "will_write": true
+  },
+  "preview_hash": "4b1b10bf099ffcce82a480cad024944e288303099398efa950e267a4ee25de21",
+  "before": {
+    "schema_version": "1.0.0",
+    "client_id": "acme-demo",
+    "updated_at": "2026-01-16T09:50:00Z",
+    "tasks": [
+      {
+        "task_id": "acme-demo-task-002",
+        "client_id": "acme-demo",
+        "quarter_id": "2026-Q1",
+        "title": "[dado sintético] Publicar criativo de vídeo de lançamento",
+        "description": "Publicar o criativo de vídeo curto de lançamento da campanha de janeiro.",
+        "raised_at": "2026-01-05",
+        "due_at": "2026-01-10",
+        "status": "completed",
+        "completed_at": "2026-01-09",
+        "ekyte_url": null,
+        "evidence_ids": [
+          "acme-demo-ev-001"
+        ],
+        "origin": {
+          "type": "manual",
+          "evidence_ids": [
+            "acme-demo-ev-001"
+          ]
+        }
+      },
+      {
+        "task_id": "acme-demo-task-003",
+        "client_id": "acme-demo",
+        "quarter_id": "2026-Q1",
+        "title": "[dado sintético] Testar canal fictício descontinuado",
+        "description": "Teste de canal alternativo (fictício) que foi descontinuado antes do início da campanha.",
+        "raised_at": "2026-01-03",
+        "due_at": "2026-01-08",
+        "status": "cancelled",
+        "completed_at": null,
+        "ekyte_url": null,
+        "evidence_ids": [],
+        "origin": {
+          "type": "manual",
+          "evidence_ids": []
+        }
+      }
+    ]
+  },
+  "after": {
+    "schema_version": "1.0.0",
+    "client_id": "acme-demo",
+    "updated_at": "2026-01-20T09:00:00Z",
+    "tasks": [
+      {
+        "task_id": "t-88089e96033baf68",
+        "client_id": "acme-demo",
+        "quarter_id": "2026-Q1",
+        "title": "Configurar pixel de conversao no site",
+        "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
+        "raised_at": "2026-01-16",
+        "due_at": "2026-01-23",
+        "status": "pending",
+        "completed_at": null,
+        "ekyte_url": null,
+        "evidence_ids": [
+          "acme-demo-ev-002"
+        ],
+        "origin": {
+          "type": "whatsapp",
+          "evidence_ids": [
+            "acme-demo-ev-002"
+          ]
+        }
+      },
+      {
+        "task_id": "acme-demo-task-002",
+        "client_id": "acme-demo",
+        "quarter_id": "2026-Q1",
+        "title": "[dado sintético] Publicar criativo de vídeo de lançamento",
+        "description": "Publicar o criativo de vídeo curto de lançamento da campanha de janeiro.",
+        "raised_at": "2026-01-05",
+        "due_at": "2026-01-10",
+        "status": "completed",
+        "completed_at": "2026-01-09",
+        "ekyte_url": null,
+        "evidence_ids": [
+          "acme-demo-ev-001"
+        ],
+        "origin": {
+          "type": "manual",
+          "evidence_ids": [
+            "acme-demo-ev-001"
+          ]
+        }
+      },
+      {
+        "task_id": "acme-demo-task-003",
+        "client_id": "acme-demo",
+        "quarter_id": "2026-Q1",
+        "title": "[dado sintético] Testar canal fictício descontinuado",
+        "description": "Teste de canal alternativo (fictício) que foi descontinuado antes do início da campanha.",
+        "raised_at": "2026-01-03",
+        "due_at": "2026-01-08",
+        "status": "cancelled",
+        "completed_at": null,
+        "ekyte_url": null,
+        "evidence_ids": [],
+        "origin": {
+          "type": "manual",
+          "evidence_ids": []
+        }
+      }
+    ]
+  },
+  "task_summary": {
+    "as_of_date": "2026-01-20",
+    "total": 3,
+    "pending": 1,
+    "completed": 1,
+    "cancelled": 1,
+    "overdue": 0,
+    "due_today": 0,
+    "overdue_tasks": []
+  },
+  "applied_changes": [],
+  "conflicts": [],
+  "missing_data": [],
+  "warnings": [],
+  "validation": {
+    "tasks_valid": true,
+    "evidence_valid": true,
+    "quarter_plans_valid": true,
+    "after_valid": true,
+    "base_state_current": true,
+    "atomic": true,
+    "errors": []
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "approval_id": "acme-demo-appr-001",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "created_at": "2026-01-20T09:00:00Z",
+  "approved_at": "2026-01-20T09:05:00Z",
+  "approved_by": "operator",
+  "source_artifact": {
+    "type": "task_proposals",
+    "artifact_id": "acme-demo-tp-2026-01-16",
+    "artifact_hash": "0408df4aed6ccbceb9c3e481cd9b4aaca8f6dce3a7c5d204b281be99ed055f49",
+    "path": "context/generated/acme-demo/replanning/task-proposals.json"
+  },
+  "scope": {
+    "approved_items": [
+      {
+        "item_id": "acme-demo-tp-001",
+        "item_type": "task_proposal",
+        "approved_payload_hash": "93b18eeff5df965e618167b3b4c5c4fca670b3ab5f19eddef032340fa4f35d55",
+        "conditions": [],
+        "notes": null
+      }
+    ],
+    "rejected_items": [],
+    "deferred_items": [
+      {
+        "item_id": "acme-demo-tp-003",
+        "item_type": "task_proposal",
+        "notes": null
+      },
+      {
+        "item_id": "acme-demo-tp-002",
+        "item_type": "task_proposal",
+        "notes": null
+      }
+    ]
+  },
+  "status": "partially_approved",
+  "superseded_by": null,
+  "notes": null
+}

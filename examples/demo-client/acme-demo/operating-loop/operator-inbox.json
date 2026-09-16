@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "generated_at": "2026-01-20T09:00:00Z",
+  "approvals_required": [
+    {
+      "item_id": "A1",
+      "label": "Criar tarefa: Configurar pixel de conversao no site",
+      "summary": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
+      "due_at": "2026-01-23",
+      "evidence_ids": [
+        "acme-demo-ev-002"
+      ],
+      "impact": "Habilita medicao de conversao — pre-requisito para leitura do SMART."
+    }
+  ],
+  "scheduling_required": [
+    {
+      "item_id": "S1",
+      "label": "Registrar fechamento de midia de janeiro/2026",
+      "question": "Definir due_at apos o fechamento do mes."
+    }
+  ],
+  "decisions_required": [
+    {
+      "decision_id": "D1",
+      "question": "Reavaliar budget de Meta Ads de fevereiro?",
+      "why_needed": "Decisao de orcamento nao deve ser tomada sem fechamento do mes.",
+      "options_known_from_context": [
+        "Manter budget atual",
+        "Aguardar fechamento do mes antes de decidir"
+      ],
+      "evidence_ids": [
+        "acme-demo-ev-001",
+        "acme-demo-ev-002"
+      ],
+      "downstream_effect": "Define o plano de midia de fevereiro/2026."
+    }
+  ],
+  "external_actions_required": [],
+  "conflicts": [],
+  "blocking_missing_data": []
+}

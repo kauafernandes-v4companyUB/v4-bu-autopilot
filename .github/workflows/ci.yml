@@ -27,7 +27,7 @@ jobs:
       - name: JSON schema validation (Draft 2020-12) + fixtures
         run: python -m pytest tests/contracts -q
 
-      - name: Full test suite (contracts, skills, integration, security)
+      - name: Full test suite (contracts, skills, integration, security, intelligence, operating_loop)
         run: python -m pytest tests/ -q
 
       - name: doctor (engine-only mode — no private workspace in CI)
