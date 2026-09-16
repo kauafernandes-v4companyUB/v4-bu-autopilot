@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "generate-tasks",
+  "mode": "preview",
+  "proposal_set_id": "acme-demo-tp-2026-01-16",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "generated_at": "2026-01-16T10:30:00Z",
+  "status": "success",
+  "replanning_ref": {
+    "artifact_id": "acme-demo-replan-2026-01-16",
+    "artifact_type": "replanning",
+    "content_sha256": "a33cb18edbecc0e6d8d7e50007712c83042062ba6a01c4e4c08771bdc05003b0",
+    "path": "context/generated/acme-demo/replanning/replanning.json"
+  },
+  "audit_ref": {
+    "artifact_id": "acme-demo-audit-2026-01-16",
+    "artifact_type": "audit",
+    "content_sha256": "d4ae54330fa504accce155b7e9d619fd4652168cf42b75257189810529864da6",
+    "path": "context/generated/acme-demo/replanning/audit.json"
+  },
+  "task_proposals": [
+    {
+      "proposal_id": "acme-demo-tp-001",
+      "action_id": "acme-demo-a-001",
+      "classification": "task_candidate",
+      "readiness": "ready",
+      "title": "Configurar pixel de conversao no site",
+      "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
+      "raised_at": "2026-01-16",
+      "due_at": "2026-01-23",
+      "quarter_id": "2026-Q1",
+      "origin": {"type": "whatsapp", "evidence_ids": ["acme-demo-ev-002"]},
+      "evidence_ids": ["acme-demo-ev-002"],
+      "manage_task_operation": {
+        "operation_id": "acme-demo-op-001",
+        "type": "create_task",
+        "task_id": "acme-demo-task-001",
+        "title": "Configurar pixel de conversao no site",
+        "description": "Configurar o pixel de conversao do Meta Ads no site ficticio da Acme Demo antes de escalar o investimento.",
+        "raised_at": "2026-01-16",
+        "due_at": "2026-01-23",
+        "quarter_id": "2026-Q1",
+        "origin": {"type": "whatsapp", "evidence_ids": ["acme-demo-ev-002"]},
+        "evidence_ids": ["acme-demo-ev-002"]
+      },
+      "reason_if_blocked": null
+    },
+    {
+      "proposal_id": "acme-demo-tp-002",
+      "action_id": "acme-demo-a-002",
+      "classification": "monitoring_item",
+      "readiness": "needs_scheduling",
+      "title": "Registrar fechamento de midia de janeiro/2026",
+      "description": "Executar nova leitura de BI apos o fechamento do mes para comparar planejado vs. realizado completo.",
+      "raised_at": "2026-01-16",
+      "due_at": null,
+      "quarter_id": "2026-Q1",
+      "origin": {"type": "replanning", "evidence_ids": ["acme-demo-ev-001"]},
+      "evidence_ids": ["acme-demo-ev-001"],
+      "manage_task_operation": null,
+      "reason_if_blocked": "Depende do fechamento do mes de janeiro/2026 (evento futuro); sem data de fechamento confirmada ainda, due_at nao pode ser sustentado (audit acme-demo-au-001)."
+    },
+    {
+      "proposal_id": "acme-demo-tp-003",
+      "action_id": "acme-demo-a-003",
+      "classification": "decision_required",
+      "readiness": "needs_decision",
+      "title": "Decidir budget de Meta Ads de fevereiro/2026",
+      "description": "Reavaliar o orcamento de Meta Ads de fevereiro somente apos o pixel estar ativo e o mes de janeiro fechado.",
+      "raised_at": "2026-01-16",
+      "due_at": null,
+      "quarter_id": "2026-Q1",
+      "origin": {"type": "replanning", "evidence_ids": ["acme-demo-ev-001", "acme-demo-ev-002"]},
+      "evidence_ids": ["acme-demo-ev-001", "acme-demo-ev-002"],
+      "manage_task_operation": null,
+      "reason_if_blocked": "Decisao de orcamento cabe ao operador/cliente — nao e execucao interna automatica, e depende de acme-demo-a-001 estar concluida."
+    }
+  ],
+  "summary": {"ready": 1, "needs_scheduling": 1, "needs_decision": 1, "dependency": 0, "external": 0, "not_task": 0},
+  "missing_data": [],
+  "warnings": []
+}

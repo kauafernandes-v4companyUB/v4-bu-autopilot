@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "diagnose-client",
+  "diagnosis_id": "acme-demo-diag-2026-01-16",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "generated_at": "2026-01-16T10:05:00Z",
+  "status": "success",
+  "context_pack_ref": {
+    "artifact_id": "acme-demo/2026-Q1/2026-01-16T10:00:00Z",
+    "artifact_type": "context_pack",
+    "content_sha256": "9e3d3dbd08656a80f56c0034c71bf459251e61ef1f38588b88f6e4ac58a62faa",
+    "path": "context/generated/acme-demo/replanning/context-pack.json"
+  },
+  "executive_summary": "[dado sintetico] Meta Ads investiu R$ 400,00 (40% do orcamento mensal) ate 15/01, sem juizo de pacing por falta de modelo. Nao ha nenhuma evidencia de vendas, entao o progresso do SMART de 8 vendas nao pode ser medido. O pixel de conversao ainda nao esta configurado (pedido pendente do cliente), o que e um risco para a leitura de atribuicao mesmo quando vendas comecarem a existir. Ha um sinal qualitativo positivo sobre o criativo de video, mas so como hipotese nao confirmada.",
+  "findings": [
+    {
+      "finding_id": "acme-demo-df-001",
+      "domain": "media",
+      "finding_class": "observed_issue",
+      "statement": "[dado sintetico] Meta Ads spend MTD (R$ 400,00) esta abaixo do orcamento mensal planejado (R$ 1.000,00) para janeiro/2026.",
+      "semantic_type": "metric",
+      "impact": "low",
+      "impact_rationale": "Periodo ainda e month-to-date (ate 15/01 de um mes de 31 dias); nao ha modelo de pacing definido para julgar se isso representa atraso de ritmo.",
+      "confidence": "high",
+      "evidence_ids": ["acme-demo-ev-001"],
+      "supporting_observations": [],
+      "opposing_evidence": [],
+      "limitations": ["sem modelo de pacing definido no contrato atual"],
+      "hypothesis_when_applicable": null
+    },
+    {
+      "finding_id": "acme-demo-df-002",
+      "domain": "objective",
+      "finding_class": "missing_data",
+      "statement": "[dado sintetico] Nao ha evidencia de vendas atribuidas as acoes digitais; progresso do SMART (8 vendas ate 2026-03-31) nao pode ser medido.",
+      "semantic_type": "dependency",
+      "impact": "high",
+      "impact_rationale": "Sem essa medicao, nao e possivel avaliar se a operacao esta no caminho certo para o objetivo do Quarter.",
+      "confidence": "high",
+      "evidence_ids": [],
+      "supporting_observations": [],
+      "opposing_evidence": [],
+      "limitations": ["nenhuma fonte de vendas conectada para este cliente sintetico"],
+      "hypothesis_when_applicable": null
+    },
+    {
+      "finding_id": "acme-demo-df-003",
+      "domain": "measurement",
+      "finding_class": "risk",
+      "statement": "[dado sintetico] Sem pixel de conversao configurado, a atribuicao de vendas ao Meta Ads permanece incerta mesmo quando/se vendas comecarem a ser reportadas.",
+      "semantic_type": "risk",
+      "impact": "medium",
+      "impact_rationale": "Mesmo com vendas futuras, a atribuicao ao canal pode ficar ambigua sem o pixel — o risco existe independente de haver venda ou nao.",
+      "confidence": "high",
+      "evidence_ids": ["acme-demo-ev-002"],
+      "supporting_observations": [],
+      "opposing_evidence": [],
+      "limitations": [],
+      "hypothesis_when_applicable": null
+    },
+    {
+      "finding_id": "acme-demo-df-004",
+      "domain": "creative",
+      "finding_class": "hypothesis",
+      "statement": "[dado sintetico] O criativo de video de lancamento pode estar gerando a resposta inicial positiva relatada pelo cliente.",
+      "semantic_type": "hypothesis",
+      "impact": "low",
+      "impact_rationale": "Se confirmado, sustentaria repetir o formato de video curto em novos criativos; ainda nao ha metrica que confirme isso.",
+      "confidence": "low",
+      "evidence_ids": ["acme-demo-ev-002"],
+      "supporting_observations": ["cliente relatou boa resposta inicial ao video, sem metrica associada"],
+      "opposing_evidence": [],
+      "limitations": ["feedback qualitativo unico, sem metrica de engajamento associada"],
+      "hypothesis_when_applicable": {
+        "statement": "Formato de video curto e o driver principal da resposta positiva relatada.",
+        "would_be_confirmed_by": "Comparacao de CTR/engajamento entre o criativo de video e outros formatos veiculados no mesmo periodo."
+      }
+    }
+  ],
+  "missing_data": [
+    {"field": "sales_evidence", "expected_source": "CRM ou evidencia de vendas atribuidas", "impact": "Progresso do SMART nao pode ser medido.", "blocking": true}
+  ],
+  "warnings": []
+}

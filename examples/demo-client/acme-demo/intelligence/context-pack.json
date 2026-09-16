@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "build-context-pack",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "generated_at": "2026-01-16T10:00:00Z",
+  "status": "partial",
+  "identity": {
+    "client_id": "acme-demo",
+    "quarter_id": "2026-Q1",
+    "generated_at": "2026-01-16T10:00:00Z"
+  },
+  "source_status": [
+    {"source": "read-quarter", "available": true, "observed_at": "2026-01-16T09:58:00Z", "source_date": null, "period": {"from": "2026-01-01", "to": "2026-03-31"}, "freshness": "current", "status": "success", "confidence": "high", "limitations": []},
+    {"source": "read-bi", "available": true, "observed_at": "2026-01-15T12:00:00Z", "source_date": null, "period": {"from": "2026-01-01", "to": "2026-01-15"}, "freshness": "current", "status": "success", "confidence": "medium", "limitations": ["month_to_date, nao e fechamento do mes"]},
+    {"source": "read-whatsapp", "available": true, "observed_at": "2026-01-16T09:30:00Z", "source_date": "2026-01-16", "period": null, "freshness": "current", "status": "success", "confidence": "medium", "limitations": ["feedback qualitativo unico"]},
+    {"source": "read-client-context", "available": false, "observed_at": null, "source_date": null, "period": null, "freshness": "unknown", "status": "not_run", "confidence": "low", "limitations": ["nao executado para este cliente sintetico"]},
+    {"source": "read-account-gt", "available": false, "observed_at": null, "source_date": null, "period": null, "freshness": "unknown", "status": "not_applicable", "confidence": "low", "limitations": ["sem call Account x GT para este cliente sintetico"]},
+    {"source": "task_ledger", "available": true, "observed_at": "2026-01-16T09:50:00Z", "source_date": null, "period": null, "freshness": "current", "status": "success", "confidence": "high", "limitations": []},
+    {"source": "ropre", "available": true, "observed_at": "2026-01-16T09:55:00Z", "source_date": null, "period": null, "freshness": "current", "status": "success", "confidence": "high", "limitations": ["check-in ainda em draft, nao completed"]}
+  ],
+  "strategic_context": {
+    "smart_objective": "[dado sintetico] Gerar 8 vendas atribuidas as acoes digitais da Acme Demo ate 2026-03-31.",
+    "target": {"value": 8, "unit": "count"},
+    "baseline": null,
+    "priorities": [
+      "[dado sintetico] Validar canal Meta Ads como fonte de aquisicao.",
+      "[dado sintetico] Testar criativos de video curto no funil de topo."
+    ],
+    "assumptions": ["[dado sintetico] Pixel de conversao precisa estar configurado antes de escalar budget."],
+    "long_term_direction": null,
+    "evidence_ids": ["acme-demo-ev-001", "acme-demo-ev-002"]
+  },
+  "observed_results": {
+    "metrics": [],
+    "media_monitoring": [
+      {
+        "month": "2026-01",
+        "channel": "meta_ads",
+        "actual_spend": 400.0,
+        "planned_budget": 1000.0,
+        "attainment_percent": 40.0,
+        "variance_value": -600.0,
+        "evidence_ids": ["acme-demo-ev-001"]
+      }
+    ],
+    "objective_progress": {"status": "unknown", "current_value": null, "target_value": 8, "progress_percent": null, "observed_at": null, "evidence_ids": []},
+    "commercial_results": []
+  },
+  "client_voice": {
+    "decisions": [
+      {"statement": "[dado sintetico] Concentrar o budget de midia paga do Q1 demo em Meta Ads, sem Google Ads neste ciclo.", "semantic_type": "decision", "source_date": "2026-01-05", "evidence_ids": ["acme-demo-ev-001"]}
+    ],
+    "requests": [
+      {"statement": "[dado sintetico] Configurar pixel de conversao no site fictício da Acme Demo antes de escalar midia.", "semantic_type": "request", "source_date": "2026-01-16", "evidence_ids": ["acme-demo-ev-002"]}
+    ],
+    "feedback": [
+      {"statement": "[dado sintetico] Cliente relatou boa resposta inicial ao criativo de video da campanha de lancamento.", "semantic_type": "fact", "source_date": "2026-01-16", "evidence_ids": ["acme-demo-ev-002"]}
+    ],
+    "ideas": [],
+    "dependencies": []
+  },
+  "operational_state": {
+    "pending": [
+      {"statement": "[dado sintetico] Configurar pixel de conversao no site fictício da Acme Demo.", "semantic_type": "request", "source_date": "2026-01-16", "evidence_ids": ["acme-demo-ev-002"]}
+    ],
+    "tasks_summary": {"total": 3, "pending": 1, "completed": 1, "cancelled": 1, "overdue": 0},
+    "ropre_state": {"current_status": "draft", "last_completed_check_in_id": null, "note": "check-in demo-2026-01-20 existe como draft (scheduled_for sintetico); nenhum ROPRE foi completado ainda para este cliente sintetico."},
+    "flags": [
+      {"flag_id": "risk-demo-attribution", "type": "risk", "statement": "[dado sintetico] Sem pixel de conversao configurado, atribuicao de vendas ao Meta Ads permanece incerta.", "status": "open"}
+    ],
+    "blockers": []
+  },
+  "conflicts": [],
+  "missing_data": [
+    {"field": "sales_evidence", "expected_source": "CRM ou evidencia de vendas atribuidas", "impact": "Progresso do SMART (8 vendas) nao pode ser medido.", "blocking": true},
+    {"field": "google_ads_actual_spend", "expected_source": "read-bi", "impact": "Nao ha observacao de spend para google_ads (planejado R$0,00); impossivel confirmar gasto zero vs. ausencia de dado.", "blocking": false},
+    {"field": "pixel_configuration_status", "expected_source": "confirmacao tecnica do site (fora do escopo das SOURCE skills atuais)", "impact": "Sem confirmacao formal, so podemos inferir do pedido pendente que o pixel provavelmente nao esta configurado.", "blocking": false}
+  ],
+  "quality": {
+    "sufficient_for_diagnosis": true,
+    "confidence": "medium",
+    "reasons": [
+      "Evidencia direta de midia (BI) e de voz do cliente (WhatsApp) esta presente e recente.",
+      "Evidencia comercial/vendas esta inteiramente ausente, o que limita fortemente qualquer leitura de progresso do SMART."
+    ]
+  },
+  "evidence_index": [
+    {"id": "acme-demo-ev-001", "kind": "canonical", "type": "metric", "statement": "[dado sintetico] Meta Ads: investimento de R$ 400,00 observado no BI (dashboard fictício) para o periodo de 01/01/2026 a 15/01/2026, month-to-date ate 15/01/2026.", "confidence": "medium", "source": "read-bi", "observed_at": "2026-01-15T12:00:00Z"},
+    {"id": "acme-demo-ev-002", "kind": "canonical", "type": "fact", "statement": "[dado sintetico] Cliente relatou, via WhatsApp, boa resposta inicial ao criativo de video da campanha de lancamento.", "confidence": "medium", "source": "read-whatsapp", "observed_at": "2026-01-16T09:30:00Z"}
+  ],
+  "warnings": [
+    "read-client-context nao foi executado para este cliente sintetico — nao bloqueante, mas reduz confianca em business_identity/commercial_context."
+  ]
+}

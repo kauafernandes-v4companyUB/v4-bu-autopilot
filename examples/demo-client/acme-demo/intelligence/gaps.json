@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "calculate-gap",
+  "gap_set_id": "acme-demo-gaps-2026-01-16",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "generated_at": "2026-01-16T10:10:00Z",
+  "status": "success",
+  "context_pack_ref": {
+    "artifact_id": "acme-demo/2026-Q1/2026-01-16T10:00:00Z",
+    "artifact_type": "context_pack",
+    "content_sha256": "9e3d3dbd08656a80f56c0034c71bf459251e61ef1f38588b88f6e4ac58a62faa",
+    "path": "context/generated/acme-demo/replanning/context-pack.json"
+  },
+  "diagnosis_ref": {
+    "artifact_id": "acme-demo-diag-2026-01-16",
+    "artifact_type": "diagnosis",
+    "content_sha256": "0f174bf16aaf429ba36c969cd9de12a06669ed5e52057c777e0b42a0103aab9f",
+    "path": "context/generated/acme-demo/replanning/diagnosis.json"
+  },
+  "gaps": [
+    {
+      "gap_id": "acme-demo-gp-001",
+      "type": "objective_gap",
+      "target": 8,
+      "current": null,
+      "delta": null,
+      "unit": "count",
+      "calculable": false,
+      "evidence_ids": [],
+      "interpretation": "Nao e possivel quantificar o gap de vendas sem evidencia atual de vendas.",
+      "limitations": ["nenhuma fonte de vendas conectada para este cliente sintetico"]
+    },
+    {
+      "gap_id": "acme-demo-gp-002",
+      "type": "media_gap",
+      "target": 1000.0,
+      "current": 400.0,
+      "delta": -600.0,
+      "unit": "brl",
+      "calculable": true,
+      "evidence_ids": ["acme-demo-ev-001"],
+      "interpretation": "Actual (R$ 400,00) e 40% do planejado mensal (R$ 1.000,00) ate 15/01 — delta de -R$ 600,00 sobre o total planejado do mes. Fato aritmetico apenas; nao indica, por si, atraso de ritmo sem modelo de pacing.",
+      "limitations": ["sem modelo de pacing definido"]
+    },
+    {
+      "gap_id": "acme-demo-gp-003",
+      "type": "media_gap",
+      "target": 0.0,
+      "current": null,
+      "delta": null,
+      "unit": "brl",
+      "calculable": false,
+      "evidence_ids": [],
+      "interpretation": "Google Ads nao foi planejado (R$ 0,00) neste Quarter; nenhuma observacao de actual existe — ausencia de dado, nao gasto zero confirmado.",
+      "limitations": ["nenhuma observacao de spend para google_ads"]
+    }
+  ],
+  "missing_data": [
+    {"field": "sales_evidence", "expected_source": "CRM ou evidencia de vendas atribuidas", "impact": "objective_gap permanece calculable=false.", "blocking": true}
+  ],
+  "warnings": []
+}

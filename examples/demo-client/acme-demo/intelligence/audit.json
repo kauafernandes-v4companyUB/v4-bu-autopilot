@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "audit-plan",
+  "audit_id": "acme-demo-audit-2026-01-16",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "generated_at": "2026-01-16T10:25:00Z",
+  "status": "success",
+  "replanning_ref": {
+    "artifact_id": "acme-demo-replan-2026-01-16",
+    "artifact_type": "replanning",
+    "content_sha256": "a33cb18edbecc0e6d8d7e50007712c83042062ba6a01c4e4c08771bdc05003b0",
+    "path": "context/generated/acme-demo/replanning/replanning.json"
+  },
+  "audit_status": "pass_with_warnings",
+  "issues": [
+    {
+      "issue_id": "acme-demo-au-001",
+      "severity": "low",
+      "code": "task_like_item_without_operational_readiness",
+      "statement": "A acao acme-demo-a-002 (registrar fechamento de midia via nova execucao de read-bi) depende de um evento futuro (fim de janeiro/2026) que ainda nao ocorreu — nao e uma tarefa executavel agora.",
+      "related_ids": ["acme-demo-a-002"],
+      "required_fix": "generate-tasks deve classificar esta acao como monitoring_item/needs_scheduling, nao como task_candidate pronta (ready), ate o fechamento do mes."
+    }
+  ],
+  "warnings": []
+}

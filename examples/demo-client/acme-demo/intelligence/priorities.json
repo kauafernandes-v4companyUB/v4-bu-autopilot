@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "identify-priorities",
+  "priority_set_id": "acme-demo-pr-2026-01-16",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "generated_at": "2026-01-16T10:15:00Z",
+  "status": "success",
+  "context_pack_ref": {
+    "artifact_id": "acme-demo/2026-Q1/2026-01-16T10:00:00Z",
+    "artifact_type": "context_pack",
+    "content_sha256": "9e3d3dbd08656a80f56c0034c71bf459251e61ef1f38588b88f6e4ac58a62faa",
+    "path": "context/generated/acme-demo/replanning/context-pack.json"
+  },
+  "diagnosis_ref": {
+    "artifact_id": "acme-demo-diag-2026-01-16",
+    "artifact_type": "diagnosis",
+    "content_sha256": "0f174bf16aaf429ba36c969cd9de12a06669ed5e52057c777e0b42a0103aab9f",
+    "path": "context/generated/acme-demo/replanning/diagnosis.json"
+  },
+  "gaps_ref": {
+    "artifact_id": "acme-demo-gaps-2026-01-16",
+    "artifact_type": "gaps",
+    "content_sha256": "2315f087cbc418ce519cf05821180e895dcd2c83ec81f83f6f165a0cb9d5b5af",
+    "path": "context/generated/acme-demo/replanning/gaps.json"
+  },
+  "priorities": [
+    {
+      "priority_id": "acme-demo-pr-001",
+      "order": 1,
+      "statement": "[dado sintetico] Configurar pixel de conversao antes de qualquer decisao de aumentar investimento em midia.",
+      "rationale": "Sem o pixel, tanto a medicao de vendas quanto a leitura do SMART e de qualquer gap futuro de midia ficam comprometidas — e pre-requisito para o resto.",
+      "rationale_dimensions": {
+        "impact_on_active_smart": "Necessario para eventualmente medir progresso do SMART de 8 vendas.",
+        "factual_urgency": "Ja e uma solicitacao pendente do cliente desde 16/01.",
+        "dependency_or_blocking": "Bloqueia leitura confiavel de qualquer resultado de midia futuro.",
+        "evidence_strength": null,
+        "reversibility": null,
+        "effort_known": null,
+        "client_request_or_decision": "Ja solicitado nominalmente pelo cliente (acme-demo-ev-002).",
+        "operational_obligation": null
+      },
+      "evidence_ids": ["acme-demo-ev-002"],
+      "related_findings": ["acme-demo-df-002", "acme-demo-df-003"],
+      "related_gaps": ["acme-demo-gp-001"],
+      "impact": "high",
+      "urgency": "high",
+      "blocking": true,
+      "confidence": "high",
+      "prerequisites": []
+    },
+    {
+      "priority_id": "acme-demo-pr-002",
+      "order": 2,
+      "statement": "[dado sintetico] Acompanhar o fechamento de midia de janeiro antes de decidir sobre budget de fevereiro.",
+      "rationale": "Spend MTD esta em 40% do planejado; vale observar o fechamento do mes antes de qualquer decisao sobre budget.",
+      "rationale_dimensions": {
+        "impact_on_active_smart": null,
+        "factual_urgency": "Fechamento do mes e um evento real e proximo (final de janeiro).",
+        "dependency_or_blocking": null,
+        "evidence_strength": "Evidencia direta de BI, confidence medium.",
+        "reversibility": "Decisao de budget e reversivel no proximo ciclo.",
+        "effort_known": null,
+        "client_request_or_decision": null,
+        "operational_obligation": "Acompanhamento de midia e rotina operacional ja estabelecida."
+      },
+      "evidence_ids": ["acme-demo-ev-001"],
+      "related_findings": ["acme-demo-df-001"],
+      "related_gaps": ["acme-demo-gp-002"],
+      "impact": "medium",
+      "urgency": "medium",
+      "blocking": false,
+      "confidence": "medium",
+      "prerequisites": []
+    }
+  ],
+  "excluded_candidates": [
+    {
+      "statement": "[dado sintetico] Aumentar budget de Meta Ads imediatamente.",
+      "reason_excluded": "Sem pixel configurado e sem dado de vendas, nao ha evidencia que sustente que aumentar budget agora produzira resultado melhor — decisao prematura.",
+      "evidence_ids": ["acme-demo-ev-001", "acme-demo-ev-002"]
+    }
+  ],
+  "missing_data": [],
+  "warnings": []
+}

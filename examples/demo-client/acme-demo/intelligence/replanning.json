@@ -1,0 +1,111 @@
+{
+  "schema_version": "1.0.0",
+  "skill": "replan-client",
+  "replanning_id": "acme-demo-replan-2026-01-16",
+  "client_id": "acme-demo",
+  "quarter_id": "2026-Q1",
+  "generated_at": "2026-01-16T10:20:00Z",
+  "status": "success",
+  "context_pack_ref": {
+    "artifact_id": "acme-demo/2026-Q1/2026-01-16T10:00:00Z",
+    "artifact_type": "context_pack",
+    "content_sha256": "9e3d3dbd08656a80f56c0034c71bf459251e61ef1f38588b88f6e4ac58a62faa",
+    "path": "context/generated/acme-demo/replanning/context-pack.json"
+  },
+  "diagnosis_ref": {
+    "artifact_id": "acme-demo-diag-2026-01-16",
+    "artifact_type": "diagnosis",
+    "content_sha256": "0f174bf16aaf429ba36c969cd9de12a06669ed5e52057c777e0b42a0103aab9f",
+    "path": "context/generated/acme-demo/replanning/diagnosis.json"
+  },
+  "gaps_ref": {
+    "artifact_id": "acme-demo-gaps-2026-01-16",
+    "artifact_type": "gaps",
+    "content_sha256": "2315f087cbc418ce519cf05821180e895dcd2c83ec81f83f6f165a0cb9d5b5af",
+    "path": "context/generated/acme-demo/replanning/gaps.json"
+  },
+  "priorities_ref": {
+    "artifact_id": "acme-demo-pr-2026-01-16",
+    "artifact_type": "priorities",
+    "content_sha256": "8a901852d4f716f0d03c90bb3fde81dcf8c42e0d5b6531349bdac195a84189ba",
+    "path": "context/generated/acme-demo/replanning/priorities.json"
+  },
+  "objective_alignment": "O SMART de 8 vendas ate 2026-03-31 permanece o objetivo vigente; este replanejamento nao o altera. Como nao ha evidencia de vendas, o foco imediato e habilitar a medicao antes de qualquer decisao de investimento.",
+  "what_changed": ["Prioridade explicita para configuracao de pixel antes de qualquer expansao de midia."],
+  "what_remains": [
+    "SMART, target e budget planejado do Quarter permanecem exatamente como em plan.json.",
+    "Meta Ads continua o unico canal pago ativo neste Quarter."
+  ],
+  "strategic_direction": "Priorizar mensurabilidade (pixel) sobre escala de investimento ate que vendas possam ser observadas e atribuidas.",
+  "workstreams": [
+    {
+      "workstream_id": "acme-demo-ws-001",
+      "priority_id": "acme-demo-pr-001",
+      "objective": "Habilitar medicao confiavel de conversao.",
+      "rationale": "Pre-requisito para qualquer leitura futura de gap de vendas ou decisao de budget.",
+      "evidence_ids": ["acme-demo-ev-002"],
+      "actions": [
+        {
+          "action_id": "acme-demo-a-001",
+          "statement": "Configurar pixel de conversao do Meta Ads no site.",
+          "reason": "Pre-requisito para medir vendas atribuidas e para qualquer decisao futura de budget.",
+          "expected_effect": "Passar a observar conversoes atribuiveis ao canal Meta Ads.",
+          "evidence_ids": ["acme-demo-ev-002"],
+          "prerequisite": null,
+          "deadline_requirement": "derived_from_existing_commitment",
+          "deadline_source": "acme-demo-ev-002",
+          "external_action_required": false,
+          "irreversible": false,
+          "confidence": "high"
+        }
+      ],
+      "success_signal": "Evento de conversao do Meta Ads aparece nos relatorios de BI/pixel.",
+      "dependencies": [],
+      "risks": ["Atraso na configuracao tecnica pelo time de site."],
+      "do_not_do": ["Nao aumentar budget de midia antes de confirmar o pixel funcionando."],
+      "confidence": "high"
+    },
+    {
+      "workstream_id": "acme-demo-ws-002",
+      "priority_id": "acme-demo-pr-002",
+      "objective": "Acompanhar o fechamento de midia de janeiro antes de decidir sobre budget de fevereiro.",
+      "rationale": "Spend MTD esta em 40% do planejado; o fechamento do mes completo e o dado que falta para uma leitura justa.",
+      "evidence_ids": ["acme-demo-ev-001"],
+      "actions": [
+        {
+          "action_id": "acme-demo-a-002",
+          "statement": "Registrar o fechamento de spend de Meta Ads no fim de janeiro/2026 via nova execucao de read-bi.",
+          "reason": "Permite comparar planejado vs. realizado do mes completo, nao apenas MTD.",
+          "expected_effect": "Gap de midia do mes fechado disponivel para o proximo ciclo de replanejamento.",
+          "evidence_ids": ["acme-demo-ev-001"],
+          "prerequisite": null,
+          "deadline_requirement": "needs_operator_decision",
+          "deadline_source": null,
+          "external_action_required": false,
+          "irreversible": false,
+          "confidence": "medium"
+        },
+        {
+          "action_id": "acme-demo-a-003",
+          "statement": "Recomendar ao operador reavaliar o budget de Meta Ads de fevereiro somente apos o pixel estar ativo e o mes de janeiro fechado.",
+          "reason": "Decisao de budget nao deve ser tomada sem medicao de conversao nem fechamento do mes.",
+          "expected_effect": "Evita decisao de investimento prematura.",
+          "evidence_ids": ["acme-demo-ev-001", "acme-demo-ev-002"],
+          "prerequisite": "acme-demo-a-001 concluida",
+          "deadline_requirement": "none",
+          "deadline_source": null,
+          "external_action_required": false,
+          "irreversible": false,
+          "confidence": "medium"
+        }
+      ],
+      "success_signal": "Budget de fevereiro e decidido com base em dado de pixel + fechamento de mes, nao antes.",
+      "dependencies": ["acme-demo-a-001"],
+      "risks": [],
+      "do_not_do": ["Nao alterar planned_budget de plan.json diretamente a partir desta recomendacao."],
+      "confidence": "medium"
+    }
+  ],
+  "missing_data": [],
+  "warnings": []
+}
