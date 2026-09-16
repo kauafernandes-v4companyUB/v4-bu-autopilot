@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: schema / py_compile / pytest / doctor / hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # doctor/tests inspect git history/tracking, not just working tree
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Byte-compile all Python sources
+        run: python -m py_compile $(git ls-files 'scripts/*.py' 'tests/*.py')
+
+      - name: JSON schema validation (Draft 2020-12) + fixtures
+        run: python -m pytest tests/contracts -q
+
+      - name: Full test suite (contracts, skills, integration, security)
+        run: python -m pytest tests/ -q
+
+      - name: doctor (engine-only mode — no private workspace in CI)
+        run: python scripts/doctor.py
+
+      - name: Public repository hygiene (redundant, explicit gate)
+        run: python -m pytest tests/security -q
+
+  secret-scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
