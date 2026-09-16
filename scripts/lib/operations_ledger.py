@@ -42,6 +42,37 @@ def approval_is_stale(operation: dict, current_payload_hash: str | None) -> bool
     return approval.get("status") == "approved" and current_payload_hash is not None and approval.get("payload_hash") != current_payload_hash
 
 
+def external_execution_status(
+    operation: dict,
+    current_payload_hash: str | None = None,
+    capability: dict | None = None,
+) -> str:
+    """Classify execution readiness without creating or invoking a transport.
+
+    ``capability`` is an execution-time declaration supplied by the caller,
+    never inferred from an approval. ``mode=real`` is required; a fake,
+    dry-run, manual-export, missing, incompatible, or under-configured channel
+    cannot make a real external action executable.
+    """
+    approval = operation.get("approval") or {}
+    external = operation.get("external") or {}
+    if external.get("executed"):
+        return "executed"
+    if approval_is_stale(operation, current_payload_hash) or approval.get("status") == "stale":
+        return "approval_stale"
+    if approval.get("status") != "approved":
+        return "awaiting_approval"
+    if not capability or capability.get("mode") != "real" or not capability.get("available"):
+        return "awaiting_execution_channel"
+    if not capability.get("compatible"):
+        return "transport_incompatible"
+    if not capability.get("requirements_satisfied"):
+        return "transport_requirements_unsatisfied"
+    if not capability.get("session_authorized"):
+        return "awaiting_session_authorization"
+    return "execution_ready"
+
+
 def transition(operation: dict, target_status: str, now: str, *, materialized_task_id: str | None = None) -> dict:
     current = operation["status"]
     if target_status not in TRANSITIONS.get(current, set()):
@@ -136,9 +167,15 @@ def validate_semantics(ledger: dict, tasks: dict | None = None, receipts_dir: Pa
     return errors
 
 
-def rebuild_operator_inbox(ledger: dict, tasks: dict | None = None, current_payload_hashes: dict[str, str] | None = None) -> dict:
+def rebuild_operator_inbox(
+    ledger: dict,
+    tasks: dict | None = None,
+    current_payload_hashes: dict[str, str] | None = None,
+    external_capabilities: dict[str, dict] | None = None,
+) -> dict:
     """Build a transient view. It never mutates the ledger or tasks."""
     current_payload_hashes = current_payload_hashes or {}
+    external_capabilities = external_capabilities or {}
     inbox = {"scheduling": [], "decisions": [], "external_actions": [], "blocked": []}
     for operation in ledger.get("operations", []):
         status = operation["status"]
@@ -153,10 +190,19 @@ def rebuild_operator_inbox(ledger: dict, tasks: dict | None = None, current_payl
             item["deferred_until"] = operation["deferred_until"]
             inbox["decisions"].append(item)
         elif operation["type"] == "external_approved":
-            if approval_is_stale(operation, current_payload_hashes.get(op_id)) or (operation.get("approval") or {}).get("status") == "stale":
-                item["reason"] = "approval_stale"
+            execution_status = external_execution_status(
+                operation, current_payload_hashes.get(op_id), external_capabilities.get(op_id)
+            )
+            item["execution_status"] = execution_status
+            if execution_status == "approval_stale":
+                item["reason"] = execution_status
                 inbox["blocked"].append(item)
-            elif (operation.get("approval") or {}).get("status") == "approved" and not (operation.get("external") or {}).get("executed"):
+            elif execution_status != "executed":
+                item["human_status"] = (
+                    "APROVADA / AGUARDANDO CANAL DE EXECUÇÃO"
+                    if execution_status == "awaiting_execution_channel"
+                    else execution_status
+                )
                 inbox["external_actions"].append(item)
         elif operation["type"] == "decision_pending":
             inbox["decisions"].append(item)
