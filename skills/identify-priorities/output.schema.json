@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/identify-priorities/output.schema.json",
+  "title": "Identify Priorities Output",
+  "description": "INTELLIGENCE, read-only. Orders operational attention. No arbitrary numeric score — every position must be justifiable from the explicit dimensions in each priority's rationale_dimensions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "priority_set_id", "client_id", "quarter_id", "generated_at", "status", "context_pack_ref", "diagnosis_ref", "gaps_ref", "priorities", "excluded_candidates", "missing_data", "warnings"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "identify-priorities"},
+    "priority_set_id": {"type": "string", "minLength": 1},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"oneOf": [{"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"}, {"type": "null"}]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+    "context_pack_ref": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"},
+    "diagnosis_ref": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"},
+    "gaps_ref": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"},
+    "priorities": {"type": "array", "items": {"$ref": "#/$defs/priority"}},
+    "excluded_candidates": {
+      "description": "A candidate considered but not promoted to a priority — 'excluded_alternatives' at the set level, so a reviewer can see what was weighed and rejected, not just the winners.",
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["statement", "reason_excluded", "evidence_ids"],
+        "properties": {
+          "statement": {"type": "string", "minLength": 1},
+          "reason_excluded": {"type": "string", "minLength": 1},
+          "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "missing_data": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/context-pack.schema.json#/$defs/missingDataItem"}},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "priority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["priority_id", "order", "statement", "rationale", "rationale_dimensions", "evidence_ids", "related_findings", "related_gaps", "impact", "urgency", "blocking", "confidence", "prerequisites"],
+      "properties": {
+        "priority_id": {"type": "string", "minLength": 1},
+        "order": {"type": "integer", "minimum": 1, "description": "1-based rank within this priority set. Unique across the array."},
+        "statement": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1},
+        "rationale_dimensions": {
+          "description": "Which of the allowed dimensions (mission section 9) actually justify this priority's rank — never 'seems like a good idea'.",
+          "type": "object", "additionalProperties": false,
+          "required": ["impact_on_active_smart", "factual_urgency", "dependency_or_blocking", "evidence_strength", "reversibility", "effort_known", "client_request_or_decision", "operational_obligation"],
+          "properties": {
+            "impact_on_active_smart": {"type": ["string", "null"]},
+            "factual_urgency": {"type": ["string", "null"]},
+            "dependency_or_blocking": {"type": ["string", "null"]},
+            "evidence_strength": {"type": ["string", "null"]},
+            "reversibility": {"type": ["string", "null"]},
+            "effort_known": {"type": ["string", "null"], "description": "null when effort is not known — effort is never invented to justify a rank."},
+            "client_request_or_decision": {"type": ["string", "null"]},
+            "operational_obligation": {"type": ["string", "null"]}
+          }
+        },
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+        "related_findings": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "related_gaps": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "impact": {"enum": ["low", "medium", "high"]},
+        "urgency": {"enum": ["low", "medium", "high"]},
+        "blocking": {"type": "boolean", "description": "true when this priority blocks other work (a dependency/blocker), independent of impact/urgency."},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "prerequisites": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}
