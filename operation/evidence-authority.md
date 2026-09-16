@@ -81,6 +81,16 @@ guard that keeps `schemas/evidence.schema.json` and
 `schemas/client-evidence.schema.json` from silently drifting apart
 (mission "schema drift" hardening item).
 
+## Freshness — categories, never a hardcoded threshold
+
+There is no universal "X days = stale" rule anywhere in this repo, and none should be invented (`skills/_template/SKILL.md` section 16 already says this: "não existe prazo universal de validade"). Where a skill needs to express freshness structurally (`build-context-pack.source_status[].freshness`, `schemas/context-pack.schema.json`), use exactly these categories:
+
+- `current` — the observation covers the period actually in question (e.g. a Quarter's current month) or is the latest one available with no known newer alternative.
+- `historical` — real, valid data, but covering an earlier period than the one in question (e.g. last month's BI when this month's hasn't been read yet).
+- `unknown` — freshness can't be objectively determined from what's available (no period/date on the source).
+
+If a specific skill genuinely needs a numeric threshold (e.g. "a check-in older than N days should be re-validated before an apply depends on it"), that threshold must be documented as an explicit, named, configurable policy in that skill's own `SKILL.md` — never a bare hardcoded number reused silently across skills.
+
 ## Conflict, never silent
 
 Two sources disagreeing is never resolved by picking one silently.

@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/context-pack.schema.json",
+  "title": "V4 BU Autopilot Context Pack",
+  "description": "Consolidation of already-normalized SOURCE/canonical outputs for ONE client, produced by skills/build-context-pack. Read-only, no canonical side effects. Never diagnoses (CLAUDE.md section 17 / operation/replanning-rules.md): a statement like 'CTR caiu' may enter observed_results/client_voice when evidenced; an interpretation like 'creative is fatigued' never enters here as fact — that belongs to diagnose-client as an explicit hypothesis.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "skill", "client_id", "quarter_id", "generated_at", "status",
+    "identity", "source_status", "strategic_context", "observed_results", "client_voice",
+    "operational_state", "conflicts", "missing_data", "quality", "evidence_index", "warnings"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "build-context-pack"},
+    "client_id": {"$ref": "#/$defs/clientId"},
+    "quarter_id": {"oneOf": [{"$ref": "#/$defs/quarterId"}, {"type": "null"}]},
+    "generated_at": {"description": "Execution timestamp, real system clock. CLAUDE.md section 26.", "type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["client_id", "quarter_id", "generated_at"],
+      "properties": {
+        "client_id": {"$ref": "#/$defs/clientId"},
+        "quarter_id": {"oneOf": [{"$ref": "#/$defs/quarterId"}, {"type": "null"}]},
+        "generated_at": {"type": "string", "format": "date-time"}
+      }
+    },
+
+    "source_status": {"type": "array", "items": {"$ref": "#/$defs/sourceStatusEntry"}},
+
+    "strategic_context": {
+      "type": "object", "additionalProperties": false,
+      "required": ["smart_objective", "target", "baseline", "priorities", "assumptions", "long_term_direction", "evidence_ids"],
+      "properties": {
+        "smart_objective": {"type": ["string", "null"]},
+        "target": {"type": ["object", "null"], "additionalProperties": false, "properties": {"value": {"type": ["number", "null"]}, "unit": {"type": ["string", "null"]}}},
+        "baseline": {"type": ["number", "string", "null"]},
+        "priorities": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "assumptions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "long_term_direction": {"type": ["string", "null"]},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+      }
+    },
+
+    "observed_results": {
+      "type": "object", "additionalProperties": false,
+      "required": ["metrics", "media_monitoring", "objective_progress", "commercial_results"],
+      "properties": {
+        "metrics": {"type": "array", "items": {"$ref": "#/$defs/observedMetric"}},
+        "media_monitoring": {"type": "array", "items": {"type": "object"}},
+        "objective_progress": {"type": ["object", "null"]},
+        "commercial_results": {"type": "array", "items": {"$ref": "#/$defs/observedMetric"}}
+      }
+    },
+
+    "client_voice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["decisions", "requests", "feedback", "ideas", "dependencies"],
+      "properties": {
+        "decisions": {"type": "array", "items": {"$ref": "#/$defs/voiceItem"}},
+        "requests": {"type": "array", "items": {"$ref": "#/$defs/voiceItem"}},
+        "feedback": {"type": "array", "items": {"$ref": "#/$defs/voiceItem"}},
+        "ideas": {"type": "array", "items": {"$ref": "#/$defs/voiceItem"}},
+        "dependencies": {"type": "array", "items": {"$ref": "#/$defs/voiceItem"}}
+      }
+    },
+
+    "operational_state": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pending", "tasks_summary", "ropre_state", "flags", "blockers"],
+      "properties": {
+        "pending": {"type": "array", "items": {"$ref": "#/$defs/voiceItem"}},
+        "tasks_summary": {
+          "type": "object", "additionalProperties": false,
+          "required": ["total", "pending", "completed", "cancelled", "overdue"],
+          "properties": {
+            "total": {"type": "integer", "minimum": 0},
+            "pending": {"type": "integer", "minimum": 0},
+            "completed": {"type": "integer", "minimum": 0},
+            "cancelled": {"type": "integer", "minimum": 0},
+            "overdue": {"type": "integer", "minimum": 0}
+          }
+        },
+        "ropre_state": {
+          "type": "object", "additionalProperties": false,
+          "required": ["current_status", "last_completed_check_in_id", "note"],
+          "properties": {
+            "current_status": {"enum": ["absent", "draft", "ready", "completed", "unknown"]},
+            "last_completed_check_in_id": {"type": ["string", "null"]},
+            "note": {"type": ["string", "null"]}
+          }
+        },
+        "flags": {"type": "array", "items": {"type": "object"}},
+        "blockers": {"type": "array", "items": {"$ref": "#/$defs/voiceItem"}}
+      }
+    },
+
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/conflictItem"}},
+    "missing_data": {"type": "array", "items": {"$ref": "#/$defs/missingDataItem"}},
+
+    "quality": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sufficient_for_diagnosis", "confidence", "reasons"],
+      "properties": {
+        "sufficient_for_diagnosis": {"type": "boolean"},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+
+    "evidence_index": {
+      "description": "Flat traceability backbone. Every evidence_id cited anywhere downstream (diagnose-client, calculate-gap, identify-priorities, replan-client, audit-plan, generate-tasks) must resolve here.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/evidenceIndexEntry"}
+    },
+
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+
+  "$defs": {
+    "clientId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarterId": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "confidence": {"enum": ["low", "medium", "high"]},
+    "freshness": {
+      "description": "Sustainable, non-arbitrary categories (operation/replanning-rules.md / mission section 6) — never a hardcoded day threshold.",
+      "enum": ["current", "historical", "unknown"]
+    },
+    "evidenceIds": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+
+    "sourceStatusEntry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "available", "observed_at", "source_date", "period", "freshness", "status", "confidence", "limitations"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1, "description": "e.g. 'read-client-context', 'read-quarter', 'read-bi', 'read-whatsapp', 'read-account-gt', 'task_ledger', 'ropre'."},
+        "available": {"type": "boolean"},
+        "observed_at": {"type": ["string", "null"], "format": "date-time"},
+        "source_date": {"type": ["string", "null"], "format": "date"},
+        "period": {"type": ["object", "null"], "additionalProperties": false, "properties": {"from": {"type": ["string", "null"], "format": "date"}, "to": {"type": ["string", "null"], "format": "date"}}},
+        "freshness": {"$ref": "#/$defs/freshness"},
+        "status": {"enum": ["success", "partial", "failed", "not_run", "not_applicable"]},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+
+    "observedMetric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["statement", "value", "unit", "period", "evidence_ids"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "value": {"type": ["number", "string", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "period": {"type": ["object", "null"], "additionalProperties": false, "properties": {"from": {"type": ["string", "null"], "format": "date"}, "to": {"type": ["string", "null"], "format": "date"}}},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+      }
+    },
+
+    "voiceItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["statement", "semantic_type", "source_date", "evidence_ids"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "semantic_type": {"enum": ["fact", "metric", "decision", "hypothesis", "request", "commitment", "pending", "risk", "idea", "dependency"]},
+        "source_date": {"type": ["string", "null"], "format": "date"},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+      }
+    },
+
+    "conflictItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["conflict_id", "statement", "evidence_ids", "why_unresolved"],
+      "properties": {
+        "conflict_id": {"type": "string", "minLength": 1},
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_ids": {"$ref": "#/$defs/evidenceIds"},
+        "why_unresolved": {"type": "string", "minLength": 1}
+      }
+    },
+
+    "missingDataItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["field", "expected_source", "impact", "blocking"],
+      "properties": {
+        "field": {"type": "string", "minLength": 1},
+        "expected_source": {"type": ["string", "null"]},
+        "impact": {"type": "string", "minLength": 1},
+        "blocking": {"type": "boolean"}
+      }
+    },
+
+    "evidenceIndexEntry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "type", "statement", "confidence", "source", "observed_at"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["canonical", "source_observation"], "description": "canonical = resolvable in clients/<client_id>/evidence.json. source_observation = normalized SOURCE output not yet promoted (e.g. a read-bi metric_observation_id) — usable for reasoning, but weaker provenance than canonical."},
+        "type": {"enum": ["fact", "metric", "decision", "hypothesis", "request", "commitment", "pending", "risk", "idea", "dependency"]},
+        "statement": {"type": "string", "minLength": 1},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "source": {"type": "string", "minLength": 1},
+        "observed_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    }
+  }
+}

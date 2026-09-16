@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/build-context-pack/output.schema.json",
+  "title": "Build Context Pack Output",
+  "description": "build-context-pack's output IS a Context Pack — the shared shape lives in schemas/context-pack.schema.json (consumed by diagnose-client, calculate-gap, identify-priorities, replan-client and audit-plan too), so this file just references it instead of duplicating the contract.",
+  "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/context-pack.schema.json"
+}
