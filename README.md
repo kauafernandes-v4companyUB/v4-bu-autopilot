@@ -11,15 +11,22 @@ higher-quality operational decisions.
 - **Implemented and tested:** `read-bu`, `read-client-context`,
   `read-account-gt`, `read-whatsapp`, `read-bi`, `read-quarter`,
   `promote-client-memory`, `monitor-quarter`, `manage-task-ledger`,
-  `prepare-ropre`, `close-ropre`. See `skills/registry.json` — it's the
-  single source of truth for `implemented` vs `planned`, not this file.
-- **Planned, not implemented:** `diagnose-client`, `calculate-gap`,
-  `identify-priorities`, `replan-client`, `audit-plan`,
-  `generate-tasks`, `publish-ekyte` — see `operation/replanning-rules.md`
-  and `docs/workflows/replan-client.md`.
-- One real end-to-end flow validated against a real client (Meta Ads
-  spend → evidence → Quarter monitoring), now migrated out of this repo
-  into a private workspace — see `docs/security-model.md`.
+  `prepare-ropre`, `close-ropre`, and the full Intelligence MVP
+  (`build-context-pack`, `diagnose-client`, `calculate-gap`,
+  `identify-priorities`, `replan-client`, `audit-plan`, `generate-tasks`
+  — the "replaneje `<cliente>`" workflow, `docs/workflows/replan-client.md`).
+  See `skills/registry.json` — it's the single source of truth for
+  `implemented` vs `planned`, not this file.
+- **Planned, not implemented:** `publish-ekyte` (eKyte integration —
+  see `operation/task-rules.md`).
+- Verified end to end: 119 automated tests (schemas, drift guards,
+  cross-artifact lint, hash-chain integrity, security hygiene,
+  synthetic integration) all pass; a real BI → evidence → Quarter
+  monitoring flow and a real "replaneje walmaq" Intelligence dry run
+  were both validated against a real client's workspace (never copied
+  into this repo — see `docs/security-model.md`) with
+  `scripts/doctor.py --workspace` reporting 15/15 checks passed and
+  zero canonical files changed.
 
 ## Architecture
 
@@ -127,6 +134,27 @@ forward-only. The first check-in for a client/Quarter legitimately
 doesn't exist until there's a real scheduled meeting — `scheduled_for`
 is never invented. Full policy: `operation/ropre-rules.md`.
 
+## Intelligence pipeline ("replaneje `<cliente>`")
+
+`build-context-pack` → `diagnose-client` → `calculate-gap` →
+`identify-priorities` → `replan-client` → `audit-plan` →
+`generate-tasks` (ACTION, preview only). Every skill after the first is
+read-only and cites `artifact-ref`s (content-hash chain,
+`schemas/artifact-ref.schema.json` + `scripts/lib/artifact_hash.py`) to
+the exact upstream artifacts it used, so a stale/mismatched chain is
+detectable, not silently trusted. `diagnose-client` distinguishes
+`observed_issue` / `observation` / `hypothesis` / `missing_data` /
+`risk` explicitly — never a numeric health score.
+`calculate-gap`/`identify-priorities` never invent an unknown current
+value or an arbitrary priority score. `audit-plan`'s `audit_status` is
+derived from issue severity, never asserted independently, and blocks
+`generate-tasks` on any `fail`. `scripts/run_replanning_checks.py`
+validates an on-disk chain's schemas and cross-artifact invariants
+(`scripts/lib/replanning_lint.py`) without reasoning about content — the
+reasoning is entirely Claude/Codex executing each `SKILL.md`. Full
+policy: `operation/replanning-rules.md`; full example:
+`examples/demo-client/acme-demo/intelligence/`.
+
 ## Preview / apply
 
 Every ACTION skill defaults to `preview` (read, validate, compute a
@@ -163,8 +191,14 @@ examples/demo-client/    — synthetic client fixture (acme-demo)
 
 ## Roadmap
 
-Next phase: `diagnose-client` → `calculate-gap` → `identify-priorities`
-→ `replan-client` → `audit-plan` → `generate-tasks` — see
-`operation/replanning-rules.md`. Not started in this hardening pass by
-design (CLAUDE.md section 6 — these require real judgment calls, not a
-diagram to fill in quickly).
+The Intelligence MVP (`build-context-pack` → `diagnose-client` →
+`calculate-gap` → `identify-priorities` → `replan-client` →
+`audit-plan` → `generate-tasks`) is implemented — see
+`operation/replanning-rules.md` and `docs/workflows/replan-client.md`.
+
+Next phase: `publish-ekyte` (external eKyte integration, requires
+explicit authorization per CLAUDE.md section 20 — not started by
+design). Beyond that, deepening the Intelligence layer itself (CRM/
+sales-evidence integration, a real pacing model) as those data sources
+and decisions become available — never invented ahead of real evidence
+(CLAUDE.md section 6).

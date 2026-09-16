@@ -709,7 +709,7 @@ Resolução do workspace: variável de ambiente `V4_BU_WORKSPACE_ROOT`, resolvid
 
 `skills/registry.json` (contrato: `schemas/skills-registry.schema.json`) é a única fonte de verdade sobre quais skills existem de fato. Uma skill mencionada conceitualmente em CLAUDE.md, num workflow doc, ou em qualquer prosa **não significa que ela está implementada**. Antes de assumir que uma skill pode ser executada, consultar o registry e verificar `implemented: true`.
 
-Skills `INTELLIGENCE`/`ACTION` do fluxo de replanejamento completo (`diagnose-client`, `calculate-gap`, `identify-priorities`, `replan-client`, `audit-plan`, `generate-tasks`, `publish-ekyte`) estão registradas como `planned` — a próxima fase, não esta. Ver `operation/replanning-rules.md`.
+O fluxo de replanejamento (`build-context-pack`, `diagnose-client`, `calculate-gap`, `identify-priorities`, `replan-client`, `audit-plan`, `generate-tasks`) está `implemented` — ver seção 27.6. `publish-ekyte` permanece `planned` (integração eKyte fica para fase futura). Ver `operation/replanning-rules.md` para a política compartilhada entre essas skills.
 
 ## 27.3 BI é fonte de performance externa suficiente no v1
 
@@ -722,6 +722,17 @@ Skills `INTELLIGENCE`/`ACTION` do fluxo de replanejamento completo (`diagnose-cl
 ## 27.5 Segurança pública
 
 Ver `SECURITY.md` e `docs/security-model.md`. Regra central: `clients/` (dados reais), `private/` e `context/generated/` nunca são versionados no engine público — apenas no workspace privado, e mesmo lá `private/`/`context/generated/` permanecem ignorados pelo git. `tests/security/` e `scripts/doctor.py` checam a árvore atual a cada execução; histórico git já publicado exige auditoria manual — ver `docs/security/public-history-remediation.md` para a metodologia e o caso conhecido.
+
+## 27.6 Workflow "replaneje `<cliente>`"
+
+Suportado ponta a ponta desde que `skills/registry.json` confirme `implemented: true` para toda a cadeia (seção 27.2) — nunca assumir a partir desta prosa sozinha.
+
+```
+build-context-pack -> diagnose-client -> calculate-gap -> identify-priorities
+    -> replan-client -> audit-plan -> generate-tasks (ACTION, preview only)
+```
+
+Nenhuma dessas skills escreve memória canônica, plano/monitoring do Quarter, evidence ledger ou task ledger — são read-only até `generate-tasks`, que só produz propostas (`task_proposals`) compatíveis com `manage-task-ledger`, nunca aplicadas automaticamente. A lógica completa (o que entra como finding/gap/priority/action, como classificar prontidão de tarefa, como derivar `audit_status`) mora em cada `SKILL.md` e em `operation/replanning-rules.md` — esta seção não a duplica. Rastreabilidade entre artefatos usa `schemas/artifact-ref.schema.json` + `scripts/lib/artifact_hash.py`; `scripts/run_replanning_checks.py` valida a cadeia em disco (schema + invariantes cruzados) sem raciocinar sobre o conteúdo.
 
 ## 28. Regra final
 
