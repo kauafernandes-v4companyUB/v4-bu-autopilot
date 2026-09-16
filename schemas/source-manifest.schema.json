@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/source-manifest.schema.json",
+  "title": "Private source intake manifest", "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "client_id", "updated_at", "sources"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"}, "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "updated_at": {"type": ["string", "null"], "format": "date-time"},
+    "sources": {"type": "array", "items": {"$ref": "#/$defs/source"}}
+  },
+  "$defs": {"source": {"type": "object", "additionalProperties": false,
+    "required": ["source_id", "source_type", "path", "fingerprint", "observed_at", "processed_at", "processor", "processor_version", "output_ref", "status", "warnings"],
+    "properties": {"source_id": {"type":"string", "minLength":1}, "source_type": {"enum":["whatsapp_export","account_gt_transcript","client_context","bi_pdf","bi_csv","unknown"]}, "path":{"type":"string", "minLength":1}, "fingerprint":{"type":"string", "pattern":"^[a-f0-9]{64}$"}, "observed_at":{"type":"string","format":"date-time"}, "processed_at":{"type":["string","null"],"format":"date-time"}, "processor":{"type":["string","null"]}, "processor_version":{"type":["string","null"]}, "output_ref":{"type":["string","null"]}, "status":{"enum":["new","processed","no_change","unsupported","failed"]}, "warnings":{"type":"array","items":{"type":"string"}}}}
+  }
+}

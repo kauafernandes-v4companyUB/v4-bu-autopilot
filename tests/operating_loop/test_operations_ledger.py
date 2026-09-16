@@ -10,7 +10,7 @@ from referencing import Registry, Resource
 
 from scripts.lib.operations_ledger import (
     OperationsLedgerError, add_operation, apply_add_operation, approval_is_stale, canonical_hash,
-    external_execution_status, rebuild_operator_inbox, transition, validate_semantics,
+    external_execution_status, human_external_state, rebuild_operator_inbox, transition, validate_semantics,
 )
 
 
@@ -67,6 +67,7 @@ def test_approved_without_transport_is_awaiting_execution_channel():
     assert external_execution_status(item) == "awaiting_execution_channel"
     view = rebuild_operator_inbox(ledger(item))
     assert view["external_actions"][0]["human_status"] == "APROVADA / AGUARDANDO CANAL DE EXECUÇÃO"
+    assert human_external_state(item) == "APPROVED_WAITING_CAPABILITY"
 
 
 def test_dry_run_transport_is_not_real_execution_ready():

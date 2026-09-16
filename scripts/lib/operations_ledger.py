@@ -73,6 +73,30 @@ def external_execution_status(
     return "execution_ready"
 
 
+def human_external_state(
+    operation: dict,
+    current_payload_hash: str | None = None,
+    capability: dict | None = None,
+) -> str:
+    """Stable operator vocabulary for the three deliberately distinct states:
+    approval, executability and actual execution.  This is a projection only.
+    """
+    raw = external_execution_status(operation, current_payload_hash, capability)
+    mapping = {
+        "awaiting_approval": "APPROVAL_REQUIRED",
+        "awaiting_execution_channel": "APPROVED_WAITING_CAPABILITY",
+        "execution_ready": "EXECUTION_READY",
+        "executed": "EXECUTED",
+        "approval_stale": "STALE",
+        "transport_incompatible": "BLOCKED",
+        "transport_requirements_unsatisfied": "BLOCKED",
+        "awaiting_session_authorization": "BLOCKED",
+    }
+    if (operation.get("approval") or {}).get("status") in {"revoked", "rejected"}:
+        return "REVOKED"
+    return mapping[raw]
+
+
 def transition(operation: dict, target_status: str, now: str, *, materialized_task_id: str | None = None) -> dict:
     current = operation["status"]
     if target_status not in TRANSITIONS.get(current, set()):

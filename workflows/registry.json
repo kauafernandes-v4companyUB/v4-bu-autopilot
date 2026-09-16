@@ -108,6 +108,27 @@
       "notes": null
     },
     {
+      "workflow_id": "operator-brief", "status": "implemented", "description": "Read-only human daily briefing from canonical operational state.",
+      "natural_language_triggers": ["me prepara pra tocar a <cliente> hoje", "o que eu preciso fazer hoje?", "quais decisões estão esperando por mim?"],
+      "steps": ["operator-brief"], "inputs": {"required": ["client_id"], "optional": []}, "required_capabilities": ["workspace"], "optional_capabilities": ["quarter", "monitoring", "latest evidence"], "side_effects": ["NONE"], "approval_gate": {"required": false, "description": "Consolidação somente leitura."}, "output_path": "context/generated/<client_id>/operator/daily-brief.json", "workspace_required": true, "notes": null
+    },
+    {
+      "workflow_id": "prepare-client-call", "status": "implemented", "description": "Read-only, evidence-honest call preparation.",
+      "natural_language_triggers": ["me prepara pra call da <cliente>"], "steps": ["prepare-client-call"], "inputs": {"required": ["client_id"], "optional": []}, "required_capabilities": ["workspace"], "optional_capabilities": ["quarter", "monitoring"], "side_effects": ["NONE"], "approval_gate": {"required": false, "description": "Somente briefing transitório."}, "output_path": "context/generated/<client_id>/operator/pre-call.json", "workspace_required": true, "notes": null
+    },
+    {
+      "workflow_id": "process-client-call", "status": "implemented", "description": "Default-preview post-call source normalization and canonical diff.",
+      "natural_language_triggers": ["acabei de sair da call da <cliente>", "processa a call da <cliente>"], "steps": ["process-client-call"], "inputs": {"required": ["client_id", "call_notes"], "optional": ["source_date"]}, "required_capabilities": ["workspace"], "optional_capabilities": [], "side_effects": ["NONE"], "approval_gate": {"required": true, "description": "Toda alteração proposta exige aprovação e ACTION posterior."}, "output_path": "context/generated/<client_id>/operator/post-call-preview.json", "workspace_required": true, "notes": null
+    },
+    {
+      "workflow_id": "source-intake", "status": "implemented", "description": "Read-only idempotent discovery of private raw source revisions.",
+      "natural_language_triggers": ["processe as novas fontes da <cliente>"], "steps": ["source-intake"], "inputs": {"required": ["client_id"], "optional": []}, "required_capabilities": ["workspace", "private raw directory"], "optional_capabilities": [], "side_effects": ["NONE"], "approval_gate": {"required": false, "description": "Descoberta é preview; persistir manifesto é ação explícita separada."}, "output_path": "context/generated/<client_id>/source-intake-preview.json", "workspace_required": true, "notes": null
+    },
+    {
+      "workflow_id": "what-changed", "status": "implemented", "description": "Read-only semantic comparison of canonical operational records.",
+      "natural_language_triggers": ["o que mudou na <cliente>", "o que mudou na <cliente> desde segunda?"], "steps": ["what-changed"], "inputs": {"required": ["client_id"], "optional": ["since"]}, "required_capabilities": ["workspace"], "optional_capabilities": ["source manifest"], "side_effects": ["NONE"], "approval_gate": {"required": false, "description": "Somente leitura."}, "output_path": "context/generated/<client_id>/operator/what-changed.json", "workspace_required": true, "notes": null
+    },
+    {
       "workflow_id": "week-close",
       "status": "implemented",
       "description": "End-of-week operational snapshot: promised vs. executed, blockers, BI movement, SMART evidence, open flags, carry-forward candidates, and inputs for the next ROPRE. Never creates carry-over automatically.",

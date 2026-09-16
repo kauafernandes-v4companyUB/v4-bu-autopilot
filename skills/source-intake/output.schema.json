@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.v4-bu-autopilot.internal/skills/source-intake/output.schema.json","type":"object","required":["client_id","sources"],"properties":{"client_id":{"type":"string"},"sources":{"type":"array"}},"additionalProperties":true}
