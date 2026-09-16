@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/audit-plan/output.schema.json",
+  "title": "Audit Plan Output",
+  "description": "INTELLIGENCE, read-only. Tries to break the replanning before generate-tasks ever sees it. audit_status is derived from issues[] severity (SKILL.md rule, also enforced by scripts/lib/replanning_lint.py): any 'high' severity issue -> fail; only low/medium -> pass_with_warnings; no issues -> pass.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "audit_id", "client_id", "quarter_id", "generated_at", "status", "replanning_ref", "audit_status", "issues", "warnings"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "skill": {"const": "audit-plan"},
+    "audit_id": {"type": "string", "minLength": 1},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"oneOf": [{"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"}, {"type": "null"}]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "failed"]},
+    "replanning_ref": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"},
+    "audit_status": {"enum": ["pass", "pass_with_warnings", "fail"]},
+    "issues": {"type": "array", "items": {"$ref": "#/$defs/issue"}},
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "issue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["issue_id", "severity", "code", "statement", "related_ids", "required_fix"],
+      "properties": {
+        "issue_id": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["low", "medium", "high"]},
+        "code": {
+          "enum": [
+            "unsupported_claim", "missing_evidence", "contradiction", "duplicate_action",
+            "action_without_reason", "action_unrelated_to_smart", "invented_deadline",
+            "invented_responsible", "action_requiring_missing_dependency",
+            "external_action_without_approval", "hypothesis_presented_as_fact",
+            "budget_change_disguised_as_execution", "task_like_item_without_operational_readiness",
+            "stale_or_ambiguous_evidence", "conflicting_client_decision", "semantic_elevation", "other"
+          ]
+        },
+        "statement": {"type": "string", "minLength": 1},
+        "related_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "required_fix": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

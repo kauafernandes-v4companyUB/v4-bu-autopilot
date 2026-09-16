@@ -31,6 +31,7 @@ from jsonschema.exceptions import SchemaError  # noqa: E402
 from referencing import Registry, Resource  # noqa: E402
 
 from scripts.lib.workspace import resolve_workspace  # noqa: E402
+from scripts.run_replanning_checks import ARTIFACT_FILES, lint_and_check_chain, validate_artifact  # noqa: E402
 
 RESULTS: list[tuple[str, str, list[str]]] = []  # (label, status, details)
 
@@ -180,6 +181,46 @@ def check_secrets_hygiene() -> tuple[str, list[str]]:
     return ("FAIL" if problems else "PASS"), problems
 
 
+def check_replanning_artifacts(ws) -> tuple[str, list[str]]:
+    """When a workspace is available, validate any existing transient
+    Intelligence artifacts (<workspace>/context/generated/<client_id>/
+    replanning/*.json) against their schemas and cross-artifact lint
+    rules (scripts/lib/replanning_lint.py). Never asserts anything about
+    canonical mutation — that's out of scope for a read-only integrity
+    check; this only checks the artifacts that already exist are
+    internally consistent."""
+    if ws is None or not ws.clients_dir.is_dir():
+        return "SKIP", ["no workspace"]
+
+    client_dirs = [p for p in ws.clients_dir.iterdir() if p.is_dir()]
+    if not client_dirs:
+        return "SKIP", ["workspace has no clients/<id> directories yet"]
+
+    problems = []
+    any_artifacts_found = False
+    for client_dir in sorted(client_dirs):
+        client_id = client_dir.name
+        replanning_dir = ws.client_generated_dir(client_id) / "replanning"
+        if not replanning_dir.is_dir():
+            continue
+        for name in ARTIFACT_FILES:
+            p = replanning_dir / name
+            if not p.is_file():
+                continue
+            any_artifacts_found = True
+            errors = validate_artifact(name, p, _schema_registry())
+            if errors:
+                problems.append(f"{client_id}/{name}: schema errors: {errors[:2]}")
+        chain_problems = lint_and_check_chain(replanning_dir)
+        for name, issues in chain_problems.items():
+            any_artifacts_found = True
+            problems.append(f"{client_id}/{name}: lint/chain: {issues[:2]}")
+
+    if not any_artifacts_found:
+        return "SKIP", ["no replanning artifacts on disk for any client yet"]
+    return ("FAIL" if problems else "PASS"), problems
+
+
 def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[str, list[str]]]:
     """Returns a dict of sub-check-label -> (status, details) covering
     client isolation, evidence, quarter, ROPRE, task and source-reference
@@ -302,6 +343,7 @@ def main() -> int:
     for label, (status, details) in check_client_workspace_integrity(ws, registry).items():
         RESULTS.append((label, status, details))
 
+    check("Replanning artifacts")(lambda: check_replanning_artifacts(ws))
     check("Private tracking")(lambda: check_private_tracking())
     check("Generated tracking")(lambda: check_generated_tracking())
     check("Secrets hygiene")(lambda: check_secrets_hygiene())
@@ -309,8 +351,8 @@ def main() -> int:
     order = [
         "Repository", "Workspace", "Schemas", "Skill registry", "Skill contracts",
         "Client isolation", "Evidence integrity", "Quarter integrity", "ROPRE integrity",
-        "Task integrity", "Source references", "Private tracking", "Generated tracking",
-        "Secrets hygiene",
+        "Task integrity", "Source references", "Replanning artifacts", "Private tracking",
+        "Generated tracking", "Secrets hygiene",
     ]
     by_label = {label: (status, details) for label, status, details in RESULTS}
 
