@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/manage-operations-ledger/output.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "mode", "status", "operations", "warnings", "errors"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"}, "skill": {"const": "manage-operations-ledger"},
+    "client_id": {"type": "string"}, "mode": {"enum": ["preview", "apply"]},
+    "status": {"enum": ["success", "no_change", "conflict", "error"]},
+    "operations": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/operations-ledger.schema.json"},
+    "warnings": {"type": "array", "items": {"type": "string"}}, "errors": {"type": "array", "items": {"type": "string"}}
+  }
+}

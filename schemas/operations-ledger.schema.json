@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/operations-ledger.schema.json",
+  "title": "V4 BU Autopilot Operational Decisions Ledger",
+  "description": "Private canonical ledger for operator decisions that have not become a task or executed external action. clients/<client_id>/tasks.json remains authoritative for tasks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "client_id", "updated_at", "operations"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "operations": {"type": "array", "items": {"$ref": "#/$defs/operation"}}
+  },
+  "$defs": {
+    "source": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "properties": {
+        "workflow": {"type": ["string", "null"]},
+        "source_item_id": {"type": ["string", "null"]},
+        "source_artifact_id": {"type": ["string", "null"]},
+        "source_artifact_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "deferredUntil": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["type", "reference_id", "description"],
+      "properties": {
+        "type": {"enum": ["after_operation", "after_task", "other"]},
+        "reference_id": {"type": ["string", "null"]},
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    "approval": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["status", "approved_at", "approved_by", "payload_hash", "conditions"],
+      "properties": {
+        "status": {"enum": ["draft", "approved", "rejected", "revoked", "stale"]},
+        "approved_at": {"type": ["string", "null"], "format": "date-time"},
+        "approved_by": {"type": ["string", "null"]},
+        "payload_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "conditions": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "external": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["system", "action_type", "executed", "executed_at", "external_id", "external_url"],
+      "properties": {
+        "system": {"type": ["string", "null"]},
+        "action_type": {"type": ["string", "null"]},
+        "executed": {"type": "boolean"},
+        "executed_at": {"type": ["string", "null"], "format": "date-time"},
+        "external_id": {"type": ["string", "null"]},
+        "external_url": {"type": ["string", "null"], "format": "uri"}
+      }
+    },
+    "receiptRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receipt_id", "path", "content_sha256"],
+      "properties": {
+        "receipt_id": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "content_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "materializedRef": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["task_id"],
+      "properties": {"task_id": {"type": "string", "minLength": 1}}
+    },
+    "operation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation_id", "client_id", "quarter_id", "type", "source", "statement", "status", "created_at", "updated_at", "scheduled_for", "deferred_until", "approval", "external", "evidence_ids", "receipt_refs", "materialized_ref", "superseded_by", "supersedes", "notes"],
+      "properties": {
+        "operation_id": {"type": "string", "minLength": 1},
+        "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "quarter_id": {"type": ["string", "null"], "pattern": "^[0-9]{4}-Q[1-4]$"},
+        "type": {"enum": ["scheduled", "deferred", "external_approved", "external_rejected", "decision_pending", "cancelled"]},
+        "source": {"$ref": "#/$defs/source"},
+        "statement": {"type": "string", "minLength": 1},
+        "status": {"enum": ["scheduled", "completed", "cancelled", "materialized", "superseded", "deferred", "active", "approved", "executed", "revoked", "rejected", "pending"]},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "scheduled_for": {"type": ["string", "null"], "format": "date"},
+        "deferred_until": {"$ref": "#/$defs/deferredUntil"},
+        "approval": {"$ref": "#/$defs/approval"},
+        "external": {"$ref": "#/$defs/external"},
+        "evidence_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "receipt_refs": {"type": "array", "items": {"$ref": "#/$defs/receiptRef"}},
+        "materialized_ref": {"$ref": "#/$defs/materializedRef"},
+        "superseded_by": {"type": ["string", "null"]},
+        "supersedes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "notes": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

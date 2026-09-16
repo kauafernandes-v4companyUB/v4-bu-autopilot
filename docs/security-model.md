@@ -40,9 +40,17 @@ is unset and a workspace is required, resolution raises loudly. See
 | Skills, schemas, scripts, tests, docs | engine (public) | yes | generic, safe |
 | Synthetic demo client | engine, `examples/demo-client/` | yes | 100% fictional, safe |
 | Canonical client memory (`clients/<id>/`) | workspace (private) | yes | real, but we want history |
+| Operational decisions (`clients/<id>/operations.json`) | workspace (private) | yes | durable state between operator decision and later materialization/execution |
+| Durable action receipts (`clients/<id>/receipts/`) | workspace (private) | yes | auditable references for durable operational decisions |
 | Raw sources (`private/`) | workspace (private) | **no** | real, high-sensitivity, no need for git history of binary/raw exports |
 | Transient skill output (`context/generated/`) | workspace (private) | **no** | derived, reproducible, not memory |
 | Secrets (`.env`, keys) | neither | **no** | never belongs in git at all |
+
+`operations.json` is deliberately narrow: it preserves scheduled, deferred,
+pending and externally approved decisions that have not yet become a task or
+executed external action. `tasks.json` remains the sole authority after task
+materialization. An Operator Inbox is a regenerated view, never canonical
+memory.
 
 ## Provenance and evidence (why this matters for security too)
 

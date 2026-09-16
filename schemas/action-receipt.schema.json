@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.v4-bu-autopilot.internal/schemas/action-receipt.schema.json",
   "title": "V4 BU Autopilot Action Receipt",
-  "description": "Auditable record that a real ACTION executed (mission: 'toda ACTION real deve gerar receipt'). A receipt documents what an apply actually did — it never substitutes canonical state (clients/**, tasks.json, monitoring.json remain the source of truth for current state); this is a transient, workspace-local audit trail under context/generated/<client_id>/operating-loop/.",
+  "description": "Auditable record that a real ACTION executed. A receipt never substitutes canonical state. Receipts retained for durable operational decisions live privately at clients/<client_id>/receipts/; transient views may link to them but are never their sole location.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "receipt_id", "action", "client_id", "executed_at", "input_hash", "approval_id", "status", "effects", "warnings", "errors"],

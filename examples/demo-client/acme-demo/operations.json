@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "acme-demo",
+  "updated_at": "2026-01-16T10:00:00Z",
+  "operations": [
+    {
+      "operation_id": "acme-demo-op-scheduled-001",
+      "client_id": "acme-demo",
+      "quarter_id": "2026-Q1",
+      "type": "scheduled",
+      "source": {"workflow": "replan-client", "source_item_id": "synthetic-S1", "source_artifact_id": "acme-synthetic-proposal", "source_artifact_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "statement": "[dado sintético] Revisar a medição fictícia antes de materializar uma tarefa.",
+      "status": "scheduled",
+      "created_at": "2026-01-16T10:00:00Z",
+      "updated_at": "2026-01-16T10:00:00Z",
+      "scheduled_for": "2026-01-20",
+      "deferred_until": null,
+      "approval": null,
+      "external": null,
+      "evidence_ids": [],
+      "receipt_refs": [],
+      "materialized_ref": null,
+      "superseded_by": null,
+      "supersedes": [],
+      "notes": "Synthetic fixture only."
+    }
+  ]
+}

@@ -265,6 +265,18 @@
       "output_schema_path": "skills/week-close/output.schema.json",
       "summary": "End-of-week operational snapshot: promised vs. executed, blockers, BI movement, SMART evidence, open flags, carry-forward candidates, ROPRE-prep inputs. Never creates carry-over automatically.",
       "dependencies": ["manage-task-ledger", "read-quarter"]
+    },
+    {
+      "id": "manage-operations-ledger",
+      "category": "ACTION",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "OPERATIONS_LEDGER",
+      "skill_path": "skills/manage-operations-ledger/SKILL.md",
+      "output_schema_path": "skills/manage-operations-ledger/output.schema.json",
+      "summary": "Persists operator decisions that remain pending between proposal and later task materialization or separately authorized external execution. It never replaces tasks.json or executes a transport.",
+      "dependencies": ["manage-task-ledger"]
     }
   ]
 }

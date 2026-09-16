@@ -31,6 +31,7 @@ from jsonschema.exceptions import SchemaError  # noqa: E402
 from referencing import Registry, Resource  # noqa: E402
 
 from scripts.lib.workspace import resolve_workspace  # noqa: E402
+from scripts.lib.operations_ledger import validate_semantics as validate_operations_semantics  # noqa: E402
 from scripts.run_replanning_checks import ARTIFACT_FILES, lint_and_check_chain, validate_artifact  # noqa: E402
 
 RESULTS: list[tuple[str, str, list[str]]] = []  # (label, status, details)
@@ -279,6 +280,7 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
         "Quarter integrity": ("PASS", []),
         "ROPRE integrity": ("PASS", []),
         "Task integrity": ("PASS", []),
+        "Operations integrity": ("PASS", []),
         "Source references": ("PASS", []),
     }
     if ws is None:
@@ -353,6 +355,7 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
                         problems["ROPRE integrity"].append(f"{client_id}/{qdir.name}/check-ins/{checkin_path.name}: {errs[:3]}")
 
         tasks_path = client_dir / "tasks.json"
+        tasks = None
         if tasks_path.is_file():
             tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
             errs = _validate(tasks, REPO_ROOT / "schemas" / "task-ledger.schema.json", registry)
@@ -371,6 +374,35 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
             for t in tasks.get("tasks", []):
                 if t.get("client_id") != client_id:
                     problems["Client isolation"].append(f"{client_id}/tasks.json: task {t.get('task_id')} has client_id={t.get('client_id')!r}")
+
+        operations_path = client_dir / "operations.json"
+        if operations_path.is_file():
+            operations = json.loads(operations_path.read_text(encoding="utf-8"))
+            errs = _validate(operations, REPO_ROOT / "schemas" / "operations-ledger.schema.json", registry)
+            if errs:
+                problems["Operations integrity"].append(f"{client_id}/operations.json: {errs[:3]}")
+            else:
+                semantic_errors = validate_operations_semantics(operations, tasks, client_dir / "receipts")
+                problems["Operations integrity"].extend(
+                    f"{client_id}/operations.json: {error}" for error in semantic_errors
+                )
+            for operation in operations.get("operations", []):
+                if operation.get("client_id") != client_id:
+                    problems["Client isolation"].append(
+                        f"{client_id}/operations.json: operation {operation.get('operation_id')} has client_id={operation.get('client_id')!r}"
+                    )
+
+        receipts_dir = client_dir / "receipts"
+        if receipts_dir.is_dir():
+            for receipt_path in sorted(receipts_dir.glob("*.json")):
+                receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+                errs = _validate(receipt, REPO_ROOT / "schemas" / "action-receipt.schema.json", registry)
+                if errs:
+                    problems["Operations integrity"].append(f"{client_id}/receipts/{receipt_path.name}: {errs[:3]}")
+                elif receipt.get("client_id") != client_id:
+                    problems["Client isolation"].append(
+                        f"{client_id}/receipts/{receipt_path.name}: client_id={receipt.get('client_id')!r}"
+                    )
 
     for label, details in problems.items():
         if details:
@@ -409,7 +441,7 @@ def main() -> int:
         "Repository", "Workspace", "Schemas", "Skill registry", "Workflow registry",
         "Approval schemas", "Skill contracts",
         "Client isolation", "Evidence integrity", "Quarter integrity", "ROPRE integrity",
-        "Task integrity", "Source references", "Replanning artifacts", "Private tracking",
+        "Task integrity", "Operations integrity", "Source references", "Replanning artifacts", "Private tracking",
         "Generated tracking", "Secrets hygiene",
     ]
     by_label = {label: (status, details) for label, status, details in RESULTS}
