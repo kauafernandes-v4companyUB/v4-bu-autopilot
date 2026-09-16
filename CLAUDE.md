@@ -691,6 +691,38 @@ Antes de concluir qualquer skill, comparar todo timestamp de execução gerado c
 
 Quarter (`YYYY-QN`) é a unidade oficial de planejamento tático. Todo Quarter exige replanejamento novo; o SMART é versionado por Quarter e nunca é carregado silenciosamente. `plan.json` preserva o planejado e não recebe realizado; `monitoring.json` registra realizado/observado e não redefine o plano. Check-ins usam ROPRE (Resultados, Objetivos, Premissas, Riscos, Próximos Passos e Visão de Longo Prazo); próximos passos materiais podem gerar tarefas. Tasks são longitudinais, `overdue` é derivado em runtime e eKyte é sistema externo opcional — o ledger local permanece a referência operacional. Não inventar valores ausentes; mídia planejada e realizada devem manter rastreabilidade por evidência.
 
+Detalhes consolidados (sem duplicar prosa) em `operation/quarter-rules.md`, `operation/ropre-rules.md`, `operation/task-rules.md`, `operation/replanning-rules.md` e `operation/evidence-authority.md`.
+
+---
+
+## 27.1 Engine Público e Workspace Privado
+
+Este repositório (`v4-bu-autopilot`) é o **engine**: skills, schemas, scripts, tests, docs, examples — genérico, seguro para ser público. Ele nunca contém dados reais de cliente.
+
+Memória canônica real de clientes (`clients/<client_id>/`), fontes brutas (`private/`) e contexto transitório (`context/generated/`) vivem em um **workspace privado separado** (`v4-bu-workspace-private` ou equivalente), nunca dentro deste repositório. Ver `docs/security-model.md` para o modelo completo.
+
+Resolução do workspace: variável de ambiente `V4_BU_WORKSPACE_ROOT`, resolvida por `scripts/lib/workspace.py`. Nunca há fallback silencioso para um diretório dentro do engine — se o workspace for necessário e estiver ausente, a resolução falha de forma explícita. `scripts/doctor.py` roda em modo `Workspace: SKIP` (não `FAIL`) quando não há workspace configurado — um clone público limpo deve continuar saudável nesse modo.
+
+`examples/demo-client/acme-demo/` demonstra as mesmas formas de memória canônica com dados 100% fictícios — nunca copiar ou "anonimizar levemente" dados reais para lá; fixtures públicas são sempre sintéticas desde a origem.
+
+## 27.2 Skills Registry como Autoridade de Capability
+
+`skills/registry.json` (contrato: `schemas/skills-registry.schema.json`) é a única fonte de verdade sobre quais skills existem de fato. Uma skill mencionada conceitualmente em CLAUDE.md, num workflow doc, ou em qualquer prosa **não significa que ela está implementada**. Antes de assumir que uma skill pode ser executada, consultar o registry e verificar `implemented: true`.
+
+Skills `INTELLIGENCE`/`ACTION` do fluxo de replanejamento completo (`diagnose-client`, `calculate-gap`, `identify-priorities`, `replan-client`, `audit-plan`, `generate-tasks`, `publish-ekyte`) estão registradas como `planned` — a próxima fase, não esta. Ver `operation/replanning-rules.md`.
+
+## 27.3 BI é fonte de performance externa suficiente no v1
+
+`read-bi` é a fonte de performance externa v1 (mídia paga, métricas de campanha). CRM não é necessário para a operação atual — pode existir futuramente como mais uma SOURCE skill, mas nunca é dependência do fluxo hoje.
+
+## 27.4 Doctor e CI
+
+`scripts/doctor.py` (`make doctor`) é o health check operacional: repositório, workspace (ou `SKIP`), schemas, registry, contratos de skill, e — quando há workspace — isolamento de cliente, integridade de evidence/Quarter/ROPRE/tasks e referências de fonte. `.github/workflows/ci.yml` roda o equivalente engine-only (sem workspace privado, usando `examples/demo-client/`) em todo push/PR, mais varredura de segredos.
+
+## 27.5 Segurança pública
+
+Ver `SECURITY.md` e `docs/security-model.md`. Regra central: `clients/` (dados reais), `private/` e `context/generated/` nunca são versionados no engine público — apenas no workspace privado, e mesmo lá `private/`/`context/generated/` permanecem ignorados pelo git. `tests/security/` e `scripts/doctor.py` checam a árvore atual a cada execução; histórico git já publicado exige auditoria manual — ver `docs/security/public-history-remediation.md` para a metodologia e o caso conhecido.
+
 ## 28. Regra final
 
 O objetivo deste sistema não é produzir mais trabalho.

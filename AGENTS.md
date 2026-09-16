@@ -7,9 +7,11 @@ Este repositório é um cérebro operacional versionado, não uma aplicação tr
 - Use lazy loading.
 - Leia somente arquivos necessários para a tarefa atual.
 - Não faça varredura do repositório inteiro sem necessidade.
-- Prefira `rg`, `sed` e leitura direcionada.
+- Prefira `rg` quando disponível; se não estiver instalado, usar `grep`/`find`/`sed` — nunca falhar uma tarefa só porque `ripgrep` está ausente.
 - Não resuma arquivos lidos ao usuário.
 - Não repita conteúdo já existente no repositório.
+- Rodar `python scripts/doctor.py` primeiro quando a integridade do projeto (schemas, registry, workspace, evidence/Quarter/tasks) estiver em dúvida — mais barato que reler o repositório inteiro.
+- Rodar testes focados (`pytest tests/<area> -q`), não a suite inteira, quando a tarefa é local a uma área.
 - Finalize com relatório curto: arquivos alterados, validações, riscos e git status.
 
 ## Fonte de verdade
@@ -19,9 +21,11 @@ Este repositório é um cérebro operacional versionado, não uma aplicação tr
 - `schemas/`: contratos JSON compartilhados.
 - `schemas/quarter-*.schema.json`, `schemas/check-in-ropre.schema.json` e `schemas/task-ledger.schema.json`: contratos táticos e operacionais; a convenção está em `docs/project-orchestration.md`.
 - `skills/<skill>/`: comportamento específico.
-- `clients/<client_id>/`: memória canônica.
-- `context/generated/`: workspace temporário; não é memória permanente.
-- `private/`: fontes privadas; nunca versionar.
+- `skills/registry.json`: autoridade sobre quais skills existem de fato (`implemented` vs `planned`) — nunca assumir que uma skill existe só porque é mencionada em prosa.
+- `docs/security-model.md`: fronteira engine público / workspace privado.
+- `clients/<client_id>/`: memória canônica — vive no **workspace privado** (`$V4_BU_WORKSPACE_ROOT`, resolvido por `scripts/lib/workspace.py`), nunca dentro deste repositório. Em `examples/demo-client/acme-demo/` há um exemplo 100% fictício com a mesma forma.
+- `context/generated/`: workspace temporário; não é memória permanente. Também vive no workspace privado para dados reais.
+- `private/`: fontes privadas; nunca versionar. Também no workspace privado.
 
 ## Regras obrigatórias
 
@@ -35,6 +39,7 @@ Este repositório é um cérebro operacional versionado, não uma aplicação tr
 - Não transformar planejamento em execução.
 - Não transformar pending em tarefa.
 - Não transformar relato indireto em fala direta.
+- Nunca escrever dado real de cliente dentro deste repositório (engine público) — sempre no workspace privado via `scripts/lib/workspace.py`. Ver `docs/security-model.md`.
 
 ## Side effects
 
