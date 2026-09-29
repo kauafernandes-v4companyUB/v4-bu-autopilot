@@ -278,6 +278,7 @@ def test_token_with_all_scopes_serves_drive(tmp_path):
 
 
 def test_token_without_scope_info_requires_reauth(tmp_path):
+    pytest.importorskip("google.oauth2.credentials")
     cfg = _token(tmp_path, [])
     with pytest.raises(GoogleSheetsAuthError, match="google_sheets.py auth"):
         auth.load_credentials(cfg)
