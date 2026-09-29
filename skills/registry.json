@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "updated_at": "2026-09-29T01:16:57Z",
+  "updated_at": "2026-09-29T18:11:47Z",
   "skills": [
     {
       "id": "read-bu",
@@ -216,6 +216,18 @@
       "skill_path": "skills/plan-seasonal-calendar/SKILL.md",
       "output_schema_path": "skills/plan-seasonal-calendar/output.schema.json",
       "summary": "Connected seasonal plan for one client and any 7–400-day horizon (BR calendar), lazily loaded from that client's context; every element classified FACT/METRIC/CONFIRMED_OPERATIONAL_DECISION/PLANNING_RECOMMENDATION/CLIENT_CONFIRMATION_REQUIRED/UNKNOWN. Never writes externally or to canonical memory.",
+      "dependencies": []
+    },
+    {
+      "id": "document-winning-creative",
+      "category": "INTELLIGENCE",
+      "version": "1.2.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/document-winning-creative/SKILL.md",
+      "output_schema_path": "skills/document-winning-creative/output.schema.json",
+      "summary": "Documents ONE creative the operator declared the winner (OPERATOR_DECLARED): objective observations, provided metrics (absent = NOT_AVAILABLE, never zero) plus DERIVED_METRIC ratios, replication hypotheses and do-not-generalize items. Reads only the files named in the brief; no comparison, ranking, benchmark or causal claim without comparative evidence. Optional operator row rule (MAX_RESULTS) picks the metric row of a per-ad export, preserving the original result type and never aggregating rows or resolving ties. Optional ffprobe fills video technical metadata with per-field provenance (operator values never overwritten). Never writes externally or to canonical memory.",
       "dependencies": []
     },
     {

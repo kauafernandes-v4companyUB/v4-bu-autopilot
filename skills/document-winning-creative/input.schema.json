@@ -1,0 +1,458 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/document-winning-creative/input.schema.json",
+  "title": "document-winning-creative — operator brief",
+  "description": "What the operator provides: ONE creative declared the winner, its metrics, period and optional campaign context. The skill reads only the files named here. Paths are workspace-relative and must be inside this client's tree (clients/<id>/, context/generated/<id>/ or private/clients/<id>/).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "client_id",
+    "creative_id",
+    "winner_declaration",
+    "assets",
+    "metrics"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "client_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+    },
+    "creative_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+      "description": "Operator-chosen id; also the default output sub-directory."
+    },
+    "winner_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The operator's own words declaring the winner (e.g. 'esse foi o criativo campeão de setembro')."
+        },
+        "declared_by": {
+          "type": "string",
+          "minLength": 1,
+          "default": "operator"
+        }
+      }
+    },
+    "period": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "start_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "campaign_context": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "campaign_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "objective": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "channel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "placement": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "kind"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "video",
+              "pdf",
+              "text",
+              "other"
+            ]
+          },
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Declared owner of the file; a different client_id rejects it."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "description": "Only used when the file header gives no dimensions."
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "duration_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Video duration as provided by the operator. When ffprobe is available it confirms it (±0.5 s or ±1 %) or flags METADATA_INCONSISTENT; it never overwrites it."
+          },
+          "frame_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "Operator-provided; checked against ffprobe when available (±0.05 fps)."
+          },
+          "video_codec": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "audio_codec": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "audio_channels": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "audio_sample_rate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "metric_sources": {
+      "type": "array",
+      "description": "Files the operator provided with metrics (e.g. a BI export for this creative).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "description": "No metric is universally required. value null = NOT_AVAILABLE (never zero).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metric",
+          "value"
+        ],
+        "properties": {
+          "metric": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Label as the operator/source names it (aliases such as 'investimento', 'mensagens', 'CPL' are normalized)."
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "unit": {
+            "enum": [
+              "count",
+              "brl",
+              "percent",
+              "ratio",
+              "currency_other",
+              "seconds",
+              "other",
+              "unknown"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "'operator' or the path of one of metric_sources."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "comparative_evidence": {
+      "type": "array",
+      "description": "Only when the operator explicitly provides a comparison (e.g. an A/B test result). Without it the report may not compare or claim causality.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "metric_row_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Operator rule for picking, in a per-ad export, the ROW holding the declared winner's metrics. Not a statistical claim; winner_status stays OPERATOR_DECLARED.",
+      "required": [
+        "rule",
+        "source",
+        "source_path",
+        "column"
+      ],
+      "properties": {
+        "rule": {
+          "enum": [
+            "MAX_RESULTS"
+          ],
+          "description": "Row with the highest valid value in `column`; rows never aggregated; a tie is never resolved automatically."
+        },
+        "source": {
+          "const": "OPERATOR_RULE"
+        },
+        "source_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One of metric_sources[].path (CSV, UTF-8)."
+        },
+        "column": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Result column, e.g. 'Resultados'."
+        },
+        "result_type_column": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Column with the original result-type identifier, e.g. 'Indicador de resultados'."
+        },
+        "ad_name_column": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ad_set_name_column": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "campaign_name_column": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metric_columns": {
+          "type": "array",
+          "description": "Other metrics to read from the selected row. An empty cell becomes NOT_AVAILABLE, never zero.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "metric",
+              "column"
+            ],
+            "properties": {
+              "metric": {
+                "type": "string",
+                "minLength": 1
+              },
+              "column": {
+                "type": "string",
+                "minLength": 1
+              },
+              "unit": {
+                "enum": [
+                  "count",
+                  "brl",
+                  "percent",
+                  "ratio",
+                  "currency_other",
+                  "seconds",
+                  "other",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        "confirmed_row_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 2,
+          "description": "Only to resolve a RESULT_TIE: the operator's choice among the tied rows."
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "post_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ],
+      "description": "Post/ad link kept for traceability only. Never opened; it does not need to match the metric row.",
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "operator_instructions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "load_client_identity": {
+      "type": "boolean",
+      "default": false,
+      "description": "Load clients/<id>/client.json and strategy.md (e.g. to recognize branding). Off by default — lazy loading."
+    }
+  }
+}
