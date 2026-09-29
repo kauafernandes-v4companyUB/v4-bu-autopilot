@@ -45,6 +45,8 @@ is unset and a workspace is required, resolution raises loudly. See
 | Raw sources (`private/`) | workspace (private) | **no** | real, high-sensitivity, no need for git history of binary/raw exports |
 | Transient skill output (`context/generated/`) | workspace (private) | **no** | derived, reproducible, not memory |
 | Secrets (`.env`, keys) | neither | **no** | never belongs in git at all |
+| Google OAuth client secret / token / service-account key | outside both repos (e.g. `~/.config/v4-bu-autopilot/`) | **no** | `scripts/lib/google_sheets_auth.py` refuses in-engine paths; see `docs/workflows/google-sheets.md` |
+| Real Google Sheet ids | workspace, `clients/<id>/sources.json` | yes | public fixtures use only `fake-*` ids |
 
 `operations.json` is deliberately narrow: it preserves scheduled, deferred,
 pending and externally approved decisions that have not yet become a task or

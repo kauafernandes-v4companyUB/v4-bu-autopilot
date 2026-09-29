@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Generic calendar reference data for plan-seasonal-calendar. Rules only — NO relevance, priority or client meaning. Relevance is always decided per client by the planner from that client's context. Kinds: national_holiday (affects execution), optional_holiday (ponto facultativo), commercial (retail/commercial moment), observance (commemorative day), economic_event (income/payment windows).",
+  "entries": [
+    {"id": "br-confraternizacao", "name": "Confraternização Universal", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 1, "day": 1}},
+    {"id": "br-carnaval", "name": "Carnaval (segunda e terça)", "country": "BR", "kind": "optional_holiday", "rule": {"type": "easter_offset_range", "from_days": -48, "to_days": -47}},
+    {"id": "br-dia-do-consumidor", "name": "Dia do Consumidor", "country": "BR", "kind": "commercial", "rule": {"type": "fixed", "month": 3, "day": 15}},
+    {"id": "br-sexta-santa", "name": "Sexta-feira Santa", "country": "BR", "kind": "national_holiday", "rule": {"type": "easter_offset", "days": -2}},
+    {"id": "br-pascoa", "name": "Páscoa", "country": "BR", "kind": "commercial", "rule": {"type": "easter_offset", "days": 0}},
+    {"id": "br-tiradentes", "name": "Tiradentes", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 4, "day": 21}},
+    {"id": "br-dia-do-trabalho", "name": "Dia do Trabalho", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 5, "day": 1}},
+    {"id": "br-dia-das-maes", "name": "Dia das Mães", "country": "BR", "kind": "commercial", "rule": {"type": "nth_weekday", "month": 5, "weekday": 6, "n": 2}},
+    {"id": "br-corpus-christi", "name": "Corpus Christi", "country": "BR", "kind": "optional_holiday", "rule": {"type": "easter_offset", "days": 60}},
+    {"id": "br-dia-dos-namorados", "name": "Dia dos Namorados", "country": "BR", "kind": "commercial", "rule": {"type": "fixed", "month": 6, "day": 12}},
+    {"id": "br-festas-juninas", "name": "Festas Juninas (período)", "country": "BR", "kind": "commercial", "rule": {"type": "fixed_range", "from_month": 6, "from_day": 1, "to_month": 6, "to_day": 30}},
+    {"id": "br-dia-dos-pais", "name": "Dia dos Pais", "country": "BR", "kind": "commercial", "rule": {"type": "nth_weekday", "month": 8, "weekday": 6, "n": 2}},
+    {"id": "br-independencia", "name": "Independência do Brasil", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 9, "day": 7}},
+    {"id": "br-dia-do-cliente", "name": "Dia do Cliente", "country": "BR", "kind": "commercial", "rule": {"type": "fixed", "month": 9, "day": 15}},
+    {"id": "br-dia-mpe", "name": "Dia da Micro e Pequena Empresa", "country": "BR", "kind": "observance", "rule": {"type": "fixed", "month": 10, "day": 5}},
+    {"id": "br-aparecida", "name": "Nossa Senhora Aparecida", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 10, "day": 12}},
+    {"id": "br-dia-das-criancas", "name": "Dia das Crianças", "country": "BR", "kind": "commercial", "rule": {"type": "fixed", "month": 10, "day": 12}},
+    {"id": "br-halloween", "name": "Halloween", "country": "BR", "kind": "observance", "rule": {"type": "fixed", "month": 10, "day": 31}},
+    {"id": "br-finados", "name": "Finados", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 11, "day": 2}},
+    {"id": "br-proclamacao", "name": "Proclamação da República", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 11, "day": 15}},
+    {"id": "br-consciencia-negra", "name": "Dia Nacional de Zumbi e da Consciência Negra", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 11, "day": 20}},
+    {"id": "black-friday", "name": "Black Friday", "country": "BR", "kind": "commercial", "rule": {"type": "day_after_nth_weekday", "month": 11, "weekday": 3, "n": 4}},
+    {"id": "cyber-monday", "name": "Cyber Monday", "country": "BR", "kind": "commercial", "rule": {"type": "day_after_nth_weekday", "month": 11, "weekday": 3, "n": 4, "offset_days": 4}},
+    {"id": "br-13o-1a-parcela", "name": "13º salário — prazo da 1ª parcela", "country": "BR", "kind": "economic_event", "rule": {"type": "fixed", "month": 11, "day": 30}},
+    {"id": "br-13o-2a-parcela", "name": "13º salário — prazo da 2ª parcela", "country": "BR", "kind": "economic_event", "rule": {"type": "fixed", "month": 12, "day": 20}},
+    {"id": "br-natal", "name": "Natal", "country": "BR", "kind": "national_holiday", "rule": {"type": "fixed", "month": 12, "day": 25}},
+    {"id": "br-reveillon", "name": "Réveillon", "country": "BR", "kind": "commercial", "rule": {"type": "fixed", "month": 12, "day": 31}}
+  ]
+}

@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/google-sheet-patch.schema.json",
+  "title": "Google Sheet Patch",
+  "description": "A structured, previously prepared set of cell changes for ONE client's declared spreadsheet. Produced by upstream skills (metrics, playbook, account plan — future), consumed only by update-google-sheet, which never reinterprets it. Content operations (write_value, write_formula, clear_value) plus one minimal formatting operation, set_number_format (number format only). One structural operation, duplicate_sheet (alone in its patch). Other structural and styling operations are not representable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "patch_id",
+    "client_id",
+    "operations"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "source_id"
+      ]
+    },
+    {
+      "required": [
+        "spreadsheet_id"
+      ]
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "patch_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "client_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "source_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "google_sheet source_id in the client's sources.json (preferred)."
+    },
+    "spreadsheet_id": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Spreadsheet id or docs.google.com URL; must match a google_sheet source declared by the client."
+    },
+    "prepared_by": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "skill": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_ref": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/artifact-ref.schema.json"
+            }
+          ]
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow_clear": {
+          "type": "boolean",
+          "default": false,
+          "description": "clear_value operations are rejected unless true."
+        }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/operation"
+      }
+    }
+  },
+  "$defs": {
+    "cellValue": {
+      "type": [
+        "string",
+        "number",
+        "boolean"
+      ]
+    },
+    "operation": {
+      "type": "object",
+      "required": [
+        "op_id",
+        "type"
+      ],
+      "properties": {
+        "op_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "write_value",
+            "write_formula",
+            "clear_value",
+            "set_number_format",
+            "duplicate_sheet"
+          ]
+        },
+        "range": {
+          "type": "string",
+          "minLength": 3,
+          "description": "Bounded A1 range with explicit tab, e.g. 'Métricas'!B2:D4."
+        },
+        "replace_existing_formula": {
+          "type": "boolean",
+          "default": false,
+          "description": "Required (true) to overwrite, replace or clear a cell that currently holds a formula. Without it, touching a formula cell is a conflict."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "write_value"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "range",
+              "values"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "op_id": true,
+              "type": true,
+              "range": true,
+              "replace_existing_formula": true,
+              "values": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "$ref": "#/$defs/cellValue"
+                  }
+                }
+              },
+              "input_option": {
+                "enum": [
+                  "RAW",
+                  "USER_ENTERED"
+                ],
+                "default": "RAW",
+                "description": "RAW stores exactly the JSON value. USER_ENTERED lets the sheet parse locale strings (dates, currency). A value starting with '=' is always rejected — declare write_formula."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "write_formula"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "range",
+              "formulas"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "op_id": true,
+              "type": true,
+              "range": true,
+              "replace_existing_formula": true,
+              "formulas": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^="
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "clear_value"
+              }
+            }
+          },
+          "then": {
+            "additionalProperties": false,
+            "properties": {
+              "op_id": true,
+              "type": true,
+              "range": true,
+              "replace_existing_formula": true
+            },
+            "description": "Removes value/formula via values.batchClear; number format, other formatting and data validation are preserved.",
+            "required": [
+              "range"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "set_number_format"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "range",
+              "number_format"
+            ],
+            "additionalProperties": false,
+            "description": "Sets ONLY userEnteredFormat.numberFormat on every cell of the range (repeatCell, fields=userEnteredFormat.numberFormat). Never touches value, formula, other formatting or validation.",
+            "properties": {
+              "op_id": true,
+              "type": true,
+              "range": true,
+              "number_format": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "TEXT",
+                      "NUMBER",
+                      "PERCENT",
+                      "CURRENCY",
+                      "DATE",
+                      "TIME",
+                      "DATE_TIME",
+                      "SCIENTIFIC"
+                    ]
+                  },
+                  "pattern": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "duplicate_sheet"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "source_sheet_title",
+              "new_sheet_title"
+            ],
+            "additionalProperties": false,
+            "description": "Structural, alone in its patch: native duplicateSheet of an existing tab into a NEW tab. Never overwrites; an existing destination is a conflict (or no_change when it is already an identical duplicate).",
+            "properties": {
+              "op_id": true,
+              "type": true,
+              "source_sheet_title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "new_sheet_title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "insert_index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Tab position of the copy; default = source index + 1."
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

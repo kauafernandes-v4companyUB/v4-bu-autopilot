@@ -23,6 +23,12 @@ higher-quality operational decisions.
   `reconcile-ekyte`, `midweek` and `week-close`. See `skills/registry.json`
   and `workflows/registry.json` — the single sources of truth for
   `implemented`/`partial`/`planned`, not this file.
+- **Google Sheets foundation:** `read-google-sheet` (SOURCE) and
+  `update-google-sheet` (ACTION, preview → explicit hash-locked approval →
+  apply → verification, formula/format preserving) over the official
+  Sheets API, with a fake transport for tests. Setup and OAuth:
+  `docs/workflows/google-sheets.md`. Business skills that prepare patches
+  (metrics, playbook, account plan) are not implemented yet.
 - **Honest external-capability status:** `publish-ekyte` is
   `IMPLEMENTED_DRY_RUN` — no real eKyte API/connector is documented or
   available anywhere in this setup (full audit:

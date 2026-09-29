@@ -11,6 +11,14 @@
 *.key
 *.pem
 
+# Google OAuth / service-account credentials and tokens. They must live
+# OUTSIDE this repository (scripts/lib/google_sheets_auth.py refuses
+# in-repo paths); these patterns are a second guard.
+client_secret*.json
+*google-sheets-token*.json
+*service-account*.json
+*.credentials.json
+
 # Conteúdo privado de clientes
 private/
 

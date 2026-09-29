@@ -17,6 +17,7 @@ causes a non-zero exit).
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import subprocess
 import sys
@@ -208,6 +209,29 @@ def check_skill_contracts() -> tuple[str, list[str]]:
     return ("FAIL" if problems else "PASS"), problems
 
 
+def check_google_sheets_contracts(registry: Registry) -> tuple[str, list[str]]:
+    """Engine-only: the Google Sheets foundation contracts exist, are valid,
+    and the synthetic fixtures (demo google_sheet source, example patch)
+    conform to them."""
+    problems = []
+    source_schema = REPO_ROOT / "schemas" / "google-sheet-source.schema.json"
+    patch_schema = REPO_ROOT / "schemas" / "google-sheet-patch.schema.json"
+    drive_op_schema = REPO_ROOT / "schemas" / "google-drive-file-operation.schema.json"
+    for p in (source_schema, patch_schema, drive_op_schema):
+        if not p.is_file():
+            problems.append(f"missing required schema: {p.relative_to(REPO_ROOT)}")
+    if problems:
+        return "FAIL", problems
+    demo_sources = REPO_ROOT / "examples" / "demo-client" / "acme-demo" / "sources.json"
+    if demo_sources.is_file():
+        for entry in json.loads(demo_sources.read_text(encoding="utf-8")).get("sources", []):
+            if entry.get("type") == "google_sheet":
+                problems += [f"demo sources.json {entry.get('source_id')}: {e}" for e in _validate(entry, source_schema, registry)]
+    for example in sorted((REPO_ROOT / "examples" / "google-sheets").glob("*patch*.json")):
+        problems += [f"{example.relative_to(REPO_ROOT)}: {e}" for e in _validate(json.loads(example.read_text(encoding="utf-8")), patch_schema, registry)]
+    return ("FAIL" if problems else "PASS"), problems
+
+
 def check_private_tracking() -> tuple[str, list[str]]:
     tracked = _tracked_files()
     offenders = [f for f in tracked if f == "private" or f.startswith("private/")]
@@ -227,6 +251,9 @@ def check_secrets_hygiene() -> tuple[str, list[str]]:
     problems += [f for f in tracked if Path(f).suffix in (".pem", ".key")]
     problems += [f for f in tracked if f == "clients" or f.startswith("clients/")]
     problems += [f for f in tracked if "walmaq" in f.lower()]
+    problems += [f for f in tracked if fnmatch.fnmatch(Path(f).name, "client_secret*.json")]
+    problems += [f for f in tracked if fnmatch.fnmatch(Path(f).name, "*google-sheets-token*.json")]
+    problems += [f for f in tracked if Path(f).name.endswith(".credentials.json")]
     return ("FAIL" if problems else "PASS"), problems
 
 
@@ -291,6 +318,7 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
         return {k: ("SKIP", ["workspace has no clients/<id> directories yet"]) for k in results}
 
     problems = {k: [] for k in results}
+    sheet_owners: dict[str, str] = {}
 
     for client_dir in sorted(client_dirs):
         client_id = client_dir.name
@@ -300,6 +328,19 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
         if sources_path.is_file():
             sources_data = json.loads(sources_path.read_text(encoding="utf-8"))
             sources_by_id = {s["source_id"] for s in sources_data.get("sources", [])}
+            for s in sources_data.get("sources", []):
+                if s.get("type") != "google_sheet":
+                    continue
+                errs = _validate(s, REPO_ROOT / "schemas" / "google-sheet-source.schema.json", registry)
+                if errs:
+                    problems["Source references"].append(f"{client_id}/sources.json google_sheet {s.get('source_id')}: {errs[:3]}")
+                    continue
+                if sources_data.get("client_id") != client_id:
+                    problems["Client isolation"].append(f"{client_id}/sources.json declares client_id={sources_data.get('client_id')!r} with a google_sheet source")
+                sid = s["google_sheet"]["spreadsheet_id"]
+                owner = sheet_owners.setdefault(sid, client_id)
+                if owner != client_id and not s.get("contains_multiple_clients"):
+                    problems["Client isolation"].append(f"{client_id}/sources.json: spreadsheet {s.get('source_id')} is also declared by client {owner!r}")
 
         evidence_path = client_dir / "evidence.json"
         known_evidence_ids: set[str] = set()
@@ -428,6 +469,7 @@ def main() -> int:
     check("Workflow registry")(lambda: check_workflow_registry(registry))
     check("Approval schemas")(lambda: check_approval_schema(registry))
     check("Skill contracts")(lambda: check_skill_contracts())
+    check("Google Sheets contracts")(lambda: check_google_sheets_contracts(registry))
 
     for label, (status, details) in check_client_workspace_integrity(ws, registry).items():
         RESULTS.append((label, status, details))
@@ -439,7 +481,7 @@ def main() -> int:
 
     order = [
         "Repository", "Workspace", "Schemas", "Skill registry", "Workflow registry",
-        "Approval schemas", "Skill contracts",
+        "Approval schemas", "Skill contracts", "Google Sheets contracts",
         "Client isolation", "Evidence integrity", "Quarter integrity", "ROPRE integrity",
         "Task integrity", "Operations integrity", "Source references", "Replanning artifacts", "Private tracking",
         "Generated tracking", "Secrets hygiene",

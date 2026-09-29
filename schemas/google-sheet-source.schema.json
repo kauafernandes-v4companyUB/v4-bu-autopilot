@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/google-sheet-source.schema.json",
+  "title": "Google Sheet Source Entry",
+  "description": "Minimal, additive extension of a client's sources.json (clients/<client_id>/sources.json, private workspace): one entry of type google_sheet. Other source types keep their existing free-form shape — only entries with type=google_sheet are validated against this contract. The spreadsheet id is the only locator; names are never searched. Real ids live only in the private workspace, never in the public engine.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["source_id", "type", "scope", "contains_multiple_clients", "google_sheet"],
+  "properties": {
+    "source_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "type": {"const": "google_sheet"},
+    "scope": {"enum": ["client", "bu"]},
+    "location": {"type": ["string", "null"], "description": "Optional human hint, kept for compatibility with other source entries. Never used to resolve the spreadsheet — google_sheet.spreadsheet_id is."},
+    "contains_multiple_clients": {"type": "boolean", "description": "true forbids writes by update-google-sheet and makes read-google-sheet warn."},
+    "client_selector": {"type": ["string", "null"]},
+    "canonical": {"type": "boolean"},
+    "description": {"type": ["string", "null"]},
+    "google_sheet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spreadsheet_id", "writable"],
+      "properties": {
+        "spreadsheet_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{10,}$"},
+        "expected_title": {"type": ["string", "null"], "description": "When set, a spreadsheet whose title differs is treated as WRONG_SPREADSHEET."},
+        "purpose": {"type": ["string", "null"], "description": "Free label (e.g. metrics, playbook, account_plan). Informational only — never drives business logic in the transport or ACTION."},
+        "allowed_tabs": {"oneOf": [{"type": "null"}, {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true, "minItems": 1}], "description": "Optional allowlist of tab titles. null = any tab."},
+        "writable": {"type": "boolean", "description": "Must be true for update-google-sheet to preview/apply against this spreadsheet."}
+      }
+    }
+  }
+}

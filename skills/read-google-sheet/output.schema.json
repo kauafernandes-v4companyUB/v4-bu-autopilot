@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/read-google-sheet/output.schema.json",
+  "title": "Read Google Sheet Output",
+  "description": "SOURCE, side effects NONE. Range-limited snapshot of one spreadsheet declared by the client (sources.json, type google_sheet). Values are the sheet's raw (unformatted) values with dates as formatted strings; formulas are listed sparsely per cell. Never interpreted, never written back. source_date is always null — a spreadsheet carries no content-sustained date; observed_at is the real read time.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "generated_at", "status", "source", "tabs", "requested_ranges", "ranges", "missing_data", "warnings", "errors"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "skill": {"const": "read-google-sheet"},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "partial", "error"]},
+    "source": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_id", "spreadsheet_id", "spreadsheet_title", "expected_title", "locale", "time_zone", "observed_at", "source_date"],
+          "properties": {
+            "source_id": {"type": "string", "minLength": 1},
+            "spreadsheet_id": {"type": "string", "minLength": 1},
+            "spreadsheet_title": {"type": ["string", "null"]},
+            "expected_title": {"type": ["string", "null"]},
+            "locale": {"type": ["string", "null"]},
+            "time_zone": {"type": ["string", "null"]},
+            "observed_at": {"type": "string", "format": "date-time"},
+            "source_date": {"type": "null"}
+          }
+        }
+      ]
+    },
+    "tabs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sheet_id", "title", "index", "row_count", "column_count", "frozen_row_count", "frozen_column_count", "hidden"],
+        "properties": {
+          "sheet_id": {"type": ["integer", "null"]},
+          "title": {"type": "string"},
+          "index": {"type": ["integer", "null"]},
+          "row_count": {"type": ["integer", "null"]},
+          "column_count": {"type": ["integer", "null"]},
+          "frozen_row_count": {"type": ["integer", "null"]},
+          "frozen_column_count": {"type": ["integer", "null"]},
+          "hidden": {"type": "boolean"}
+        }
+      }
+    },
+    "requested_ranges": {"type": "array", "items": {"type": "string"}},
+    "ranges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requested_range", "returned_range", "sheet_title", "bounded", "row_count", "column_count", "values", "formatted_values", "formulas", "content_sha256"],
+        "properties": {
+          "requested_range": {"type": "string"},
+          "returned_range": {"type": ["string", "null"]},
+          "sheet_title": {"type": "string"},
+          "bounded": {"type": "boolean"},
+          "row_count": {"type": "integer", "minimum": 0},
+          "column_count": {"type": "integer", "minimum": 0},
+          "values": {"$ref": "#/$defs/grid"},
+          "formatted_values": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/grid"}]},
+          "formulas": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["cell", "a1", "formula"],
+              "properties": {
+                "cell": {"type": "string", "pattern": "^[A-Z]{1,3}[0-9]+$"},
+                "a1": {"type": "string"},
+                "formula": {"type": "string", "pattern": "^="}
+              }
+            }
+          },
+          "content_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "missing_data": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "errors": {"type": "array", "items": {"$ref": "#/$defs/notice"}}
+  },
+  "$defs": {
+    "grid": {"type": "array", "items": {"type": "array", "items": {"type": ["string", "number", "boolean", "null"]}}},
+    "notice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "range": {"type": "string"}
+      }
+    }
+  }
+}

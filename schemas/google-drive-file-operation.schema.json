@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/google-drive-file-operation.schema.json",
+  "title": "Google Drive File Operation Result",
+  "description": "Result of a spreadsheet file lifecycle operation (scripts/lib/google_drive_lifecycle.py): convert an .xlsx into a NEW native Google Sheet, or copy a native Google Sheet into a NEW file. plan never creates; apply creates at most one file, never modifies the original, and a replay returns the previously created copy as no_change. Infrastructure output, not a skill output.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "operation", "mode", "generated_at", "status", "source", "target", "existing_copies", "created", "original_preserved", "warnings", "errors"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "operation": {"type": "string"},
+    "mode": {"type": "string"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["planned", "created", "no_change", "error"]},
+    "source": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["file_id", "name", "mime_type", "kind", "parents", "web_view_link", "capabilities"],
+          "properties": {
+            "file_id": {"type": "string"},
+            "name": {"type": ["string", "null"]},
+            "mime_type": {"type": ["string", "null"]},
+            "kind": {"enum": ["google_sheet", "xlsx", "folder", "other"]},
+            "parents": {"type": "array", "items": {"type": "string"}},
+            "web_view_link": {"type": ["string", "null"]},
+            "capabilities": {"type": "object"}
+          }
+        }
+      ]
+    },
+    "target": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "destination_folder_id"],
+      "properties": {"name": {"type": ["string", "null"]}, "destination_folder_id": {"type": ["string", "null"]}}
+    },
+    "existing_copies": {"type": "array", "items": {"$ref": "#/$defs/createdFile"}},
+    "created": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/createdFile"}]},
+    "original_preserved": {"type": ["boolean", "null"]},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "errors": {"type": "array", "items": {"$ref": "#/$defs/notice"}}
+  },
+  "$defs": {
+    "createdFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file_id", "spreadsheet_id", "name", "mime_type", "parents", "web_view_link"],
+      "properties": {
+        "file_id": {"type": "string"},
+        "spreadsheet_id": {"type": ["string", "null"]},
+        "name": {"type": ["string", "null"]},
+        "mime_type": {"type": ["string", "null"]},
+        "parents": {"type": "array", "items": {"type": "string"}},
+        "web_view_link": {"type": ["string", "null"]}
+      }
+    },
+    "notice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {"code": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1}}
+    }
+  }
+}

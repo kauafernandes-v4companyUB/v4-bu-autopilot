@@ -1,0 +1,659 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/update-google-sheet/output.schema.json",
+  "title": "Update Google Sheet Output",
+  "description": "EXTERNAL ACTION. Previews/applies a structured patch (schemas/google-sheet-patch.schema.json) to one client's declared spreadsheet. preview never writes. apply requires an explicit operator approval hash-locked to the preview, re-reads live state, aborts on drift, writes content (values.batchUpdate), clears values (values.batchClear, preserving format) duplicates a tab only via duplicate_sheet (native duplicateSheet), and — only for set_number_format — the number format (repeatCell restricted to userEnteredFormat.numberFormat), then re-reads and verifies targets, formulas outside the patch and structure/formatting.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "mode",
+    "client_id",
+    "patch_id",
+    "source_id",
+    "spreadsheet_id",
+    "spreadsheet_title",
+    "generated_at",
+    "status",
+    "operations",
+    "before",
+    "after",
+    "diff",
+    "mutation_plan",
+    "base_state_hash",
+    "preview_hash",
+    "approval_id",
+    "applied",
+    "verification",
+    "receipt",
+    "conflicts",
+    "missing_data",
+    "warnings",
+    "errors"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "skill": {
+      "const": "update-google-sheet"
+    },
+    "mode": {
+      "enum": [
+        "preview",
+        "apply"
+      ]
+    },
+    "client_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "patch_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "spreadsheet_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "spreadsheet_title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "success",
+        "no_change",
+        "conflict",
+        "error"
+      ],
+      "description": "preview success = a material, conflict-free proposal. apply success = written AND verified. conflict/error never write (apply conflict after a write only when verification fails)."
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/normalizedOperation"
+      }
+    },
+    "before": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/cellState"
+          }
+        }
+      ]
+    },
+    "after": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/cellTarget"
+          }
+        }
+      ]
+    },
+    "diff": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cell",
+          "op_id",
+          "change",
+          "before",
+          "after"
+        ],
+        "properties": {
+          "cell": {
+            "type": "string"
+          },
+          "op_id": {
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "value_written",
+              "formula_written",
+              "cleared",
+              "formula_replaced",
+              "formula_removed",
+              "number_format_set"
+            ]
+          },
+          "before": {
+            "$ref": "#/$defs/cellState"
+          },
+          "after": {
+            "$ref": "#/$defs/cellTarget"
+          }
+        }
+      }
+    },
+    "mutation_plan": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "will_write",
+            "write_requests",
+            "formula_replacements",
+            "cells_to_change",
+            "content_only"
+          ],
+          "properties": {
+            "will_write": {
+              "type": "boolean"
+            },
+            "write_requests": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "op_id",
+                  "range",
+                  "value_input_option"
+                ],
+                "properties": {
+                  "op_id": {
+                    "type": "string"
+                  },
+                  "range": {
+                    "type": "string"
+                  },
+                  "value_input_option": {
+                    "enum": [
+                      "RAW",
+                      "USER_ENTERED",
+                      null
+                    ]
+                  },
+                  "method": {
+                    "enum": [
+                      "values.batchUpdate",
+                      "values.batchClear",
+                      "spreadsheets.batchUpdate:repeatCell(userEnteredFormat.numberFormat)",
+                      "spreadsheets.batchUpdate:duplicateSheet"
+                    ]
+                  }
+                }
+              }
+            },
+            "formula_replacements": {
+              "type": "array",
+              "description": "Every existing formula this patch will overwrite/replace/clear — only possible with replace_existing_formula=true on the operation, and only as approved in this preview.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "cell",
+                  "op_id",
+                  "existing_formula"
+                ],
+                "properties": {
+                  "cell": {
+                    "type": "string"
+                  },
+                  "op_id": {
+                    "type": "string"
+                  },
+                  "existing_formula": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "cells_to_change": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "content_only": {
+              "type": "boolean",
+              "description": "false when the plan changes a number format (set_number_format)."
+            }
+          }
+        }
+      ]
+    },
+    "base_state_hash": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "preview_hash": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "approval_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "applied": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "applied_at",
+            "write_requests_sent",
+            "updated_cells"
+          ],
+          "properties": {
+            "applied_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "write_requests_sent": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "value_input_option",
+                  "ranges"
+                ],
+                "properties": {
+                  "value_input_option": {
+                    "enum": [
+                      "RAW",
+                      "USER_ENTERED",
+                      null
+                    ]
+                  },
+                  "ranges": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "method": {
+                    "enum": [
+                      "values.batchUpdate",
+                      "values.batchClear",
+                      "spreadsheets.batchUpdate:repeatCell(userEnteredFormat.numberFormat)",
+                      "spreadsheets.batchUpdate:duplicateSheet"
+                    ]
+                  }
+                }
+              }
+            },
+            "updated_cells": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "created_sheet": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "sheet_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "index": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "verification": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targets_match",
+            "formulas_outside_patch_intact",
+            "structure_preserved",
+            "mismatches",
+            "changed_formulas_outside_patch"
+          ],
+          "properties": {
+            "targets_match": {
+              "type": "boolean"
+            },
+            "formulas_outside_patch_intact": {
+              "type": "boolean"
+            },
+            "structure_preserved": {
+              "type": "boolean"
+            },
+            "mismatches": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "changed_formulas_outside_patch": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "structure_differences": {
+              "type": "array",
+              "description": "Where the structure/format fingerprint differs from the base state (sheet-level property or cell).",
+              "items": {
+                "type": "object"
+              }
+            },
+            "duplicate_sheet": {
+              "type": "object",
+              "description": "duplicate_sheet only: created tab, content equality with the source snapshot, source and other tabs unchanged."
+            }
+          }
+        }
+      ]
+    },
+    "receipt": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/action-receipt.schema.json"
+        }
+      ]
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/notice"
+      }
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/notice"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/notice"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/notice"
+      }
+    },
+    "sheet_plan": {
+      "type": "object",
+      "description": "duplicate_sheet only: source summary (ids, grid, merges, validations, formulas, links, notes, sizes, content hash), destination (exists?, insert_index) and expected effect."
+    }
+  },
+  "$defs": {
+    "scalar": {
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "null"
+      ]
+    },
+    "cellState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "formatted_value",
+        "formula"
+      ],
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/scalar"
+        },
+        "formatted_value": {
+          "$ref": "#/$defs/scalar"
+        },
+        "formula": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "number_format": {
+          "$ref": "#/$defs/numberFormat",
+          "description": "userEnteredFormat.numberFormat — reported only for set_number_format targets."
+        }
+      }
+    },
+    "cellTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "formula"
+      ],
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/scalar"
+        },
+        "formula": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "number_format": {
+          "$ref": "#/$defs/numberFormat",
+          "description": "Desired number format — set_number_format targets only."
+        }
+      }
+    },
+    "normalizedOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op_id",
+        "type",
+        "range",
+        "sheet_title",
+        "input_option",
+        "replace_existing_formula",
+        "cells"
+      ],
+      "properties": {
+        "op_id": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "write_value",
+            "write_formula",
+            "clear_value",
+            "set_number_format",
+            "duplicate_sheet"
+          ]
+        },
+        "range": {
+          "type": "string"
+        },
+        "sheet_title": {
+          "type": "string"
+        },
+        "input_option": {
+          "enum": [
+            "RAW",
+            "USER_ENTERED",
+            null
+          ],
+          "description": "null for clear_value and set_number_format (no value is written)."
+        },
+        "replace_existing_formula": {
+          "type": "boolean"
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cell",
+              "desired"
+            ],
+            "properties": {
+              "cell": {
+                "type": "string"
+              },
+              "desired": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "sheet_operation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_sheet_title",
+            "new_sheet_title",
+            "insert_index"
+          ],
+          "properties": {
+            "source_sheet_title": {
+              "type": "string"
+            },
+            "new_sheet_title": {
+              "type": "string"
+            },
+            "insert_index": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "notice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op_id": {
+          "type": "string"
+        },
+        "cell": {
+          "type": "string"
+        }
+      }
+    },
+    "numberFormat": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "TEXT",
+                "NUMBER",
+                "PERCENT",
+                "CURRENCY",
+                "DATE",
+                "TIME",
+                "DATE_TIME",
+                "SCIENTIFIC"
+              ]
+            },
+            "pattern": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

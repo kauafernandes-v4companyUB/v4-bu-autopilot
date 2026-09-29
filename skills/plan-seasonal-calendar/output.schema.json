@@ -1,0 +1,900 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/plan-seasonal-calendar/output.schema.json",
+  "title": "Seasonal Plan",
+  "description": "INTELLIGENCE output of plan-seasonal-calendar: a connected seasonal plan for one client and one horizon. Every relevant element carries a semantic classification and source_refs (source ids from sources_used, context decision ids, or OP-nn operator instructions). Cross-field invariants (evidence-backed classes, preserved decisions, no invented segments/offers/money, real calendar, client isolation) are enforced by scripts/lib/seasonal_planning.py::validate_plan. Never canonical memory.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "client_id",
+    "generated_at",
+    "status",
+    "period",
+    "operator_instructions",
+    "sources_used",
+    "strategic_summary",
+    "facts",
+    "confirmed_decisions",
+    "context_decisions_not_applicable",
+    "segments",
+    "period_architecture",
+    "seasonal_opportunities",
+    "campaigns",
+    "timeline",
+    "priorities",
+    "dependencies",
+    "client_decisions_required",
+    "risks",
+    "anti_priorities",
+    "suggested_metrics",
+    "semantic_summary",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "skill": {
+      "const": "plan-seasonal-calendar"
+    },
+    "client_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "draft_for_operator_review",
+        "approved_by_operator",
+        "superseded"
+      ]
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_date",
+        "end_date",
+        "period_id",
+        "granularity"
+      ],
+      "properties": {
+        "start_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "end_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "period_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "granularity": {
+          "enum": [
+            "week",
+            "month"
+          ]
+        }
+      }
+    },
+    "operator_instructions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Cited as OP-01, OP-02… in source_refs."
+    },
+    "sources_used": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "path",
+          "kind",
+          "used_for"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "used_for": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "strategic_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "classification",
+        "source_refs"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "$ref": "#/$defs/classification"
+        },
+        "source_refs": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statement",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "confirmed_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statement",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "context_decisions_not_applicable": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision_id",
+          "reason"
+        ],
+        "properties": {
+          "decision_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "segments": {
+      "type": "array",
+      "description": "Only segmentations that exist in the client's context. Empty when the context has none.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "segment_id",
+          "name",
+          "description",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "segment_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "period_architecture": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "start_date",
+          "end_date",
+          "role",
+          "description",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "phase": {
+            "type": "string"
+          },
+          "start_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "end_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "role": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "seasonal_opportunities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "occurrence_id",
+          "name",
+          "start_date",
+          "end_date",
+          "relevance",
+          "segment_ids",
+          "rationale",
+          "role",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "occurrence_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "start_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "end_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "relevance": {
+            "enum": [
+              "HIGH_RELEVANCE",
+              "MEDIUM_RELEVANCE",
+              "LOW_RELEVANCE",
+              "NOT_RECOMMENDED"
+            ]
+          },
+          "segment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "campaigns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/campaign"
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "period_start",
+          "period_end",
+          "fronts",
+          "objective",
+          "main_action",
+          "material_ready",
+          "client_decision",
+          "dependency",
+          "next_action",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "period_start": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "period_end": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "fronts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "objective": {
+            "type": "string"
+          },
+          "main_action": {
+            "type": "string"
+          },
+          "material_ready": {
+            "type": "string"
+          },
+          "client_decision": {
+            "type": "string"
+          },
+          "dependency": {
+            "type": "string"
+          },
+          "next_action": {
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "priorities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "properties": {
+        "P0": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "P1": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "P2": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "P3": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statement",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "client_decisions_required": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision",
+          "topic",
+          "deadline",
+          "deadline_classification",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string"
+          },
+          "topic": {
+            "enum": [
+              "product",
+              "stock",
+              "price",
+              "discount",
+              "offer",
+              "budget",
+              "team",
+              "capacity",
+              "channel",
+              "calendar",
+              "material",
+              "other"
+            ]
+          },
+          "deadline": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "deadline_classification": {
+            "enum": [
+              "CONFIRMED_OPERATIONAL_DECISION",
+              "PLANNING_RECOMMENDATION"
+            ]
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "risk",
+          "impact",
+          "mitigation",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "risk": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          },
+          "mitigation": {
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "anti_priorities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "statement",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "statement": {
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "suggested_metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "campaign_id",
+          "metric",
+          "available_in_sources",
+          "required",
+          "classification",
+          "source_refs"
+        ],
+        "properties": {
+          "campaign_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metric": {
+            "type": "string"
+          },
+          "available_in_sources": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "classification": {
+            "$ref": "#/$defs/classification"
+          },
+          "source_refs": {
+            "$ref": "#/$defs/refs"
+          }
+        }
+      }
+    },
+    "semantic_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "FACT",
+        "METRIC",
+        "CONFIRMED_OPERATIONAL_DECISION",
+        "PLANNING_RECOMMENDATION",
+        "CLIENT_CONFIRMATION_REQUIRED",
+        "UNKNOWN"
+      ],
+      "properties": {
+        "FACT": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "METRIC": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "CONFIRMED_OPERATIONAL_DECISION": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "PLANNING_RECOMMENDATION": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "CLIENT_CONFIRMATION_REQUIRED": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "UNKNOWN": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "classification": {
+      "enum": [
+        "FACT",
+        "METRIC",
+        "CONFIRMED_OPERATIONAL_DECISION",
+        "PLANNING_RECOMMENDATION",
+        "CLIENT_CONFIRMATION_REQUIRED",
+        "UNKNOWN"
+      ]
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "campaign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campaign_id",
+        "name",
+        "start_date",
+        "end_date",
+        "objective",
+        "audience",
+        "segment_ids",
+        "funnel_roles",
+        "commercial_opportunity",
+        "central_messages",
+        "offer",
+        "cta",
+        "channels",
+        "media_role",
+        "materials",
+        "dependencies",
+        "client_decision",
+        "previous_campaign_id",
+        "next_campaign_id",
+        "priority",
+        "classification",
+        "source_refs"
+      ],
+      "properties": {
+        "campaign_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "start_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "end_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "description",
+            "classification",
+            "source_refs"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "classification": {
+              "$ref": "#/$defs/classification"
+            },
+            "source_refs": {
+              "$ref": "#/$defs/refs"
+            }
+          }
+        },
+        "segment_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "funnel_roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "AWARENESS",
+              "CONSIDERATION",
+              "DEMAND_CAPTURE",
+              "CONVERSION",
+              "REMARKETING",
+              "RETENTION_REACTIVATION",
+              "ENABLER"
+            ]
+          }
+        },
+        "commercial_opportunity": {
+          "type": "string"
+        },
+        "central_messages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "segment_id",
+              "message"
+            ],
+            "properties": {
+              "segment_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "offer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "description",
+            "classification",
+            "source_refs"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "classification": {
+              "$ref": "#/$defs/classification"
+            },
+            "source_refs": {
+              "$ref": "#/$defs/refs"
+            }
+          }
+        },
+        "cta": {
+          "type": "string"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "classification",
+              "source_refs"
+            ],
+            "properties": {
+              "channel": {
+                "type": "string"
+              },
+              "classification": {
+                "$ref": "#/$defs/classification"
+              },
+              "source_refs": {
+                "$ref": "#/$defs/refs"
+              }
+            }
+          }
+        },
+        "media_role": {
+          "type": "string"
+        },
+        "materials": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "client_decision": {
+          "type": "string"
+        },
+        "previous_campaign_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "next_campaign_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priority": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "classification": {
+          "$ref": "#/$defs/classification"
+        },
+        "source_refs": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    }
+  }
+}

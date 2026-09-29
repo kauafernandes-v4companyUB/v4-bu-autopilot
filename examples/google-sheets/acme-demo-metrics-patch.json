@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "patch_id": "acme-demo-metrics-2026-w03",
+  "client_id": "acme-demo",
+  "source_id": "acme-demo-metrics-sheet",
+  "prepared_by": {"skill": "synthetic-example", "artifact_ref": null, "notes": "Exemplo 100% sintético do formato de patch; nenhuma planilha real."},
+  "permissions": {"allow_clear": false},
+  "operations": [
+    {"op_id": "op-001", "type": "write_value", "range": "'Métricas'!B3:C3", "values": [[1250.5, 42]]},
+    {"op_id": "op-002", "type": "write_value", "range": "'Métricas'!A3", "values": [["2026-01-12"]], "input_option": "USER_ENTERED"},
+    {"op_id": "op-003", "type": "write_formula", "range": "'Métricas'!D3", "formulas": [["=IFERROR(B3/C3,0)"]]}
+  ]
+}

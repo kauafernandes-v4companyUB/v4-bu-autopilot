@@ -7,19 +7,27 @@ Usage:
 
 Never invents commercial data. Every generated file comes verbatim from
 templates/client/ (schema-valid, unknown/null/empty values only), with
-only "__CLIENT_ID__" / "__DISPLAY_NAME__" placeholders substituted.
+only "__CLIENT_ID__" / "__DISPLAY_NAME__" / "__BOOTSTRAP_TIMESTAMP__"
+placeholders substituted. __BOOTSTRAP_TIMESTAMP__ is an execution
+timestamp (CLAUDE.md section 26): the real UTC system clock at the moment
+bootstrap writes the file — used where the canonical schema requires a
+write timestamp (tasks.json.updated_at), never a fixed or inferred date.
 
 Safety: a file that already exists and differs from what the template
 would produce is never overwritten, even with --force. --force only
 allows bootstrap to proceed past "client directory already exists" and
 to (re)write files that are missing or byte-identical to the template
-render — it never destroys real canonical data.
+render — it never destroys real canonical data. The one exception is a file that
+is byte-identical to a render of a PREVIOUS, known-invalid template
+version (LEGACY_RENDERS) — i.e. never touched since bootstrap — which
+--force upgrades to the current template.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -27,16 +35,46 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_ROOT = REPO_ROOT / "templates" / "client"
 
 sys.path.insert(0, str(REPO_ROOT))
+from scripts.lib.exec_clock import future_timestamp_problem, utc_now_rfc3339  # noqa: E402
 from scripts.lib.workspace import (  # noqa: E402
     WorkspaceError,
     resolve_workspace,
 )
 
+TIMESTAMP_PLACEHOLDER = "__BOOTSTRAP_TIMESTAMP__"
+_RFC3339_UTC = r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z"
 
-def render(text: str, client_id: str, display_name: str) -> str:
-    return text.replace("__CLIENT_ID__", client_id).replace(
+# Renders of earlier template versions that were invalid against their
+# canonical schema. A file still byte-identical to one of these was never
+# touched after bootstrap, so --force may safely upgrade it.
+LEGACY_RENDERS = {
+    "tasks.json": [
+        # updated_at: null violated schemas/task-ledger.schema.json (required date-time)
+        '{\n  "schema_version": "1.0.0",\n  "client_id": "__CLIENT_ID__",\n  "updated_at": null,\n  "tasks": []\n}\n',
+    ],
+}
+
+
+def render(text: str, client_id: str, display_name: str, timestamp: str | None = None) -> str:
+    rendered = text.replace("__CLIENT_ID__", client_id).replace(
         "__DISPLAY_NAME__", display_name
     )
+    if timestamp is not None:
+        rendered = rendered.replace(TIMESTAMP_PLACEHOLDER, timestamp)
+    return rendered
+
+
+def matches_template(existing: str, template_render: str) -> bool:
+    """True when `existing` equals the template render for any real
+    bootstrap timestamp (template_render still holds the placeholder)."""
+    if TIMESTAMP_PLACEHOLDER not in template_render:
+        return existing == template_render
+    pattern = re.escape(template_render).replace(re.escape(TIMESTAMP_PLACEHOLDER), _RFC3339_UTC)
+    return re.fullmatch(pattern, existing) is not None
+
+
+def is_legacy_render(rel_path: Path, existing: str, client_id: str, display_name: str) -> bool:
+    return any(existing == render(t, client_id, display_name) for t in LEGACY_RENDERS.get(rel_path.as_posix(), []))
 
 
 def iter_template_files():
@@ -71,7 +109,12 @@ def bootstrap(client_id: str, workspace_root: str | None, display_name: str | No
         )
         return 1
 
-    written, skipped_existing, protected, validated = [], [], [], []
+    written, skipped_existing, protected, validated, upgraded = [], [], [], [], []
+    timestamp = utc_now_rfc3339()
+    problem = future_timestamp_problem(timestamp)
+    if problem:
+        print(f"ERROR: {problem}", file=sys.stderr)
+        return 4
 
     for rel_path in iter_template_files():
         if rel_path.name == ".gitkeep":
@@ -84,14 +127,19 @@ def bootstrap(client_id: str, workspace_root: str | None, display_name: str | No
 
         src = TEMPLATE_ROOT / rel_path
         dest = client_dir / rel_path
-        rendered = render(src.read_text(encoding="utf-8"), client_id, display_name)
+        template_render = render(src.read_text(encoding="utf-8"), client_id, display_name)
+        rendered = render(template_render, client_id, display_name, timestamp)
 
         dest.parent.mkdir(parents=True, exist_ok=True)
 
         if dest.exists():
             existing = dest.read_text(encoding="utf-8")
-            if existing == rendered:
+            if matches_template(existing, template_render):
                 skipped_existing.append(str(rel_path))
+            elif force and is_legacy_render(rel_path, existing, client_id, display_name):
+                dest.write_text(rendered, encoding="utf-8")
+                written.append(str(rel_path))
+                upgraded.append(str(rel_path))
             else:
                 protected.append(str(rel_path))
             continue
@@ -119,7 +167,7 @@ def bootstrap(client_id: str, workspace_root: str | None, display_name: str | No
     print()
     print(f"Written ({len(written)}):")
     for p in written:
-        print(f"  + {p}")
+        print(f"  + {p}" + ("  (upgraded from untouched legacy template render)" if p in upgraded else ""))
     if skipped_existing:
         print(f"Already present, identical to template ({len(skipped_existing)}):")
         for p in skipped_existing:

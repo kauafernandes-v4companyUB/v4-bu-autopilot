@@ -1,0 +1,6 @@
+# Google Sheets transport (scripts/lib/google_sheets_transport.py,
+# scripts/lib/google_sheets_auth.py). Only needed to talk to the real API;
+# tests use FakeGoogleSheetsTransport and do not require these.
+google-api-python-client>=2.100,<3
+google-auth>=2.23,<3
+google-auth-oauthlib>=1.1,<2

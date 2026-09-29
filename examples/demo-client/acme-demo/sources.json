@@ -21,6 +21,23 @@
       "client_selector": "Acme Demo",
       "canonical": false,
       "description": "Exportação de WhatsApp fictícia (dado sintético) usada para popular o exemplo de feedback do cliente."
+    },
+    {
+      "source_id": "acme-demo-metrics-sheet",
+      "type": "google_sheet",
+      "scope": "client",
+      "location": null,
+      "contains_multiple_clients": false,
+      "client_selector": null,
+      "canonical": false,
+      "description": "Planilha de Métricas fictícia (id sintético, não existe no Google) usada para demonstrar read-google-sheet/update-google-sheet.",
+      "google_sheet": {
+        "spreadsheet_id": "fake-acme-demo-metrics-0001",
+        "expected_title": "Acme Demo — Métricas (sintético)",
+        "purpose": "metrics",
+        "allowed_tabs": null,
+        "writable": true
+      }
     }
   ]
 }

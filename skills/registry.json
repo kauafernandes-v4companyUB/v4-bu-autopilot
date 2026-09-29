@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "updated_at": "2026-09-16T13:34:08Z",
+  "updated_at": "2026-09-29T01:16:57Z",
   "skills": [
     {
       "id": "read-bu",
@@ -60,6 +60,18 @@
       "skill_path": "skills/read-bi/SKILL.md",
       "output_schema_path": "skills/read-bi/output.schema.json",
       "summary": "Visual-first BI reader (CSV parser-driven, PDF visual-only, no OCR) producing normalized metric observations and monitoring candidates.",
+      "dependencies": []
+    },
+    {
+      "id": "read-google-sheet",
+      "category": "SOURCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/read-google-sheet/SKILL.md",
+      "output_schema_path": "skills/read-google-sheet/output.schema.json",
+      "summary": "Range-limited snapshot (values + sparse formulas, real observed_at) of one Google Sheet explicitly declared by the client in sources.json (type google_sheet). Official Sheets API via scripts/lib/google_sheets_transport.py; never searches by name, never writes.",
       "dependencies": []
     },
     {
@@ -195,6 +207,18 @@
       "dependencies": ["identify-priorities"]
     },
     {
+      "id": "plan-seasonal-calendar",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/plan-seasonal-calendar/SKILL.md",
+      "output_schema_path": "skills/plan-seasonal-calendar/output.schema.json",
+      "summary": "Connected seasonal plan for one client and any 7–400-day horizon (BR calendar), lazily loaded from that client's context; every element classified FACT/METRIC/CONFIRMED_OPERATIONAL_DECISION/PLANNING_RECOMMENDATION/CLIENT_CONFIRMATION_REQUIRED/UNKNOWN. Never writes externally or to canonical memory.",
+      "dependencies": []
+    },
+    {
       "id": "audit-plan",
       "category": "INTELLIGENCE",
       "version": "1.0.0",
@@ -277,6 +301,18 @@
       "output_schema_path": "skills/manage-operations-ledger/output.schema.json",
       "summary": "Persists operator decisions that remain pending between proposal and later task materialization or separately authorized external execution. It never replaces tasks.json or executes a transport.",
       "dependencies": ["manage-task-ledger"]
+    },
+    {
+      "id": "update-google-sheet",
+      "category": "ACTION",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "EXTERNAL",
+      "skill_path": "skills/update-google-sheet/SKILL.md",
+      "output_schema_path": "skills/update-google-sheet/output.schema.json",
+      "summary": "Previews/applies a previously prepared cell-content patch (schemas/google-sheet-patch.schema.json) to one client's declared, writable Google Sheet. Preview never writes; apply requires explicit hash-locked approval, re-reads and aborts on drift, writes content only (values.batchUpdate), never overwrites a formula without replace_existing_formula, then verifies targets, formulas outside the patch and formatting. Replays are no_change. Never decides content.",
+      "dependencies": ["read-google-sheet"]
     }
   ]
 }
