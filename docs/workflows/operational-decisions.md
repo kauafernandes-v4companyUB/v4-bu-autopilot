@@ -18,8 +18,12 @@ superseded. A date arriving never changes state by itself.
 When a decision becomes a task, `manage-task-ledger` creates the task after its
 own approval/validation; the operation is retained as `materialized` with a
 `materialized_ref.task_id`. When an external action executes, the approval
-payload hash must still match, explicit session authorization is required, and
-a durable receipt reference is added. `approved` never means `executed`.
+payload hash must still match, an explicitly authorized session, a real and
+compatible transport with its requirements satisfied, and a durable receipt
+reference are required. `approved` never means `executed` or executable. In
+the absence of a real channel, the Inbox must show **APROVADA / AGUARDANDO
+CANAL DE EXECUÇÃO**; dry-run and fake transports never make a real action
+execution-ready.
 
 A changed payload makes an earlier approval stale. A new replan does not erase
 the old human decision: an explicit supersession links the prior and replacing

@@ -28,8 +28,11 @@ transition. A materialized operation retains its history and stores only the
 task reference; manage-task-ledger remains the task authority.
 
 An external approval records its payload hash. If the intended payload changes,
-the approval is stale and is not executable. External execution additionally
-requires explicit session authorization and a durable receipt reference.
+the approval is stale and is not executable. Approval is not capability: real
+external execution additionally requires an explicitly authorized session, a
+real compatible transport with satisfied requirements, and a durable receipt
+reference. With no real channel (including dry-run/fake transport), present it
+as `APROVADA / AGUARDANDO CANAL DE EXECUÇÃO`.
 
 ## Side effects
 

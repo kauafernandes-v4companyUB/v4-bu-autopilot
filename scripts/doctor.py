@@ -309,6 +309,7 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
         "Task integrity": ("PASS", []),
         "Operations integrity": ("PASS", []),
         "Source references": ("PASS", []),
+        "Source manifest": ("PASS", []),
     }
     if ws is None:
         return {k: ("SKIP", ["no workspace"]) for k in results}
@@ -324,6 +325,18 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
         client_id = client_dir.name
 
         sources_by_id = set()
+        manifest_path = client_dir / "source-manifest.json"
+        if manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            errs = _validate(manifest, REPO_ROOT / "schemas" / "source-manifest.schema.json", registry)
+            if errs:
+                problems["Source manifest"].append(f"{client_id}/source-manifest.json: {errs[:3]}")
+            elif manifest.get("client_id") != client_id:
+                problems["Client isolation"].append(f"{client_id}/source-manifest.json: identity mismatch")
+            else:
+                fingerprints = [(s.get("path"), s.get("fingerprint")) for s in manifest.get("sources", [])]
+                if len(fingerprints) != len(set(fingerprints)):
+                    problems["Source manifest"].append(f"{client_id}/source-manifest.json: duplicate path/fingerprint revision")
         sources_path = client_dir / "sources.json"
         if sources_path.is_file():
             sources_data = json.loads(sources_path.read_text(encoding="utf-8"))
@@ -427,6 +440,14 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
                 problems["Operations integrity"].extend(
                     f"{client_id}/operations.json: {error}" for error in semantic_errors
                 )
+                known_ops = {o.get("operation_id") for o in operations.get("operations", [])}
+                known_tasks = {t.get("task_id") for t in (tasks or {}).get("tasks", [])}
+                for operation in operations.get("operations", []):
+                    gate = operation.get("deferred_until") or {}
+                    if gate.get("type") == "after_operation" and gate.get("reference_id") not in known_ops:
+                        problems["Operations integrity"].append(f"{client_id}/operations.json: deferred reference does not resolve")
+                    if gate.get("type") == "after_task" and gate.get("reference_id") not in known_tasks:
+                        problems["Operations integrity"].append(f"{client_id}/operations.json: deferred task reference does not resolve")
             for operation in operations.get("operations", []):
                 if operation.get("client_id") != client_id:
                     problems["Client isolation"].append(
@@ -483,7 +504,7 @@ def main() -> int:
         "Repository", "Workspace", "Schemas", "Skill registry", "Workflow registry",
         "Approval schemas", "Skill contracts", "Google Sheets contracts",
         "Client isolation", "Evidence integrity", "Quarter integrity", "ROPRE integrity",
-        "Task integrity", "Operations integrity", "Source references", "Replanning artifacts", "Private tracking",
+        "Task integrity", "Operations integrity", "Source references", "Source manifest", "Replanning artifacts", "Private tracking",
         "Generated tracking", "Secrets hygiene",
     ]
     by_label = {label: (status, details) for label, status, details in RESULTS}

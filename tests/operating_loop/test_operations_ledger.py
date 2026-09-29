@@ -10,7 +10,7 @@ from referencing import Registry, Resource
 
 from scripts.lib.operations_ledger import (
     OperationsLedgerError, add_operation, apply_add_operation, approval_is_stale, canonical_hash,
-    rebuild_operator_inbox, transition, validate_semantics,
+    external_execution_status, human_external_state, rebuild_operator_inbox, transition, validate_semantics,
 )
 
 
@@ -62,10 +62,44 @@ def test_payload_change_makes_approval_stale_and_non_executable():
     assert rebuild_operator_inbox(ledger(item), current_payload_hashes={"op-1": "c" * 64})["external_actions"] == []
 
 
+def test_approved_without_transport_is_awaiting_execution_channel():
+    item = operation("external_approved")
+    assert external_execution_status(item) == "awaiting_execution_channel"
+    view = rebuild_operator_inbox(ledger(item))
+    assert view["external_actions"][0]["human_status"] == "APROVADA / AGUARDANDO CANAL DE EXECUÇÃO"
+    assert human_external_state(item) == "APPROVED_WAITING_CAPABILITY"
+
+
+def test_dry_run_transport_is_not_real_execution_ready():
+    item = operation("external_approved")
+    assert external_execution_status(item, capability={
+        "mode": "dry_run", "available": True, "compatible": True,
+        "requirements_satisfied": True, "session_authorized": True,
+    }) == "awaiting_execution_channel"
+
+
+def test_real_compatible_transport_with_session_authorization_is_execution_ready():
+    item = operation("external_approved")
+    assert external_execution_status(item, capability={
+        "mode": "real", "available": True, "compatible": True,
+        "requirements_satisfied": True, "session_authorized": True,
+    }) == "execution_ready"
+
+
+def test_stale_approval_is_never_executable_even_with_real_transport():
+    item = operation("external_approved")
+    assert external_execution_status(item, "c" * 64, {
+        "mode": "real", "available": True, "compatible": True,
+        "requirements_satisfied": True, "session_authorized": True,
+    }) == "approval_stale"
+
+
 def test_approved_is_not_executed():
     item = operation("external_approved")
     assert item["approval"]["status"] == "approved"
     assert item["external"]["executed"] is False
+    item["external"]["executed"] = True
+    assert external_execution_status(item) == "executed"
 
 
 def test_new_replan_cannot_erase_operation_and_supersession_keeps_history():

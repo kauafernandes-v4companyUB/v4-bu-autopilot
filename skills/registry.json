@@ -291,6 +291,31 @@
       "dependencies": ["manage-task-ledger", "read-quarter"]
     },
     {
+      "id": "operator-brief", "category": "INTELLIGENCE", "version": "1.0.0", "status": "implemented", "implemented": true,
+      "canonical_side_effects": "NONE", "skill_path": "skills/operator-brief/SKILL.md", "output_schema_path": "skills/operator-brief/output.schema.json",
+      "summary": "Read-only daily briefing reconstructed from canonical operational state.", "dependencies": ["manage-task-ledger", "manage-operations-ledger", "read-quarter"]
+    },
+    {
+      "id": "prepare-client-call", "category": "INTELLIGENCE", "version": "1.0.0", "status": "implemented", "implemented": true,
+      "canonical_side_effects": "NONE", "skill_path": "skills/prepare-client-call/SKILL.md", "output_schema_path": "skills/prepare-client-call/output.schema.json",
+      "summary": "Read-only call preparation from the selected client's canonical records.", "dependencies": ["operator-brief"]
+    },
+    {
+      "id": "process-client-call", "category": "SOURCE", "version": "1.0.0", "status": "implemented", "implemented": true,
+      "canonical_side_effects": "NONE", "skill_path": "skills/process-client-call/SKILL.md", "output_schema_path": "skills/process-client-call/output.schema.json",
+      "summary": "Preview-only post-call normalization and canonical diff; never applies.", "dependencies": ["promote-client-memory", "manage-task-ledger", "manage-operations-ledger"]
+    },
+    {
+      "id": "source-intake", "category": "SOURCE", "version": "1.0.0", "status": "implemented", "implemented": true,
+      "canonical_side_effects": "NONE", "skill_path": "skills/source-intake/SKILL.md", "output_schema_path": "skills/source-intake/output.schema.json",
+      "summary": "Preview-only idempotent discovery of private source revisions.", "dependencies": ["read-whatsapp", "read-account-gt", "read-client-context", "read-bi"]
+    },
+    {
+      "id": "what-changed", "category": "INTELLIGENCE", "version": "1.0.0", "status": "implemented", "implemented": true,
+      "canonical_side_effects": "NONE", "skill_path": "skills/what-changed/SKILL.md", "output_schema_path": "skills/what-changed/output.schema.json",
+      "summary": "Read-only semantic change comparison which ignores generated timestamps.", "dependencies": ["operator-brief"]
+    },
+    {
       "id": "manage-operations-ledger",
       "category": "ACTION",
       "version": "1.0.0",

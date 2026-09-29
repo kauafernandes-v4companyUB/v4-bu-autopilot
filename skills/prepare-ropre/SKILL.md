@@ -45,6 +45,10 @@ their canonical schemas. Check `tasks.json.client_id == client_id` and every
 blocks the draft. Validate referenced evidence IDs against the same client's
 ledger whenever it exists; an orphan is `unresolved_evidence`, never invented.
 
+If a current `week-close-preview.json` is supplied, consume only its
+content-hash-identified `artifact_ref` as transient context for results and
+next-step candidates. It never replaces the task ledger or creates carry-over.
+
 ## 3. Check-in selection and continuity
 
 From valid check-ins in the resolved Quarter, select the most recent

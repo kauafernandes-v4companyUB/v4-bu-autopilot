@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.v4-bu-autopilot.internal/skills/what-changed/output.schema.json","type":"object","required":["client_id","generated_at"],"properties":{"client_id":{"type":"string"},"generated_at":{"type":"string","format":"date-time"}},"additionalProperties":true}
