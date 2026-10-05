@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -104,3 +105,70 @@ def test_gitignore_covers_required_patterns(repo_root: Path):
     gitignore = (repo_root / ".gitignore").read_text(encoding="utf-8")
     for pattern in ["private/", "context/generated/", "clients/", ".env", "*.key", "*.pem", "client_secret*.json", "*google-sheets-token*.json"]:
         assert pattern in gitignore, f".gitignore missing pattern: {pattern}"
+
+
+# --- Content guards (structural patterns only; no real PII lives here) ---
+
+# The pilot client id is already public (CLAUDE.md). It may appear in prose
+# docs, but never in code, tests or fixtures, where it would mean real data
+# was pasted in. Files listed here only mention it to assert its absence.
+PILOT_CLIENT_ID = "walmaq"
+CODE_AND_FIXTURE_PREFIXES = ("tests/", "examples/", "scripts/")
+CODE_AND_FIXTURE_SUFFIXES = (".py", ".json", ".csv", ".txt", ".jsonl")
+PILOT_ID_GUARD_FILES = {
+    "tests/security/test_public_hygiene.py",
+    "tests/intelligence/test_schemas.py",
+    "tests/operating_loop/test_demo_artifacts.py",
+    "scripts/doctor.py",
+}
+TEXT_SUFFIXES = {".py", ".json", ".md", ".csv", ".txt", ".jsonl", ".yml", ".yaml", ".toml", ".cfg", ".ini", ""}
+
+CNPJ_RE = re.compile(r"\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b")
+CPF_RE = re.compile(r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b")
+BR_PHONE_RE = re.compile(r"\+55\s?\(?\d{2}\)?\s?9?\d{4}-?\d{4}|\(\d{2}\)\s?9\d{4}-\d{4}")
+EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+ALLOWED_EMAIL_DOMAINS = ("example.com", "example.org", "example.net", "anthropic.com")
+
+
+def _tracked_text(repo_root: Path, tracked: list[str]):
+    for f in tracked:
+        if Path(f).suffix.lower() not in TEXT_SUFFIXES:
+            continue
+        path = repo_root / f
+        if not path.is_file():
+            continue
+        try:
+            yield f, path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+
+
+def _is_code_or_fixture(f: str) -> bool:
+    if f.startswith(CODE_AND_FIXTURE_PREFIXES) or (f.startswith("skills/") and "/scripts/" in f):
+        return f.endswith(CODE_AND_FIXTURE_SUFFIXES)
+    return False
+
+
+def test_pilot_client_id_never_in_code_or_fixtures(repo_root: Path, tracked):
+    """Fixtures must be synthetic from the origin (CLAUDE.md 27.1); the
+    pilot id inside code/tests/examples is a strong signal of copied data."""
+    offenders = [
+        f for f, text in _tracked_text(repo_root, tracked)
+        if _is_code_or_fixture(f) and f not in PILOT_ID_GUARD_FILES and PILOT_CLIENT_ID in text.lower()
+    ]
+    assert not offenders, f"pilot client id found in code/fixtures (use a synthetic client): {offenders}"
+
+
+def test_no_personal_identifier_shaped_values_tracked(repo_root: Path, tracked):
+    """CNPJ/CPF/BR phone/e-mail shaped values never belong in the public
+    engine. Reports file and kind only — never the matched value."""
+    offenders = []
+    for f, text in _tracked_text(repo_root, tracked):
+        for kind, rx in (("cnpj", CNPJ_RE), ("cpf", CPF_RE), ("br_phone", BR_PHONE_RE)):
+            if rx.search(text):
+                offenders.append((f, kind))
+        for m in EMAIL_RE.finditer(text):
+            if not m.group(0).lower().split("@", 1)[1].endswith(ALLOWED_EMAIL_DOMAINS):
+                offenders.append((f, "email"))
+                break
+    assert not offenders, f"personal-identifier-shaped values tracked: {offenders}"
