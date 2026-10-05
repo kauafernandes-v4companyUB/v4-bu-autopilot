@@ -206,7 +206,7 @@ def test_conflicting_evidence_is_never_applicable(client_dir):
     assert _snapshot(client_dir) == before
 
 
-def test_other_canonical_targets_are_bound_and_not_written_by_reference_apply(client_dir):
+def test_invalid_operation_spec_is_a_conflict_with_zero_writes(client_dir):
     pv = _preview(client_dir)
     pv["promotion_plan"].append({"candidate_id": "acme-promo-test-k1", "target_file": "strategy.md", "target_path": None,
                                  "category": None, "action": "promote", "summary": "s", "reason": "r",
@@ -215,5 +215,5 @@ def test_other_canonical_targets_are_bound_and_not_written_by_reference_apply(cl
     assert "strategy.md" in bound["mutation_plan"]["canonical_targets"]
     before = _snapshot(client_dir)
     out = mp.apply_promotion(bound, _approve(bound), client_dir)
-    assert out["status"] == "failed" and out["errors"][0]["code"] == "UNSUPPORTED_TARGET"
+    assert out["status"] == "failed" and out["errors"][0]["code"] == "CONFLICT"
     assert _snapshot(client_dir) == before

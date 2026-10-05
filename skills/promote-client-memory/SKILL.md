@@ -451,7 +451,18 @@ Mesmo padrão do Operating Loop (`scripts/lib/approval.py`, `update-google-sheet
   3. aprovação presente, do mesmo cliente, cobrindo o item e validada por `approval.validate_approval` contra o preview exato (preview alterado depois da aprovação → `STALE_APPROVAL`);
   4. `base_state_hash` recalculado a partir dos arquivos canônicos atuais precisa bater (canônico mudou desde o preview → `STALE_APPROVAL`).
   Qualquer falha → zero escritas. Hashes anotados à mão em arquivo à parte (ex.: um `.locks.json`) nunca autorizam apply: o gate sempre recalcula a partir do preview e do disco.
-- **Atomicidade** — o resultado inteiro é validado contra o schema antes de uma única substituição atômica (arquivo temporário, fsync, rename). Falha de validação → zero escritas.
+- **Modelo de operação por destino** — o `value` de todo candidato `promote`/`supersede`/`historize` é aplicável sem interpretação:
+  - `evidence.json`: o item canônico do ledger (17.1.1);
+  - `knowledge.json`: `{"op": "append" | "replace_item", "path": "/categories/<categoria>", "key": "knowledge_id", "item": {...}}`;
+  - `current-state.json`: `{"op": "set", "path": "/<campo>[/<chave>]", "value": ...}`, `append` ou `replace_item`;
+  - `decisions.json`: `append`/`replace_item` em `/decisions` (`key: "decision_id"`);
+  - `client.json`: `set`; `sources.json`: `append`/`replace_item` em `/sources` (`key: "source_id"`);
+  - `strategy.md`: `{"op": "replace_text", "text": "..."}`;
+  - `history`: `{"op": "create_file", "name": "<registro>.json", "content": {...}}` (formato da seção 18.1).
+  Substituir conteúdo existente exige `action: "supersede"` e grava o valor anterior em `history/<destino>-superseded-by-<candidate_id>.json` na mesma escrita (placeholders do template, como `"unknown"`, não são conteúdo). Conteúdo idêntico é no-op; incompatível é `conflict`.
+- **Validação por destino** — `evidence.json` e `knowledge.json` contra seus schemas; `current-state.json`, `decisions.json`, `client.json` e `sources.json` contra o contrato estrutural do template (`client_id` inalterado, chaves do template presentes); `strategy.md` não vazio; registros de `history/` com os campos da seção 18.1.
+- **Atomicidade** — o resultado de todos os destinos é validado antes de uma única escrita multi-arquivo (arquivos temporários com fsync, renomeados em ordem; qualquer falha restaura os originais). Falha de validação → zero escritas.
+- **Receipt** — todo apply com escrita persiste `receipts/<receipt_id>.json` (`schemas/action-receipt.schema.json`) na mesma escrita atômica, com um `effect` (hash antes/depois) por arquivo tocado; `approval_id` sempre presente.
 - **Idempotência** — um preview novo sobre evidência já promovida classifica o candidato como `skip` (NO_CHANGE); apply desse preview retorna `no_change` sem escrever.
 
 ---

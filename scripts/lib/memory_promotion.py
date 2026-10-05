@@ -1,248 +1,431 @@
 """Hash binding, approval gate and reference apply for
-skills/promote-client-memory/SKILL.md (sections 17, 17.1.1 and 17.2).
+skills/promote-client-memory/SKILL.md (sections 17, 17.1, 17.1.1, 17.2, 18).
 
-Same pattern as the rest of the operating loop (scripts/lib/approval.py,
-scripts/lib/google_sheets_patch.py):
+Every target the skill declares is applied here, through one generic
+operation model (`value` of a writing candidate):
 
-    PREVIEW -> mutation_plan -> preview_hash -> approval bound to it
-            -> APPLY (re-reads canonical state; any drift = STALE_APPROVAL)
+  evidence.json       value = canonical evidence item (17.1.1 direct promotion)
+  knowledge.json      {"op": "append" | "replace_item", "path": "/categories/<category>", "key": "knowledge_id", "item": {...}[, "match": "<id>"]}
+  current-state.json  {"op": "set", "path": "/<field>[/<key>]", "value": ...} | append | replace_item
+  decisions.json      {"op": "append" | "replace_item", "path": "/decisions", "key": "decision_id", "item": {...}}
+  client.json         {"op": "set", "path": "/<field>", "value": ...}
+  sources.json        {"op": "append" | "replace_item", "path": "/sources", "key": "source_id", "item": {...}}
+  strategy.md         {"op": "replace_text", "text": "..."}
+  history             {"op": "create_file", "name": "<record>.json", "content": {...}}
 
-- `base_state_hash` covers every canonical file the promotion depends on or
-  may modify: always evidence.json, knowledge.json, current-state.json and
-  decisions.json, plus any other target_file named by the plan
-  (client.json, sources.json, strategy.md, history/).
-- `preview_hash` covers client_id, base_state_hash, the promotion plan, the
-  proposed evidence and the mutation plan — with execution timestamps
-  (generated_at, added_at, promoted_at, ...) stripped, so regenerating an
-  identical preview at another time yields the same hash.
-- Apply never trusts a hash written by hand next to the preview: it
-  recomputes both hashes from the preview content and from canonical state
-  on disk, and validates the approval record against the exact preview.
-
-The reference apply writes only the evidence ledger (direct promotion of
-normalized external observations, SKILL.md 17.1.1). A plan that also
-targets other canonical files must still pass `check_apply_gate` before
-any of those writes; this module refuses to apply them itself.
+Replacing existing content always requires action "supersede" and snapshots
+the previous value into history/ (section 18.1) in the same atomic write.
+Evidence used by any writing candidate is synced into evidence.json from
+the preview's `evidence` block (section 17.1). Apply = gate -> simulate ->
+validate every target -> one atomic multi-file write + receipt.
 """
 
 from __future__ import annotations
 
+import copy
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Callable, Optional
 
-from jsonschema import Draft202012Validator
-from referencing import Registry, Resource
-
-from scripts.lib import approval as ap
+from scripts.lib import canonical_action as ca
 from scripts.lib.artifact_hash import content_sha256
 from scripts.lib.evidence_projection import project_to_canonical
 from scripts.lib.exec_clock import utc_now_rfc3339
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+ACTION = "promote-client-memory"
 OUTPUT_SCHEMA_VERSION = "1.1.0"
 APPROVAL_ITEM_TYPE = "memory_promotion"
 APPROVAL_SOURCE_TYPE = "memory_promotion_preview"
 ALWAYS_BOUND_FILES = ("evidence.json", "knowledge.json", "current-state.json", "decisions.json")
-OPTIONAL_TARGET_FILES = ("client.json", "sources.json", "strategy.md")
 WRITING_ACTIONS = {"promote", "supersede", "historize"}
-EXECUTION_TIMESTAMP_KEYS = {
-    "generated_at", "added_at", "promoted_at", "historized_at", "applied_at", "updated_at", "created_at",
+TARGET_OPS = {
+    "knowledge.json": {"append", "replace_item"},
+    "current-state.json": {"set", "append", "replace_item"},
+    "decisions.json": {"append", "replace_item"},
+    "client.json": {"set"},
+    "sources.json": {"append", "replace_item"},
+    "strategy.md": {"replace_text"},
+    "history": {"create_file"},
 }
 EVIDENCE_MATERIAL_FIELDS = (
     "statement", "type", "value", "unit", "confidence", "source_date", "period",
     "source_kind", "source_reference", "source_skill", "external_provenance",
 )
+HISTORY_REQUIRED = ("candidate_id", "knowledge_type", "statement", "confidence", "evidence_ids", "provenance")
+TEMPLATES = ca.REPO_ROOT / "templates" / "client"
+semantic = ca.semantic
+
+
+class _Conflict(Exception):
+    pass
 
 
 # ---------------------------------------------------------------------------
-# hashing
+# hashing / binding
 # ---------------------------------------------------------------------------
-
-
-def semantic(value):
-    """Drop execution-timestamp keys recursively (CLAUDE.md section 26):
-    they record when the system acted, not what it proposes."""
-    if isinstance(value, dict):
-        return {k: semantic(v) for k, v in value.items() if k not in EXECUTION_TIMESTAMP_KEYS}
-    if isinstance(value, list):
-        return [semantic(v) for v in value]
-    return value
 
 
 def bound_files(promotion_plan: list[dict]) -> list[str]:
-    targets = set(ALWAYS_BOUND_FILES)
+    files = set(ALWAYS_BOUND_FILES)
     for cand in promotion_plan:
-        target = cand.get("target_file")
-        if target in OPTIONAL_TARGET_FILES or target == "history":
-            targets.add("history/" if target == "history" else target)
-    return sorted(targets)
-
-
-def read_base_state(client_dir: Path, files: list[str]) -> dict:
-    """Current canonical state for `files` (missing file -> None; history/
-    -> {filename: sha256} so any added/changed record is detected)."""
-    import hashlib
-
-    state: dict = {}
-    for name in files:
-        path = client_dir / name.rstrip("/")
-        if name == "history/":
-            state[name] = (
-                {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(path.iterdir()) if p.is_file()}
-                if path.is_dir() else None
-            )
-        elif not path.is_file():
-            state[name] = None
-        elif name.endswith(".json"):
-            state[name] = json.loads(path.read_text(encoding="utf-8"))
-        else:
-            state[name] = path.read_text(encoding="utf-8")
-    return state
-
-
-def compute_base_state_hash(client_dir: Path, files: list[str]) -> str:
-    return content_sha256(read_base_state(client_dir, files))
-
-
-def build_mutation_plan(promotion_plan: list[dict], files: list[str], base_state_hash: str) -> dict:
-    return {
-        "canonical_targets": files,
-        "base_state_hash": base_state_hash,
-        "changes": [
-            {
-                "candidate_id": c["candidate_id"], "target_file": c["target_file"], "target_path": c.get("target_path"),
-                "action": c["action"], "material": c["action"] in WRITING_ACTIONS,
-            }
-            for c in promotion_plan
-        ],
-        "will_write": False,
-    }
+        t = cand.get("target_file")
+        if t == "history":
+            files.add("history/")
+        elif t in TARGET_OPS or t == "evidence.json":
+            files.add(t)
+        if cand.get("action") == "supersede":
+            files.add("history/")
+    return sorted(files)
 
 
 def compute_preview_hash(preview: dict) -> str:
     return content_sha256(semantic({
-        "client_id": preview["client_id"],
-        "base_state_hash": preview["base_state_hash"],
-        "promotion_plan": preview["promotion_plan"],
-        "evidence": preview["evidence"],
+        "client_id": preview["client_id"], "base_state_hash": preview["base_state_hash"],
+        "promotion_plan": preview["promotion_plan"], "evidence": preview["evidence"],
         "mutation_plan": preview["mutation_plan"],
     }))
 
 
+def _mutation_plan(plan: list[dict], files: list[str], base_hash: str) -> dict:
+    return {"canonical_targets": files, "base_state_hash": base_hash, "will_write": False,
+            "changes": [{"candidate_id": c["candidate_id"], "target_file": c["target_file"],
+                         "target_path": c.get("target_path"), "action": c["action"],
+                         "material": c["action"] in WRITING_ACTIONS} for c in plan]}
+
+
 def bind_preview(preview: dict, client_dir: Path) -> dict:
-    """Attach base_state_hash, mutation_plan and preview_hash to a preview
-    output (built by the agent or by plan_evidence_promotion)."""
     if preview.get("mode") != "preview":
         raise ValueError("only a preview can be hash-bound")
     files = bound_files(preview["promotion_plan"])
-    base_hash = compute_base_state_hash(client_dir, files)
+    base_hash = ca.state_hash(client_dir, files)
     bound = {**preview, "schema_version": OUTPUT_SCHEMA_VERSION, "base_state_hash": base_hash, "approval_id": None,
-             "mutation_plan": build_mutation_plan(preview["promotion_plan"], files, base_hash)}
+             "mutation_plan": _mutation_plan(preview["promotion_plan"], files, base_hash)}
     bound["preview_hash"] = compute_preview_hash(bound)
     return bound
 
 
 # ---------------------------------------------------------------------------
-# preview for direct evidence promotion (SKILL.md 17.1.1)
+# document helpers
 # ---------------------------------------------------------------------------
 
 
-def _registry() -> Registry:
-    resources = []
-    for f in sorted((REPO_ROOT / "schemas").glob("*.json")) + sorted((REPO_ROOT / "skills").glob("*/output.schema.json")):
-        data = json.loads(f.read_text(encoding="utf-8"))
-        if "$id" in data:
-            resources.append((data["$id"], Resource.from_contents(data)))
-    return Registry().with_resources(resources)
+def _segments(path: str) -> list[str]:
+    if not path or not path.startswith("/"):
+        raise _Conflict(f"invalid JSON pointer {path!r}")
+    return [s.replace("~1", "/").replace("~0", "~") for s in path[1:].split("/")]
 
 
-def schema_errors(instance, schema_path_or_ref: str, registry: Optional[Registry] = None) -> list[str]:
-    registry = registry or _registry()
-    if schema_path_or_ref.startswith("https://"):
-        schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": schema_path_or_ref}
-    else:
-        schema = json.loads((REPO_ROOT / schema_path_or_ref).read_text(encoding="utf-8"))
-    return [f"{list(e.path)}: {e.message}" for e in Draft202012Validator(schema, registry=registry).iter_errors(instance)]
+def _get(doc, segs):
+    cur = doc
+    for s in segs:
+        if not isinstance(cur, dict) or s not in cur:
+            return None
+        cur = cur[s]
+    return cur
 
 
-def _canonical_item_ref() -> str:
-    schema = json.loads((REPO_ROOT / "schemas/client-evidence.schema.json").read_text(encoding="utf-8"))
-    return schema["$id"] + "#/$defs/canonical_evidence_item"
+def _parent(doc, segs, create_list: bool):
+    cur = doc
+    for s in segs[:-1]:
+        if not isinstance(cur, dict):
+            raise _Conflict(f"path segment {s!r} is not inside an object")
+        cur = cur.setdefault(s, {})
+    if create_list and isinstance(cur, dict):
+        cur.setdefault(segs[-1], [])
+    return cur
 
 
 def _same_material(a: dict, b: dict) -> bool:
     return all(a.get(k) == b.get(k) for k in EVIDENCE_MATERIAL_FIELDS)
 
 
-def plan_evidence_promotion(
-    *,
-    client_id: str,
-    client_dir: Path,
-    evidence_items: list[dict],
-    source_outputs: list[dict],
-    candidate_prefix: str,
-    clock: Callable[[], str] = utc_now_rfc3339,
-) -> dict:
-    """Preview (never writes) of promoting normalized external observations
-    (schemas/evidence.schema.json) straight to the evidence ledger:
-    promote when new, skip (NO_CHANGE) when identical, conflict when the
-    same evidence_id holds different material content."""
-    registry = _registry()
+def _template_keys(target: str) -> set[str]:
+    path = TEMPLATES / target
+    return set(json.loads(path.read_text(encoding="utf-8"))) if path.is_file() else set()
+
+
+def _contract_errors(target: str, doc, client_id: str) -> list[str]:
+    if target == "evidence.json":
+        return ca.schema_errors(doc, "schemas/client-evidence.schema.json")
+    if target == "knowledge.json":
+        return ca.schema_errors(doc, "schemas/client-knowledge.schema.json")
+    if target == "strategy.md":
+        return [] if isinstance(doc, str) and doc.strip() else ["strategy.md must be non-empty text"]
+    errs = []
+    if not isinstance(doc, dict):
+        return [f"{target} must be a JSON object"]
+    if doc.get("client_id") != client_id:
+        errs.append(f"{target}: client_id must stay {client_id!r}")
+    missing = _template_keys(target) - set(doc)
+    if missing:
+        errs.append(f"{target}: missing template keys {sorted(missing)}")
+    return errs
+
+
+def _history_errors(content: dict) -> list[str]:
+    if not isinstance(content, dict):
+        return ["history record must be a JSON object"]
+    errs = [f"history record missing {k!r}" for k in HISTORY_REQUIRED if k not in content]
+    if not isinstance(content.get("provenance"), dict) or not content["provenance"].get("source_skill"):
+        errs.append("history record provenance.source_skill is required")
+    return errs
+
+
+# ---------------------------------------------------------------------------
+# simulation (shared by preview and apply)
+# ---------------------------------------------------------------------------
+
+
+def _simulate(client_dir: Path, client_id: str, plan: list[dict], evidence_block: list[dict], now: str) -> dict:
+    """Returns {writes, effects, applied, noop, conflicts, errors} without
+    touching disk. `applied`/`noop`/`conflicts` are candidate_id lists."""
+    docs: dict[str, object] = {}
+    originals: dict[str, Optional[bytes]] = {}
+    history_new: dict[str, dict] = {}
+    applied, noop, conflicts, errors = [], [], [], []
+
+    def load(target: str):
+        if target not in docs:
+            path = client_dir / target
+            originals[target] = path.read_bytes() if path.is_file() else None
+            if target.endswith(".json"):
+                docs[target] = json.loads(originals[target]) if originals[target] else {
+                    **json.loads((TEMPLATES / target).read_text(encoding="utf-8").replace("__CLIENT_ID__", client_id)),
+                    **({"updated_at": None} if "updated_at" in _template_keys(target) else {})}
+            else:
+                docs[target] = originals[target].decode("utf-8") if originals[target] else ""
+        return docs[target]
+
+    def snapshot(cand: dict, target: str, path: Optional[str], old) -> None:
+        name = f"{target.replace('.', '-')}-superseded-by-{cand['candidate_id']}.json"
+        history_new[name] = {
+            "candidate_id": cand["candidate_id"], "knowledge_type": "superseded_snapshot",
+            "statement": f"Previous value of {target}{path or ''} superseded by {cand['candidate_id']}.",
+            "confidence": cand["confidence"], "evidence_ids": cand["evidence_ids"], "superseded_value": old,
+            "provenance": {"source_skill": ACTION, "historized_at": now, "historized_by": ACTION},
+        }
+
+    ledger = load("evidence.json")
+    ledger.setdefault("evidences", [])
+    by_id = {e["evidence_id"]: e for e in ledger["evidences"]}
+    evidence_pool = {e["evidence_id"]: e for e in evidence_block}
+
+    for cand in plan:
+        if cand["action"] not in WRITING_ACTIONS:
+            continue
+        target, cid = cand["target_file"], cand["candidate_id"]
+        try:
+            if target == "evidence.json":
+                item = {**cand["value"], "added_at": now, "added_by": ACTION}
+                cur = by_id.get(item["evidence_id"])
+                if cur is None:
+                    ledger["evidences"].append(item)
+                    by_id[item["evidence_id"]] = item
+                    applied.append(cid)
+                elif _same_material(cur, item):
+                    noop.append(cid)
+                else:
+                    raise _Conflict(f"{item['evidence_id']} exists in the ledger with different content")
+                continue
+            spec = cand.get("value")
+            if not isinstance(spec, dict) or spec.get("op") not in TARGET_OPS.get(target, set()):
+                raise _Conflict(f"target {target!r} does not accept op {None if not isinstance(spec, dict) else spec.get('op')!r}")
+            op = spec["op"]
+            if target == "history":
+                if op != "create_file" or not str(spec.get("name", "")).endswith(".json") or "/" in spec["name"] or "\\" in spec["name"]:
+                    raise _Conflict("history create_file needs a plain '<name>.json'")
+                content = copy.deepcopy(spec["content"])
+                if isinstance(content.get("provenance"), dict):
+                    content["provenance"].update(historized_at=now, historized_by=ACTION)
+                path = client_dir / "history" / spec["name"]
+                if path.is_file():
+                    if semantic(json.loads(path.read_text(encoding="utf-8"))) == semantic(content):
+                        noop.append(cid)
+                        continue
+                    raise _Conflict(f"history/{spec['name']} exists with different content")
+                errs = _history_errors(content)
+                if errs:
+                    raise _Conflict("; ".join(errs))
+                history_new[spec["name"]] = content
+                applied.append(cid)
+                continue
+            doc = load(target)
+            if op == "replace_text":
+                if doc == spec["text"]:
+                    noop.append(cid)
+                    continue
+                if doc.strip() and cand["action"] != "supersede":
+                    raise _Conflict("replacing existing strategy.md text requires action 'supersede'")
+                if doc.strip():
+                    snapshot(cand, target, None, doc)
+                docs[target] = spec["text"]
+                applied.append(cid)
+                continue
+            segs = _segments(spec["path"])
+            if op == "set":
+                old = _get(doc, segs)
+                if old is not None and semantic(old) == semantic(spec["value"]):
+                    noop.append(cid)
+                    continue
+                if old not in (None, {}, [], "unknown") and cand["action"] != "supersede":
+                    raise _Conflict(f"{target}{spec['path']} already holds a value; replacing it requires action 'supersede'")
+                if old not in (None, {}, [], "unknown"):
+                    snapshot(cand, target, spec["path"], old)
+                _parent(doc, segs, create_list=False)[segs[-1]] = copy.deepcopy(spec["value"])
+                applied.append(cid)
+                continue
+            key, item = spec.get("key"), copy.deepcopy(spec.get("item"))
+            if not key or not isinstance(item, dict) or not item.get(key):
+                raise _Conflict(f"{op} needs 'key' and an 'item' carrying it")
+            if target == "knowledge.json" and isinstance(item.get("provenance"), dict):
+                item["provenance"].update(promoted_at=now, promoted_by=ACTION)
+            lst = _parent(doc, segs, create_list=True)[segs[-1]]
+            if not isinstance(lst, list):
+                raise _Conflict(f"{target}{spec['path']} is not a list")
+            if op == "append":
+                same = [x for x in lst if isinstance(x, dict) and x.get(key) == item[key]]
+                if same:
+                    if semantic(same[0]) == semantic(item):
+                        noop.append(cid)
+                        continue
+                    raise _Conflict(f"{key}={item[key]!r} already exists with different content; use replace_item + supersede")
+                lst.append(item)
+            else:  # replace_item
+                if cand["action"] != "supersede":
+                    raise _Conflict("replace_item requires action 'supersede'")
+                match = spec.get("match", item[key])
+                idx = [i for i, x in enumerate(lst) if isinstance(x, dict) and x.get(key) == match]
+                if len(idx) != 1:
+                    raise _Conflict(f"replace_item needs exactly one {key}={match!r} (found {len(idx)})")
+                if semantic(lst[idx[0]]) == semantic(item):
+                    noop.append(cid)
+                    continue
+                snapshot(cand, target, f"{spec['path']}[{key}={match}]", lst[idx[0]])
+                lst[idx[0]] = item
+            applied.append(cid)
+        except _Conflict as exc:
+            conflicts.append({"candidate_id": cid, "target_file": target, "target_path": cand.get("target_path"),
+                              "description": str(exc), "resolution": "needs_user_decision"})
+
+    # evidence ledger sync (17.1) for every candidate that actually writes
+    for cand in plan:
+        if cand["candidate_id"] not in applied or cand["target_file"] == "evidence.json":
+            continue
+        for eid in cand["evidence_ids"]:
+            if eid in by_id:
+                continue
+            if eid not in evidence_pool:
+                conflicts.append({"candidate_id": cand["candidate_id"], "target_file": "evidence.json", "target_path": None,
+                                  "description": f"unresolved_evidence: {eid} is neither in the ledger nor in the preview evidence",
+                                  "resolution": "needs_user_decision"})
+                continue
+            item = project_to_canonical(evidence_pool[eid], added_at=now, added_by=ACTION)
+            ledger["evidences"].append(item)
+            by_id[eid] = item
+
+    writes: dict[str, bytes] = {}
+    effects: list[dict] = []
+    for target, doc in docs.items():
+        if isinstance(doc, dict):
+            before = originals[target]
+            if before is not None and json.loads(before) == doc:
+                continue
+            if "updated_at" in doc:
+                doc["updated_at"] = now
+            errs = _contract_errors(target, doc, client_id)
+            if errs:
+                errors.extend(errs)
+            data = ca.serialize_json(doc)
+        else:
+            if originals[target] is not None and originals[target].decode("utf-8") == doc:
+                continue
+            errs = _contract_errors(target, doc, client_id)
+            errors.extend(errs)
+            data = doc.encode("utf-8")
+        writes[target] = data
+        effects.append(ca.effect(f"clients/{client_id}/{target}", "update" if originals[target] else "create", originals[target], data))
+    for name, content in sorted(history_new.items()):
+        rel = f"history/{name}"
+        data = ca.serialize_json(content)
+        writes[rel] = data
+        effects.append(ca.effect(f"clients/{client_id}/{rel}", "create", None, data))
+    return {"writes": writes, "effects": effects, "applied": applied, "noop": noop,
+            "conflicts": conflicts, "errors": errors}
+
+
+# ---------------------------------------------------------------------------
+# preview
+# ---------------------------------------------------------------------------
+
+
+def plan_promotion(*, client_id: str, client_dir: Path, candidates: list[dict], evidence_items: list[dict],
+                   source_outputs: list[dict], clock: Callable[[], str] = utc_now_rfc3339,
+                   warnings: Optional[list[str]] = None, missing_data: Optional[list[dict]] = None) -> dict:
+    """Preview (never writes): classifies each writing candidate against the
+    current canonical state (no-op -> skip, incompatible -> conflict) and
+    returns a hash-bound output."""
     generated_at = clock()
-    ledger_path = client_dir / "evidence.json"
-    ledger = json.loads(ledger_path.read_text(encoding="utf-8")) if ledger_path.is_file() else {"evidences": []}
-    existing = {e["evidence_id"]: e for e in ledger.get("evidences", [])}
-    plan, skipped, conflicts, warnings, missing = [], [], [], [], []
-    if not ledger_path.is_file():
-        missing.append({"field": "clients/<client_id>/evidence.json", "expected_source": None,
-                        "impact": "ledger will be created by the first apply", "blocking": False})
-    for i, ev in enumerate(evidence_items, start=1):
+    for ev in evidence_items:
         if ev.get("client_id") != client_id:
             raise ValueError(f"evidence {ev.get('evidence_id')!r} belongs to another client")
-        errs = schema_errors(ev, "schemas/evidence.schema.json", registry)
-        projected = project_to_canonical(ev, added_at=generated_at, added_by="promote-client-memory")
-        errs += schema_errors(projected, _canonical_item_ref(), registry)
+        errs = ca.schema_errors(ev, "schemas/evidence.schema.json")
         if errs:
             raise ValueError(f"evidence {ev.get('evidence_id')!r} is invalid: {errs}")
-        cid = f"{candidate_prefix}-{i:03d}"
-        current = existing.get(ev["evidence_id"])
-        cand = {"candidate_id": cid, "target_file": "evidence.json", "target_path": None, "category": None,
-                "summary": f"Promote evidence {ev['evidence_id']} to the canonical ledger.",
-                "evidence_ids": [ev["evidence_id"]], "confidence": ev["confidence"]}
-        if current is None:
-            cand.update(action="promote", value=projected,
-                        reason="Normalized external observation (SKILL 17.1.1); evidence_id not in the ledger.")
-        elif _same_material(current, projected):
-            cand.update(action="skip", reason="NO_CHANGE: identical evidence already in the ledger.")
-            skipped.append({"candidate_id": cid, "reason": cand["reason"]})
-        else:
-            cand.update(action="conflict", value=projected, existing_value=current,
-                        existing_evidence_ids=[current["evidence_id"]],
-                        reason="Same evidence_id already in the ledger with different material content.")
-            conflicts.append({"candidate_id": cid, "target_file": "evidence.json", "target_path": None,
-                              "description": f"{ev['evidence_id']}: ledger content differs; nothing overwritten.",
-                              "resolution": "needs_user_decision"})
-            warnings.append(f"evidence ledger conflict for {ev['evidence_id']}; canonical value preserved")
+    for cand in candidates:
+        if cand["target_file"] not in TARGET_OPS and cand["target_file"] != "evidence.json":
+            raise ValueError(f"unknown target_file {cand['target_file']!r}")
+    sim = _simulate(client_dir, client_id, candidates, evidence_items, generated_at)
+    conflict_ids = {c["candidate_id"] for c in sim["conflicts"]}
+    plan, skipped = [], []
+    for cand in candidates:
+        cand = copy.deepcopy(cand)
+        if cand["candidate_id"] in conflict_ids:
+            cand["action"] = "conflict"
+        elif cand["candidate_id"] in sim["noop"]:
+            cand["action"] = "skip"
+            cand["reason"] = "NO_CHANGE: identical content already in canonical memory. " + cand.get("reason", "")
+            cand.pop("value", None)
+            skipped.append({"candidate_id": cand["candidate_id"], "reason": "NO_CHANGE: identical content already in canonical memory."})
         plan.append(cand)
+    status = "partial" if sim["conflicts"] or sim["errors"] else "success"
     preview = {
-        "schema_version": OUTPUT_SCHEMA_VERSION, "skill": "promote-client-memory", "client_id": client_id,
-        "generated_at": generated_at, "mode": "preview", "status": "partial" if conflicts else "success",
-        "source_outputs": source_outputs, "promotion_plan": plan, "applied_changes": [], "conflicts": conflicts,
-        "skipped": skipped, "evidence": evidence_items, "missing_data": missing, "warnings": warnings,
+        "schema_version": OUTPUT_SCHEMA_VERSION, "skill": ACTION, "client_id": client_id, "generated_at": generated_at,
+        "mode": "preview", "status": status, "source_outputs": source_outputs, "promotion_plan": plan,
+        "applied_changes": [], "conflicts": sim["conflicts"], "skipped": skipped, "evidence": evidence_items,
+        "missing_data": list(missing_data or []),
+        "warnings": list(warnings or []) + [f"contract: {e}" for e in sim["errors"]],
     }
     return bind_preview(preview, client_dir)
 
 
-# ---------------------------------------------------------------------------
-# approval + apply gate
-# ---------------------------------------------------------------------------
+def plan_evidence_promotion(*, client_id: str, client_dir: Path, evidence_items: list[dict], source_outputs: list[dict],
+                            candidate_prefix: str, clock: Callable[[], str] = utc_now_rfc3339) -> dict:
+    """Convenience preview for direct promotion of normalized external
+    observations to the evidence ledger (SKILL.md 17.1.1)."""
+    now = clock()
+    candidates = []
+    for i, ev in enumerate(evidence_items, start=1):
+        projected = project_to_canonical(ev, added_at=now, added_by=ACTION)
+        errs = ca.schema_errors(projected, _canonical_item_ref())
+        if errs:
+            raise ValueError(f"evidence {ev.get('evidence_id')!r} does not project to a canonical item: {errs}")
+        candidates.append({"candidate_id": f"{candidate_prefix}-{i:03d}", "target_file": "evidence.json", "target_path": None,
+                           "category": None, "action": "promote", "value": projected,
+                           "summary": f"Promote evidence {ev['evidence_id']} to the canonical ledger.",
+                           "reason": "Normalized external observation (SKILL 17.1.1).",
+                           "evidence_ids": [ev["evidence_id"]], "confidence": ev["confidence"]})
+    return plan_promotion(client_id=client_id, client_dir=client_dir, candidates=candidates, evidence_items=evidence_items,
+                          source_outputs=source_outputs, clock=lambda: now)
 
 
-def _notice(code: str, message: str) -> dict:
-    return {"code": code, "message": message}
+def _canonical_item_ref() -> str:
+    schema = json.loads((ca.REPO_ROOT / "schemas/client-evidence.schema.json").read_text(encoding="utf-8"))
+    return schema["$id"] + "#/$defs/canonical_evidence_item"
+
+
+# ---------------------------------------------------------------------------
+# approval + apply
+# ---------------------------------------------------------------------------
 
 
 def approval_item_id(preview: dict) -> str:
@@ -250,111 +433,44 @@ def approval_item_id(preview: dict) -> str:
 
 
 def approval_item_payload(preview: dict) -> dict:
-    return {"client_id": preview["client_id"], "base_state_hash": preview["base_state_hash"],
-            "preview_hash": preview["preview_hash"]}
+    return ca.approval_payload(preview)
 
 
 def build_promotion_approval_candidate(preview: dict, *, approval_id: str, created_at: str, preview_path: str) -> dict:
-    """status=draft only — becomes real exclusively through
-    approval.apply_operator_decision on an explicit operator request."""
-    if preview.get("mode") != "preview" or preview.get("status") != "success" or not preview.get("preview_hash"):
-        raise ap.ApprovalError("only a successful, hash-bound preview can be proposed for approval")
-    return ap.build_approval_candidate(
-        approval_id=approval_id, client_id=preview["client_id"], quarter_id=None, created_at=created_at,
-        source_artifact_type=APPROVAL_SOURCE_TYPE, source_artifact_id=f"{preview['client_id']}:{preview['preview_hash'][:16]}",
-        source_artifact=preview, source_artifact_path=preview_path,
-        candidate_items=[{"item_id": approval_item_id(preview), "item_type": APPROVAL_ITEM_TYPE,
-                          "payload": approval_item_payload(preview)}],
-    )
+    return ca.build_approval_candidate(preview, item_id=approval_item_id(preview), item_type=APPROVAL_ITEM_TYPE,
+                                       source_type=APPROVAL_SOURCE_TYPE, approval_id=approval_id,
+                                       created_at=created_at, preview_path=preview_path)
 
 
 def check_apply_gate(preview: Optional[dict], approval: Optional[dict], client_dir: Path) -> list[dict]:
-    """Every promote-client-memory apply runs this first; any notice
-    returned means zero canonical writes."""
-    if preview is None or preview.get("mode") != "preview":
-        return [_notice("NO_PREVIEW", "apply requires the approved preview output (mode=preview)")]
-    if not preview.get("preview_hash") or not preview.get("base_state_hash") or not preview.get("mutation_plan"):
-        return [_notice("PREVIEW_NOT_HASH_BOUND", "preview has no preview_hash/base_state_hash/mutation_plan (legacy output); re-run preview")]
-    if preview.get("status") != "success":
-        return [_notice("NO_PREVIEW", f"preview status is {preview.get('status')!r}; only a success preview is applicable")]
-    if compute_preview_hash(preview) != preview["preview_hash"]:
-        return [_notice("STALE_APPROVAL", "preview payload was changed after preview_hash was computed")]
-    if approval is None:
-        return [_notice("NO_APPROVAL", "apply requires an explicit operator approval record (schemas/approval.schema.json)")]
-    if approval.get("client_id") != preview["client_id"]:
-        return [_notice("CLIENT_ISOLATION", "approval belongs to a different client")]
-    item_id = approval_item_id(preview)
-    covered = [i for i in approval.get("scope", {}).get("approved_items", [])
-               if i.get("item_id") == item_id and i.get("item_type") == APPROVAL_ITEM_TYPE]
-    if not covered:
-        return [_notice("NO_APPROVAL", f"approval does not cover {item_id!r}")]
-    bad = [c for c in ap.validate_approval(approval, preview, {item_id: approval_item_payload(preview)}) if not c.ok]
-    if bad:
-        return [_notice("STALE_APPROVAL", bad[0].reason)]
-    files = preview["mutation_plan"]["canonical_targets"]
-    if compute_base_state_hash(client_dir, files) != preview["base_state_hash"]:
-        return [_notice("STALE_APPROVAL", "canonical state changed since the preview (base_state_hash mismatch); re-run preview and re-approve")]
-    return []
+    if preview is not None and preview.get("mode") == "preview" and preview.get("preview_hash") and not preview.get("mutation_plan"):
+        return [ca.notice("PREVIEW_NOT_HASH_BOUND", "preview has no mutation_plan; re-run preview")]
+    files = (preview or {}).get("mutation_plan", {}).get("canonical_targets") or list(ALWAYS_BOUND_FILES)
+    return ca.check_gate(preview, approval, client_dir, item_id=approval_item_id(preview) if preview else "",
+                         item_type=APPROVAL_ITEM_TYPE, bound_files=files, recompute_preview_hash=compute_preview_hash)
 
 
-def _atomic_write_json(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-        raise
-
-
-def apply_promotion(
-    preview: Optional[dict],
-    approval: Optional[dict],
-    client_dir: Path,
-    *,
-    clock: Callable[[], str] = utc_now_rfc3339,
-) -> dict:
-    """Apply an approved, hash-bound preview to the evidence ledger.
-    Returns {status, applied_changes, errors}; status is success,
-    no_change or failed. Any gate failure -> failed with zero writes."""
+def apply_promotion(preview: Optional[dict], approval: Optional[dict], client_dir: Path, *,
+                    clock: Callable[[], str] = utc_now_rfc3339) -> dict:
+    """Returns {status, applied_changes, errors, receipt}. status is
+    success, no_change or failed; failed always means zero writes."""
     errors = check_apply_gate(preview, approval, client_dir)
     if errors:
-        return {"status": "failed", "applied_changes": [], "errors": errors}
-    writing = [c for c in preview["promotion_plan"] if c["action"] in WRITING_ACTIONS]
-    unsupported = [c["candidate_id"] for c in writing if c["target_file"] != "evidence.json"]
-    if unsupported:
-        return {"status": "failed", "applied_changes": [], "errors": [_notice(
-            "UNSUPPORTED_TARGET", f"reference apply only writes evidence.json; candidates {unsupported} need the SKILL.md apply path after this same gate")]}
-    if not writing:
-        return {"status": "no_change", "applied_changes": [], "errors": []}
-
+        return {"status": "failed", "applied_changes": [], "errors": errors, "receipt": None}
     now = clock()
-    ledger_path = client_dir / "evidence.json"
-    ledger = (json.loads(ledger_path.read_text(encoding="utf-8")) if ledger_path.is_file()
-              else {"schema_version": "1.0.0", "client_id": preview["client_id"], "updated_at": None, "evidences": []})
-    existing = {e["evidence_id"]: e for e in ledger["evidences"]}
-    additions, applied = [], []
-    for cand in writing:
-        item = {**cand["value"], "added_at": now, "added_by": "promote-client-memory"}
-        current = existing.get(item["evidence_id"])
-        if current is not None:
-            if _same_material(current, item):
-                continue
-            return {"status": "failed", "applied_changes": [], "errors": [_notice(
-                "STALE_APPROVAL", f"{item['evidence_id']} appeared in the ledger with different content")]}
-        additions.append(item)
-        applied.append({"candidate_id": cand["candidate_id"], "target_file": "evidence.json",
-                        "action": cand["action"], "applied_at": now})
-    if not additions:
-        return {"status": "no_change", "applied_changes": [], "errors": []}
-    new_ledger = {**ledger, "updated_at": now, "evidences": ledger["evidences"] + additions}
-    errs = schema_errors(new_ledger, "schemas/client-evidence.schema.json")
-    if errs:
-        return {"status": "failed", "applied_changes": [], "errors": [_notice("INVALID_RESULT", "; ".join(errs[:5]))]}
-    _atomic_write_json(ledger_path, new_ledger)
-    return {"status": "success", "applied_changes": applied, "errors": []}
+    sim = _simulate(client_dir, preview["client_id"], preview["promotion_plan"], preview["evidence"], now)
+    if sim["conflicts"] or sim["errors"]:
+        msgs = [c["description"] for c in sim["conflicts"]] + sim["errors"]
+        return {"status": "failed", "applied_changes": [], "errors": [ca.notice("CONFLICT", m) for m in msgs], "receipt": None}
+    if not sim["writes"]:
+        receipt = ca.build_action_receipt(action=ACTION, client_id=preview["client_id"], preview=preview, approval=approval,
+                                          executed_at=now, status="no_change", effects=[])
+        return {"status": "no_change", "applied_changes": [], "errors": [], "receipt": receipt}
+    receipt = ca.build_action_receipt(action=ACTION, client_id=preview["client_id"], preview=preview, approval=approval,
+                                      executed_at=now, status="success", effects=sim["effects"])
+    writes = {**sim["writes"], f"receipts/{receipt['receipt_id']}.json": ca.serialize_json(receipt)}
+    ca.atomic_multi_write(client_dir, writes)
+    by_id = {c["candidate_id"]: c for c in preview["promotion_plan"]}
+    applied = [{"candidate_id": cid, "target_file": by_id[cid]["target_file"], "action": by_id[cid]["action"], "applied_at": now}
+               for cid in sim["applied"]]
+    return {"status": "success", "applied_changes": applied, "errors": [], "receipt": receipt}
