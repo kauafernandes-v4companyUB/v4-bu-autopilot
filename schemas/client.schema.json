@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/client.schema.json",
+  "title": "V4 BU Autopilot Client Identity",
+  "description": "clients/<client_id>/client.json — identidade e ponteiros de memoria. Escrito pelo bootstrap e por promote-client-memory (op set).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "client_id",
+    "display_name",
+    "status",
+    "health",
+    "pilot_client",
+    "memory"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "client_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "health": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pilot_client": {
+      "type": "boolean"
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "required": [
+        "sources",
+        "strategy",
+        "state",
+        "decisions",
+        "history",
+        "evidence"
+      ]
+    }
+  }
+}

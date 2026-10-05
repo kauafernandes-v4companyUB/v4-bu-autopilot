@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from scripts.lib import canonical_action as ca
+from scripts.lib import storage_contract as storage
 from scripts.lib.artifact_hash import content_sha256
 from scripts.lib.evidence_projection import project_to_canonical
 from scripts.lib.exec_clock import utc_now_rfc3339
@@ -145,20 +146,20 @@ def _template_keys(target: str) -> set[str]:
 
 
 def _contract_errors(target: str, doc, client_id: str) -> list[str]:
-    if target == "evidence.json":
-        return ca.schema_errors(doc, "schemas/client-evidence.schema.json")
-    if target == "knowledge.json":
-        return ca.schema_errors(doc, "schemas/client-knowledge.schema.json")
+    """Every canonical target is validated against its JSON Schema
+    (scripts/lib/storage_contract.py CANONICAL_SCHEMAS) before apply."""
     if target == "strategy.md":
         return [] if isinstance(doc, str) and doc.strip() else ["strategy.md must be non-empty text"]
-    errs = []
     if not isinstance(doc, dict):
         return [f"{target} must be a JSON object"]
+    errs = [f"{target}: {e}" for e in ca.schema_errors(doc, storage.CANONICAL_SCHEMAS[target])]
     if doc.get("client_id") != client_id:
         errs.append(f"{target}: client_id must stay {client_id!r}")
-    missing = _template_keys(target) - set(doc)
-    if missing:
-        errs.append(f"{target}: missing template keys {sorted(missing)}")
+    if target in ("decisions.json", "sources.json"):
+        key, items = ("decision_id", doc.get("decisions", [])) if target == "decisions.json" else ("source_id", doc.get("sources", []))
+        ids = [i.get(key) for i in items if isinstance(i, dict)]
+        if len(ids) != len(set(ids)):
+            errs.append(f"{target}: duplicate {key}")
     return errs
 
 
