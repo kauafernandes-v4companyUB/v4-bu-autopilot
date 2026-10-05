@@ -33,6 +33,7 @@ from referencing import Registry, Resource  # noqa: E402
 
 from scripts.lib.workspace import resolve_workspace  # noqa: E402
 from scripts.lib.operations_ledger import validate_semantics as validate_operations_semantics  # noqa: E402
+from scripts.lib import storage_contract as storage  # noqa: E402
 from scripts.run_replanning_checks import ARTIFACT_FILES, lint_and_check_chain, validate_artifact  # noqa: E402
 
 RESULTS: list[tuple[str, str, list[str]]] = []  # (label, status, details)
@@ -320,6 +321,9 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
         "Operations integrity": ("PASS", []),
         "Source references": ("PASS", []),
         "Source manifest": ("PASS", []),
+        "Canonical memory": ("PASS", []),
+        "Raw isolation": ("PASS", []),
+        "Receipts": ("PASS", []),
     }
     if ws is None:
         return {k: ("SKIP", ["no workspace"]) for k in results}
@@ -333,6 +337,34 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
 
     for client_dir in sorted(client_dirs):
         client_id = client_dir.name
+        if storage.is_placeholder(client_dir):
+            continue  # reserved directory, not a bootstrapped client yet (operation/storage-contract.md)
+
+        missing = storage.missing_required(client_dir)
+        if missing:
+            problems["Canonical memory"].append(f"{client_id}: incomplete client, missing {missing} (run scripts/bootstrap_client.py)")
+        for rel, schema in storage.CANONICAL_SCHEMAS.items():
+            if rel in ("knowledge.json", "evidence.json", "tasks.json", "operations.json", "source-manifest.json"):
+                continue  # validated by their dedicated checks below
+            path = client_dir / rel
+            if not path.is_file():
+                continue
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as e:
+                problems["Canonical memory"].append(f"{client_id}/{rel}: invalid JSON ({e})")
+                continue
+            errs = _validate(data, REPO_ROOT / schema, registry)
+            if errs:
+                problems["Canonical memory"].append(f"{client_id}/{rel}: {errs[:3]}")
+        for p in sorted(client_dir.rglob("*.json")):
+            try:
+                json.loads(p.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as e:
+                problems["Canonical memory"].append(f"{client_id}/{p.relative_to(client_dir).as_posix()}: invalid JSON ({e})")
+        raw = storage.raw_in_canonical(client_dir)
+        if raw:
+            problems["Raw isolation"].append(f"{client_id}: raw/non-canonical files inside clients/ (move to private/clients/{client_id}/): {raw[:5]}{' …' if len(raw) > 5 else ''}")
 
         sources_by_id = set()
         manifest_path = client_dir / "source-manifest.json"
@@ -388,8 +420,15 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
                     )
 
         quarters_dir = client_dir / "quarters"
+        active_quarters = []
         if quarters_dir.is_dir():
             for qdir in sorted(p for p in quarters_dir.iterdir() if p.is_dir()):
+                closure_path = qdir / "closure.json"
+                if closure_path.is_file():
+                    closure = json.loads(closure_path.read_text(encoding="utf-8"))
+                    errs = _validate(closure, REPO_ROOT / "schemas" / "quarter-closure.schema.json", registry)
+                    if errs or closure.get("quarter_id") != qdir.name or closure.get("client_id") != client_id:
+                        problems["Quarter integrity"].append(f"{client_id}/{qdir.name}/closure.json: {errs[:3] or 'identity mismatch'}")
                 plan_path = qdir / "plan.json"
                 if plan_path.is_file():
                     plan = json.loads(plan_path.read_text(encoding="utf-8"))
@@ -397,7 +436,11 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
                     if errs:
                         problems["Quarter integrity"].append(f"{client_id}/{qdir.name}/plan.json: {errs[:3]}")
                     elif plan.get("client_id") != client_id or plan.get("quarter_id") != qdir.name:
-                        problems["Client isolation"].append(f"{client_id}/{qdir.name}/plan.json: identity mismatch")
+                        problems["Quarter integrity"].append(f"{client_id}/{qdir.name}/plan.json: quarter path/id or client mismatch")
+                    elif plan.get("status") == "active":
+                        active_quarters.append(qdir.name)
+                    if plan.get("status") == "closed" and not closure_path.is_file():
+                        problems["Quarter integrity"].append(f"{client_id}/{qdir.name}: plan is closed without closure.json")
 
                 monitoring_path = qdir / "monitoring.json"
                 if monitoring_path.is_file():
@@ -417,6 +460,9 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
                     errs = _validate(checkin, REPO_ROOT / "schemas" / "check-in-ropre.schema.json", registry)
                     if errs:
                         problems["ROPRE integrity"].append(f"{client_id}/{qdir.name}/check-ins/{checkin_path.name}: {errs[:3]}")
+
+        if len(active_quarters) > 1:
+            problems["Quarter integrity"].append(f"{client_id}: more than one active Quarter {active_quarters}")
 
         tasks_path = client_dir / "tasks.json"
         tasks = None
@@ -470,11 +516,17 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
                 receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
                 errs = _validate(receipt, REPO_ROOT / "schemas" / "action-receipt.schema.json", registry)
                 if errs:
-                    problems["Operations integrity"].append(f"{client_id}/receipts/{receipt_path.name}: {errs[:3]}")
+                    problems["Receipts"].append(f"{client_id}/receipts/{receipt_path.name}: {errs[:3]}")
                 elif receipt.get("client_id") != client_id:
                     problems["Client isolation"].append(
                         f"{client_id}/receipts/{receipt_path.name}: client_id={receipt.get('client_id')!r}"
                     )
+                else:
+                    prefix = f"clients/{client_id}/"
+                    for eff in receipt.get("effects", []):
+                        target = eff.get("target", "")
+                        if target.startswith(prefix) and eff.get("after_hash") and not (client_dir / target[len(prefix):]).exists():
+                            problems["Receipts"].append(f"{client_id}/receipts/{receipt_path.name}: orphan effect, {target} does not exist")
 
     for label, details in problems.items():
         if details:
@@ -514,7 +566,8 @@ def main() -> int:
         "Repository", "Workspace", "Schemas", "Skill registry", "Workflow registry",
         "Approval schemas", "Skill contracts", "Google Sheets contracts",
         "Client isolation", "Evidence integrity", "Quarter integrity", "ROPRE integrity",
-        "Task integrity", "Operations integrity", "Source references", "Source manifest", "Replanning artifacts", "Private tracking",
+        "Task integrity", "Operations integrity", "Source references", "Source manifest",
+        "Canonical memory", "Raw isolation", "Receipts", "Replanning artifacts", "Private tracking",
         "Generated tracking", "Secrets hygiene",
     ]
     by_label = {label: (status, details) for label, status, details in RESULTS}

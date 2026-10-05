@@ -182,19 +182,119 @@ def bootstrap(client_id: str, workspace_root: str | None, display_name: str | No
     return 0
 
 
+CLIENT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
+
+
+def _expected_files(client_id: str, display_name: str) -> dict[str, str]:
+    """Template renders (timestamp placeholder kept) per relative path."""
+    out = {}
+    for rel_path in iter_template_files():
+        src = TEMPLATE_ROOT / rel_path
+        out[rel_path.as_posix()] = "" if rel_path.name == ".gitkeep" else render(src.read_text(encoding="utf-8"), client_id, display_name)
+    return out
+
+
+def _with_initial_sources(render_text: str, initial_sources: list[dict] | None) -> str:
+    if not initial_sources:
+        return render_text
+    doc = json.loads(render_text)
+    doc["sources"] = list(initial_sources)
+    return json.dumps(doc, ensure_ascii=False, indent=2) + chr(10)
+
+
+def bootstrap_client(
+    client_id: str,
+    *,
+    display_name: str | None = None,
+    workspace_root: str | None = None,
+    initial_sources: list[dict] | None = None,
+    initial_context: str | None = None,
+) -> dict:
+    """Single replicable bootstrap entry point (docs/workflows/new-client.md).
+
+    Returns {"status": CREATED | NO_CHANGE | CONFLICT | ERROR, ...}. Never
+    creates a Quarter, SMART, media plan, task, decision or evidence, and
+    never overwrites an existing client: an existing client identical to the
+    bootstrap render is NO_CHANGE, any other existing client is CONFLICT.
+    `initial_sources` (declarations only) go to sources.json after schema
+    validation; `initial_context` is operator text stored as RAW under
+    private/clients/<client_id>/client-context/ for source intake — it never
+    becomes canonical memory by existing.
+    """
+    if not isinstance(client_id, str) or not CLIENT_ID_RE.fullmatch(client_id):
+        return {"status": "ERROR", "code": "INVALID_CLIENT_ID", "message": f"{client_id!r} must match {CLIENT_ID_RE.pattern}"}
+    try:
+        ws = resolve_workspace(required=True, override=workspace_root, create_if_missing=True)
+    except WorkspaceError as e:
+        return {"status": "ERROR", "code": "WORKSPACE", "message": str(e)}
+    display_name = display_name or client_id
+    client_dir = ws.client_dir(client_id)
+    expected = _expected_files(client_id, display_name)
+    expected["sources.json"] = _with_initial_sources(expected["sources.json"], initial_sources)
+    if initial_sources:
+        from scripts.lib import canonical_action as ca
+
+        errs = ca.schema_errors(json.loads(expected["sources.json"]), "schemas/client-sources.schema.json")
+        ids = [s.get("source_id") for s in initial_sources]
+        if errs or len(ids) != len(set(ids)):
+            return {"status": "ERROR", "code": "INVALID_INITIAL_SOURCES", "message": "; ".join(errs[:3]) or "duplicate source_id"}
+    context_rel = Path("private") / "clients" / client_id / "client-context" / "initial-context.md"
+
+    if client_dir.exists():
+        present = {p.relative_to(client_dir).as_posix() for p in client_dir.rglob("*") if p.is_file()}
+        diverged = sorted(rel for rel, text in expected.items()
+                          if rel not in present or not matches_template((client_dir / rel).read_text(encoding="utf-8"), text))
+        extra = sorted(present - set(expected))
+        context_path = ws.root / context_rel
+        if initial_context is not None and context_path.is_file() and context_path.read_text(encoding="utf-8") != initial_context:
+            diverged.append(context_rel.as_posix())
+        if diverged or extra:
+            return {"status": "CONFLICT", "code": "CLIENT_EXISTS_DIVERGENT", "client_dir": str(client_dir),
+                    "diverged": diverged, "extra": extra}
+        return {"status": "NO_CHANGE", "client_dir": str(client_dir), "written": []}
+
+    timestamp = utc_now_rfc3339()
+    problem = future_timestamp_problem(timestamp)
+    if problem:
+        return {"status": "ERROR", "code": "FUTURE_TIMESTAMP", "message": problem}
+    written = []
+    for rel, text in expected.items():
+        dest = client_dir / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        content = text.replace(TIMESTAMP_PLACEHOLDER, timestamp)
+        dest.write_text(content, encoding="utf-8")
+        if dest.suffix == ".json":
+            json.loads(content)
+        written.append(rel)
+    for rel in ("quarters", "history"):
+        (client_dir / rel).mkdir(parents=True, exist_ok=True)
+    if initial_context is not None:
+        context_path = ws.root / context_rel
+        context_path.parent.mkdir(parents=True, exist_ok=True)
+        context_path.write_text(initial_context, encoding="utf-8")
+        written.append(context_rel.as_posix())
+    return {"status": "CREATED", "client_dir": str(client_dir), "written": written}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("client_id", help="lowercase, hyphen/underscore-safe client id, e.g. 'acme'")
     parser.add_argument("--workspace", default=None, help="workspace root (default: $V4_BU_WORKSPACE_ROOT)")
     parser.add_argument("--display-name", default=None, help="human display name (default: client_id)")
-    parser.add_argument("--force", action="store_true", help="proceed even if client dir already exists")
+    parser.add_argument("--force", action="store_true", help="legacy: fill in only missing/untouched template files of an existing client")
+    parser.add_argument("--initial-context", default=None, help="path to an operator-written context file, stored as RAW for source intake")
     args = parser.parse_args()
 
     if not args.client_id or "/" in args.client_id or ".." in args.client_id:
         print("ERROR: invalid client_id", file=sys.stderr)
         return 2
+    if args.force:
+        return bootstrap(args.client_id, args.workspace, args.display_name, args.force)
 
-    return bootstrap(args.client_id, args.workspace, args.display_name, args.force)
+    context = Path(args.initial_context).read_text(encoding="utf-8") if args.initial_context else None
+    result = bootstrap_client(args.client_id, display_name=args.display_name, workspace_root=args.workspace, initial_context=context)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return {"CREATED": 0, "NO_CHANGE": 0, "CONFLICT": 1}.get(result["status"], 2)
 
 
 if __name__ == "__main__":
