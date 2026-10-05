@@ -172,3 +172,34 @@ def test_no_personal_identifier_shaped_values_tracked(repo_root: Path, tracked):
                 offenders.append((f, "email"))
                 break
     assert not offenders, f"personal-identifier-shaped values tracked: {offenders}"
+
+
+# --- Generic client guarantee: no client-specific branching in core code ---
+
+CLIENT_BRANCH_RE = re.compile(
+    r"client(?:_id)?\s*(?:==|!=)\s*[\"'][a-z0-9][a-z0-9-]*[\"']"
+    r"|[\"'][a-z0-9][a-z0-9-]*[\"']\s*(?:==|!=)\s*client(?:_id)?\b"
+    r"|client(?:_id)?\s+(?:not\s+)?in\s*[\(\[\{]\s*[\"']"
+)
+
+
+def _is_core_code(f: str) -> bool:
+    return f.endswith(".py") and (f.startswith("scripts/") or (f.startswith("skills/") and "/scripts/" in f))
+
+
+def test_core_code_has_no_client_specific_branching(repo_root: Path, tracked):
+    """The engine must run any client (e.g. acme-demo, 2026-Q4) through the
+    same code path: no `if client_id == "<some client>"` in core code."""
+    offenders = [
+        f for f, text in _tracked_text(repo_root, tracked)
+        if _is_core_code(f) and CLIENT_BRANCH_RE.search(text)
+    ]
+    assert not offenders, f"client-specific branching in core code: {offenders}"
+
+
+def test_client_branch_detector_catches_synthetic_patterns():
+    for sample in ('if client_id == "acme-demo":', "if 'acme' != client:", 'if client_id in ("acme", "beta"):'):
+        assert CLIENT_BRANCH_RE.search(sample), sample
+    for sample in ("if ev.get('client_id') != client_id:", 'if client_id == other_client_id:', "client_id in ids"):
+        assert not CLIENT_BRANCH_RE.search(sample), sample
+
