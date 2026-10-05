@@ -10,6 +10,7 @@ description: Safely preview and atomically apply explicit, evidence-backed chang
 - Class: ACTION
 - Canonical Side Effects: TASK_LEDGER
 - Version: 1.2.0
+- Reference implementation: `scripts/lib/task_ledger.py`
 - Canonical target: clients/<client_id>/tasks.json
 - Output contract: skills/manage-task-ledger/output.schema.json
 

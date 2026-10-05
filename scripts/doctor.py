@@ -455,7 +455,7 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
                                     f"{client_id}/{qdir.name}/monitoring.json: media record references unresolved evidence_id {eid}"
                                 )
 
-                for checkin_path in sorted((qdir / "check-ins").glob("*.json")) if (qdir / "check-ins").is_dir() else []:
+                for checkin_path in sorted((qdir / "check-ins").rglob("*.json")) if (qdir / "check-ins").is_dir() else []:
                     checkin = json.loads(checkin_path.read_text(encoding="utf-8"))
                     errs = _validate(checkin, REPO_ROOT / "schemas" / "check-in-ropre.schema.json", registry)
                     if errs:

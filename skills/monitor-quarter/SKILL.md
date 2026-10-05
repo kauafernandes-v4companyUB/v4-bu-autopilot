@@ -10,6 +10,7 @@ description: Safely preview and apply evidence-backed observations to one existi
 - **Classe:** ACTION
 - **Canonical Side Effects:** `QUARTER_MONITORING`
 - **Versão:** 1.2.0
+- **Implementação de referência:** `scripts/lib/quarter_monitoring.py`
 - **Contrato de output:** `skills/monitor-quarter/output.schema.json`
 - **Destino canônico exclusivo:** `clients/<client_id>/quarters/<quarter_id>/monitoring.json`
 

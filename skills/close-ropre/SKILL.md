@@ -11,7 +11,8 @@ description: Safely preview and apply the canonical draft-to-ready-to-completed 
 - **Canonical Side Effects:** `ROPRE_CHECK_IN`
 - **Version:** 1.1.0
 - **Output contract:** `skills/close-ropre/output.schema.json`
-- **Only canonical targets:** `quarters/<quarter_id>/check-ins/current.json` and `history/<check_in_id>.json`
+- **Only canonical targets:** `quarters/<quarter_id>/check-ins/current.json` and `history/<check_in_id>.json` — i.e. `quarters/<quarter_id>/check-ins/history/<check_in_id>.json`, next to `current.json` (the client-level `history/` belongs to promote-client-memory)
+- **Reference implementation:** `scripts/lib/ropre_lifecycle.py`
 
 This skill persists and closes an already prepared ROPRE. It does not prepare or
 correct its content, diagnose, change plan/monitoring/evidence/tasks/Quarter,

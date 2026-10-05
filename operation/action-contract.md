@@ -17,11 +17,12 @@ base state, approval gate, all-or-nothing multi-file write, receipt).
 |---|---|---|---|---|---|---|---|---|
 | `promote-client-memory` 1.1.0 | yes | yes | yes (all bound targets) | approval record (`memory_promotion`) | yes | yes (multi-file) | yes | yes |
 | `manage-quarter` 1.0.0 | yes | yes | yes (`quarters/`, ledgers, `client.json`) | approval record (`quarter_lifecycle`) | yes | yes (multi-file) | yes | yes |
-| `monitor-quarter` 1.2.0 | yes | yes | yes (plan + monitoring) | approved `preview_hash` + explicit request | yes (`stale_preview`) | yes | yes | yes |
-| `manage-task-ledger` 1.2.0 | yes | yes | yes | approved `preview_hash`; approval record via `apply-approved-tasks` | yes | yes | yes | yes |
-| `close-ropre` 1.1.0 | yes | yes | yes | approved `preview_hash` + explicit request | yes | yes | yes | yes |
+| `monitor-quarter` 1.2.0 | yes | yes | yes (plan + monitoring) | approval record (`monitoring_change`); overlay previews are never approvable | yes (`stale_preview`) | yes | yes | yes |
+| `manage-task-ledger` 1.2.0 | yes | yes | yes (tasks, evidence, origin plans) | approval record (`task_ledger_change`) | yes | yes | yes | yes |
+| `close-ropre` 1.1.0 | yes | yes | yes (current, history, plan, referenced evidence/tasks) | approval record (`ropre_transition`) | yes | yes | yes | yes |
 | `update-google-sheet` 1.0.0 | yes | yes | yes (live sheet state) | approval record (`google_sheet_patch`) | yes (`STALE_PREVIEW`) | n/a — see below | yes | yes |
 | `publish-ekyte` 1.0.0 | yes | n/a — see below | n/a — see below | approval bound to the canonical task | yes (task payload hash) | n/a — external | yes | yes (idempotency key) |
+| `manage-source-manifest` 1.0.0 | yes | yes | yes (`source-manifest.json`) | approval record (`source_manifest_change`) | yes | yes | yes | yes |
 | `manage-operations-ledger` 1.1.0 | yes | yes | yes (`operations.json`, `tasks.json`) | approval record (`operations_ledger_change`) | yes | yes | yes | yes |
 | `generate-tasks` 1.1.0 | preview only | n/a | n/a | n/a | n/a | n/a | n/a | yes (deterministic `task_id`) |
 
@@ -40,9 +41,10 @@ base state, approval gate, all-or-nothing multi-file write, receipt).
 
 ## Reference implementations
 
-Code applies: `promote-client-memory`, `manage-quarter`,
-`manage-operations-ledger`, `update-google-sheet`, `publish-ekyte` (fake
-transport). `monitor-quarter`, `manage-task-ledger` and `close-ropre` are
-applied by the agent following their SKILL.md on this same contract, with
-pure reference logic in `scripts/lib/` (`media_monitoring.py`,
-`task_bridge.py`).
+Every canonical ACTION has a code apply on `canonical_action.py`:
+`promote-client-memory` (`memory_promotion.py`), `manage-quarter`
+(`quarter_lifecycle.py`), `manage-operations-ledger` (`operations_ledger.py`),
+`manage-source-manifest` (`source_manifest.py`), `manage-task-ledger`
+(`task_ledger.py`), `monitor-quarter` (`quarter_monitoring.py`) and
+`close-ropre` (`ropre_lifecycle.py`). External ACTIONs: `update-google-sheet`
+(`google_sheets_patch.py`), `publish-ekyte` (fake transport only).
