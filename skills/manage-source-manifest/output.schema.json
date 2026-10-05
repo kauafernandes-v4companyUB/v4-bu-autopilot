@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/manage-source-manifest/output.schema.json",
+  "title": "Manage Source Manifest Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "generated_at", "mode", "status", "findings", "changes", "proposed", "base_state_files", "base_state_hash", "preview_hash", "approval_id", "receipt", "errors"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "skill": {"const": "manage-source-manifest"},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["preview", "apply"]},
+    "status": {"enum": ["success", "no_change", "conflict", "error"]},
+    "findings": {"type": "array", "items": {"type": "object", "required": ["status", "source_id", "path", "revision"], "properties": {"status": {"enum": ["NEW_SOURCE", "NO_CHANGE", "NEW_REVISION", "MISSING"]}, "source_id": {"type": "string"}, "path": {"type": "string"}, "revision": {"type": "integer", "minimum": 1}, "source_type": {"type": "string"}}}},
+    "changes": {"type": "array", "items": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["record_revision", "mark_processed"]}}}},
+    "proposed": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/source-manifest.schema.json"}]},
+    "base_state_files": {"type": "array", "items": {"type": "string"}},
+    "base_state_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "preview_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "approval_id": {"type": ["string", "null"]},
+    "receipt": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/action-receipt.schema.json"}]},
+    "errors": {"type": "array", "items": {"type": "string"}}
+  }
+}

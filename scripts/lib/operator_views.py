@@ -81,21 +81,23 @@ def prepare_call(client_id: str, client_dir: Path, today: date | None = None) ->
 
 def source_fingerprint(path: Path) -> str: return hashlib.sha256(path.read_bytes()).hexdigest()
 def classify_source(path: Path) -> str:
-    n = path.name.casefold(); suffix = path.suffix.casefold()
-    if "whatsapp" in n: return "whatsapp_export"
-    if "account" in n or "gt" in n or "transcri" in n: return "account_gt_transcript"
-    if suffix == ".csv": return "bi_csv"
-    if suffix == ".pdf": return "bi_pdf"
-    if any(x in n for x in ("handoff", "context", "contexto")): return "client_context"
-    return "unknown"
+    from scripts.lib.source_manifest import classify
+    return classify(path.as_posix())
 def source_intake_preview(client_id: str, private_dir: Path, manifest: dict | None = None, now: str | None = None) -> dict:
-    now = now or utcnow(); manifest = manifest or {"sources": []}; by_path = {x["path"]: x for x in manifest.get("sources", [])}; entries=[]
-    for path in sorted(p for p in private_dir.rglob("*") if p.is_file()):
-        rel=str(path.relative_to(private_dir)); fp=source_fingerprint(path); old=by_path.get(rel)
-        status="no_change" if old and old.get("fingerprint")==fp else "new"
-        revision = fp[:12]
-        entries.append({"source_id": f"src-{client_id}-{revision}", "source_type":classify_source(path), "path":rel, "fingerprint":fp, "observed_at":now, "processed_at": None, "processor":None, "processor_version":None, "output_ref":None, "status":status, "warnings":[]})
-    return {"schema_version":"1.0.0", "client_id":client_id, "updated_at":now, "sources":entries}
+    """Read-only discovery view; the single implementation lives in
+    scripts/lib/source_manifest.py (manage-source-manifest persists it)."""
+    from scripts.lib.source_manifest import scan
+    now = now or utcnow(); manifest = manifest or {"sources": []}
+    found = scan(client_id, private_dir, manifest, now)
+    entries = {e["path"]: e for e in found["new_entries"]}
+    latest = {e["path"]: e for e in sorted(manifest.get("sources", []), key=lambda e: e.get("revision", 1))}
+    sources = []
+    for f in found["findings"]:
+        if f["status"] == "NO_CHANGE":
+            sources.append({**latest[f["path"]], "status": "no_change", "observed_at": now})
+        elif f["status"] in ("NEW_SOURCE", "NEW_REVISION"):
+            sources.append(entries[f["path"]])
+    return {"schema_version":"1.1.0", "client_id":client_id, "updated_at":now, "sources":sources, "findings": found["findings"]}
 
 def meaningful_diff(before: dict, after: dict) -> bool:
     """Generated timestamps are not state changes."""

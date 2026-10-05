@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.v4-bu-autopilot.internal/schemas/source-manifest.schema.json",
-  "title": "Private source intake manifest", "type": "object", "additionalProperties": false,
+  "title": "Private source intake manifest", "description": "clients/<client_id>/source-manifest.json — identity (path, sha256, revision) and processing pointers of raw files under private/clients/<client_id>/. Written only by manage-source-manifest (scripts/lib/source_manifest.py). Raw content is never copied here.", "type": "object", "additionalProperties": false,
   "required": ["schema_version", "client_id", "updated_at", "sources"],
   "properties": {
-    "schema_version": {"const": "1.0.0"}, "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "schema_version": {"enum": ["1.0.0", "1.1.0"]}, "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "updated_at": {"type": ["string", "null"], "format": "date-time"},
     "sources": {"type": "array", "items": {"$ref": "#/$defs/source"}}
   },
   "$defs": {"source": {"type": "object", "additionalProperties": false,
     "required": ["source_id", "source_type", "path", "fingerprint", "observed_at", "processed_at", "processor", "processor_version", "output_ref", "status", "warnings"],
-    "properties": {"source_id": {"type":"string", "minLength":1}, "source_type": {"enum":["whatsapp_export","account_gt_transcript","client_context","bi_pdf","bi_csv","unknown"]}, "path":{"type":"string", "minLength":1}, "fingerprint":{"type":"string", "pattern":"^[a-f0-9]{64}$"}, "observed_at":{"type":"string","format":"date-time"}, "processed_at":{"type":["string","null"],"format":"date-time"}, "processor":{"type":["string","null"]}, "processor_version":{"type":["string","null"]}, "output_ref":{"type":["string","null"]}, "status":{"enum":["new","processed","no_change","unsupported","failed"]}, "warnings":{"type":"array","items":{"type":"string"}}}}
+    "properties": {"source_id": {"type":"string", "minLength":1}, "source_type": {"enum":["whatsapp_export","account_gt_transcript","client_context","bi_pdf","bi_csv","google_sheet","manual_authorized_input","unknown"]}, "revision": {"type":"integer","minimum":1,"description":"1.1.0: revision of this source_id (stable per path); a new fingerprint for the same path is revision n+1."}, "discovered_at": {"type":["string","null"],"format":"date-time"}, "path":{"type":"string", "minLength":1}, "fingerprint":{"type":"string", "pattern":"^[a-f0-9]{64}$"}, "observed_at":{"type":"string","format":"date-time"}, "processed_at":{"type":["string","null"],"format":"date-time"}, "processor":{"type":["string","null"]}, "processor_version":{"type":["string","null"]}, "output_ref":{"type":["string","null"]}, "status":{"enum":["new","new_revision","processed","no_change","unsupported","failed"]}, "warnings":{"type":"array","items":{"type":"string"}}}}
   }
 }

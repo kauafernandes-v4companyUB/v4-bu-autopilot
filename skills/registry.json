@@ -123,6 +123,18 @@
       "dependencies": ["read-quarter", "close-ropre"]
     },
     {
+      "id": "manage-source-manifest",
+      "category": "ACTION",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "MEMORY",
+      "skill_path": "skills/manage-source-manifest/SKILL.md",
+      "output_schema_path": "skills/manage-source-manifest/output.schema.json",
+      "summary": "Persists source-intake discovery (NEW_SOURCE / NO_CHANGE / NEW_REVISION / MISSING) of private raw files into clients/<client_id>/source-manifest.json with stable source_id and revisions, and records processing pointers; hash-bound preview, approval-gated atomic apply, receipt (scripts/lib/source_manifest.py).",
+      "dependencies": ["source-intake"]
+    },
+    {
       "id": "manage-task-ledger",
       "category": "ACTION",
       "version": "1.2.0",

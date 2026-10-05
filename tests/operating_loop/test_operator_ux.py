@@ -46,7 +46,9 @@ def test_source_manifest_is_idempotent_and_changed_bytes_make_revision(tmp_path)
     assert replay["sources"][0]["status"] == "no_change"
     raw.write_text("b")
     changed = source_intake_preview("acme", tmp_path, first, now="2026-09-16T00:02:00Z")
-    assert changed["sources"][0]["status"] == "new" and changed["sources"][0]["source_id"] != first["sources"][0]["source_id"]
+    # same path, new bytes: a NEW_REVISION of the same stable source_id (manifest contract 1.1.0)
+    assert changed["sources"][0]["status"] == "new_revision" and changed["sources"][0]["source_id"] == first["sources"][0]["source_id"]
+    assert changed["sources"][0]["revision"] == 2 and changed["findings"][0]["status"] == "NEW_REVISION"
 
 
 def test_generated_at_only_is_not_a_meaningful_change():
