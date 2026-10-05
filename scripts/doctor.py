@@ -362,6 +362,14 @@ def check_client_workspace_integrity(ws, registry: Registry) -> dict[str, tuple[
                 json.loads(p.read_text(encoding="utf-8"))
             except json.JSONDecodeError as e:
                 problems["Canonical memory"].append(f"{client_id}/{p.relative_to(client_dir).as_posix()}: invalid JSON ({e})")
+        for p in sorted((client_dir / "sheet-contracts").glob("*.json")) if (client_dir / "sheet-contracts").is_dir() else []:
+            try:
+                contract = json.loads(p.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue  # reported above as invalid JSON
+            errs = _validate(contract, REPO_ROOT / "schemas" / "sheet-module-contract.schema.json", registry)
+            if errs or contract.get("client_id") != client_id or f"{contract.get('module')}.json" != p.name:
+                problems["Canonical memory"].append(f"{client_id}/sheet-contracts/{p.name}: {errs[:3] or 'identity/module mismatch'}")
         raw = storage.raw_in_canonical(client_dir)
         if raw:
             problems["Raw isolation"].append(f"{client_id}: raw/non-canonical files inside clients/ (move to private/clients/{client_id}/): {raw[:5]}{' …' if len(raw) > 5 else ''}")

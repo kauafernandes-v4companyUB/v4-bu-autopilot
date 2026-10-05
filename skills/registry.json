@@ -364,6 +364,42 @@
       "dependencies": ["manage-task-ledger"]
     },
     {
+      "id": "metrics-sheet",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/metrics-sheet/SKILL.md",
+      "output_schema_path": "skills/metrics-sheet/output.schema.json",
+      "summary": "Projects canonical Quarter metrics (planned/actual media, variance, objective progress, evidence values) onto explicitly mapped cells of a client's metrics sheet; prepares an update-google-sheet patch, never writes and never reads the sheet back into canonical memory.",
+      "dependencies": ["read-google-sheet", "update-google-sheet"]
+    },
+    {
+      "id": "operational-playbook",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/operational-playbook/SKILL.md",
+      "output_schema_path": "skills/operational-playbook/output.schema.json",
+      "summary": "Projects approved actions onto a playbook tab: classifies CONFIRMED_ACTION / RECOMMENDATION / CLIENT_CONFIRMATION_REQUIRED / DEPENDENCY / DECISION_REQUIRED, never invents dates, duplicates the template tab once under a stable title and patches content; prepares update-google-sheet patches only.",
+      "dependencies": ["read-google-sheet", "update-google-sheet"]
+    },
+    {
+      "id": "creative-performance-export",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/creative-performance-export/SKILL.md",
+      "output_schema_path": "skills/creative-performance-export/output.schema.json",
+      "summary": "Exports one document-winning-creative report as a normalized row (stable key client:creative_id, INSERT / UPDATE_EXISTING / NO_CHANGE, missing values NOT_AVAILABLE) of a client's creative sheet; prepares an update-google-sheet patch only.",
+      "dependencies": ["read-google-sheet", "update-google-sheet"]
+    },
+    {
       "id": "update-google-sheet",
       "category": "ACTION",
       "version": "1.0.0",

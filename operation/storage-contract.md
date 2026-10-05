@@ -29,6 +29,7 @@ CREATED_LAZILY (absence is a valid state; the owning ACTION creates it):
 | `quarters/<quarter_id>/monitoring.json` | `monitor-quarter` |
 | `quarters/<quarter_id>/check-ins/current.json` | `close-ropre` |
 | `quarters/<quarter_id>/closure.json` | `manage-quarter` close_quarter |
+| `sheet-contracts/<module>.json` | operator configuration of a Sheets business module (`schemas/sheet-module-contract.schema.json`) |
 
 Schemas: `client.schema.json`, `client-sources.schema.json`,
 `client-knowledge.schema.json`, `client-evidence.schema.json`,

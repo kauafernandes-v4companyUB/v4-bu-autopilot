@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/creative-performance-export/output.schema.json",
+  "title": "Creative Performance Export output",
+  "allOf": [
+    {
+      "$ref": "https://schemas.v4-bu-autopilot.internal/schemas/sheet-module-result.schema.json"
+    },
+    {
+      "properties": {
+        "skill": {
+          "const": "creative-performance-export"
+        }
+      }
+    }
+  ]
+}

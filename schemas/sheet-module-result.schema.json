@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/sheet-module-result.schema.json",
+  "title": "Sheet business module result",
+  "description": "Shared output of metrics-sheet, operational-playbook and creative-performance-export (scripts/lib/sheet_modules.py). The module prepares a patch; preview/approval/apply/verification/receipt belong to update-google-sheet (sheet_preview / sheet_apply). Transient: context/generated/<client_id>/<skill>/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "business_operation_id", "generated_at", "status", "human_preview", "patch", "patch_hash", "sheet_preview", "problems", "details"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "skill": {"enum": ["metrics-sheet", "operational-playbook", "creative-performance-export"]},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "business_operation_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$", "description": "Stable identity of the business operation; also the update-google-sheet patch_id."},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["NO_CHANGE", "PATCH_READY", "CONFLICT_REVIEW_REQUIRED", "CONFIG_REQUIRED", "APPLIED"]},
+    "human_preview": {"type": "array", "items": {"type": "string"}},
+    "patch": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/google-sheet-patch.schema.json"}]},
+    "patch_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "sheet_preview": {"type": ["object", "null"], "description": "update-google-sheet preview output (its own schema)."},
+    "sheet_apply": {"type": ["object", "null"], "description": "update-google-sheet apply output (its own schema)."},
+    "google_receipt_ref": {"type": ["string", "null"], "description": "clients/<client_id>/receipts/<receipt_id>.json written by the update-google-sheet apply."},
+    "approval_ref": {"type": ["string", "null"]},
+    "verification": {"type": ["object", "null"]},
+    "problems": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["code", "message"],
+                                             "properties": {"code": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1}}}},
+    "details": {"type": "object"}
+  }
+}

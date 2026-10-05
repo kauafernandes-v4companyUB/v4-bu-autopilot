@@ -25,6 +25,7 @@ CREATED_LAZILY = {
     "quarters/<quarter_id>/monitoring.json": "monitor-quarter",
     "quarters/<quarter_id>/check-ins/current.json": "close-ropre",
     "quarters/<quarter_id>/closure.json": "manage-quarter close_quarter",
+    "sheet-contracts/<module>.json": "operator configuration of a Sheets business module (schemas/sheet-module-contract.schema.json)",
 }
 CANONICAL_SCHEMAS = {
     "client.json": "schemas/client.schema.json",
