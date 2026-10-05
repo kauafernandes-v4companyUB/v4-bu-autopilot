@@ -88,7 +88,7 @@ the one known case found by it.
    touching the public repo at all.
 3. Remove from the current tree and commit that removal — stops new
    clones from getting it.
-4. Follow `docs/security/public-history-remediation.md`'s pattern:
+4. Rewrite history (known case: `docs/security/public-history-remediation.md`):
    backup mirror, `git-filter-repo --path <path> --invert-paths` on a
    fresh clone, verify, then — only with explicit human authorization —
    `git push --force`.

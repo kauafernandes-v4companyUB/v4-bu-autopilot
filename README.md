@@ -200,9 +200,10 @@ See `SECURITY.md` and `docs/security-model.md`. In short: `clients/`,
 in this engine repo — `scripts/doctor.py` and `tests/security/` check
 this on every run and in CI. A prior incident (real client data
 committed to public git history) is documented and remediated at the
-tree level in `docs/security/public-history-remediation.md`
-(`REMOTE_HISTORY_PURGE_REQUIRED` pending human authorization for the
-history rewrite itself).
+tree and branch-history level in
+`docs/security/public-history-remediation.md` — old unreachable commits
+are still accessible on GitHub by SHA, so full remote purge is not
+confirmed (`UNREACHABLE_GITHUB_OBJECT_STILL_ACCESSIBLE`).
 
 ## Repo structure
 

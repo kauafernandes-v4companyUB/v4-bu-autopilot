@@ -40,9 +40,11 @@ methodology used the one time this happened).
 
 `clients/walmaq/**` (real client data, including CNPJ/e-mail/legal
 representative name) was committed to this repository while it was
-public, across 8 commits. The current tree has been cleaned up and the
-data migrated to a private workspace, but the git history on
-`origin/main` still contains it as of this writing. See
-`docs/security/public-history-remediation.md` for full details and the
-remediation plan (`REMOTE_HISTORY_PURGE_REQUIRED` — pending human
-authorization to force-push a rewritten history).
+public. The data was migrated to a private workspace, the branch history
+was rewritten so no reachable commit contains `clients/**`, and the
+current tree was later cleaned of smaller leaks in engine files. The
+old, now unreachable commits are still served by GitHub by SHA, and a
+small amount of residual data remains in earlier commits of the
+rewritten history — full remote purge is **not** confirmed. See
+`docs/security/public-history-remediation.md`
+(`UNREACHABLE_GITHUB_OBJECT_STILL_ACCESSIBLE`).
