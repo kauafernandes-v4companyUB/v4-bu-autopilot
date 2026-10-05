@@ -129,6 +129,14 @@
       "natural_language_triggers": ["o que mudou na <cliente>", "o que mudou na <cliente> desde segunda?"], "steps": ["what-changed"], "inputs": {"required": ["client_id"], "optional": ["since"]}, "required_capabilities": ["workspace"], "optional_capabilities": ["source manifest"], "side_effects": ["NONE"], "approval_gate": {"required": false, "description": "Somente leitura."}, "output_path": "context/generated/<client_id>/operator/what-changed.json", "workspace_required": true, "notes": null
     },
     {
+      "workflow_id": "create-quarter", "status": "implemented", "description": "Previews creating a client's Quarter plan from an explicit, operator-decided plan input; applies only with an approval bound to that preview.",
+      "natural_language_triggers": ["crie o quarter <quarter> da <cliente>", "abra o quarter <quarter> da <cliente>"], "steps": ["manage-quarter"], "inputs": {"required": ["client_id", "quarter_id", "plan_input"], "optional": []}, "required_capabilities": ["workspace"], "optional_capabilities": [], "side_effects": ["QUARTER_PLAN"], "approval_gate": {"required": true, "description": "apply exige aprovação vinculada ao preview_hash (skills/manage-quarter/SKILL.md seção 4); stale = zero escrita."}, "output_path": "context/generated/<client_id>/quarter-lifecycle/create-<quarter_id>-preview.json", "workspace_required": true, "notes": "Nunca converte seasonal draft automaticamente; SMART e media_plan vêm de decisão explícita."
+    },
+    {
+      "workflow_id": "close-quarter", "status": "implemented", "description": "Previews the formal close of an active Quarter (period ended + completed ROPRE), listing carry-over candidates; applies only with an approval bound to that preview.",
+      "natural_language_triggers": ["feche o quarter <quarter> da <cliente>", "encerre o quarter da <cliente>"], "steps": ["manage-quarter"], "inputs": {"required": ["client_id", "quarter_id"], "optional": ["as_of_date"]}, "required_capabilities": ["workspace", "quarter plan.json", "completed ROPRE check-in"], "optional_capabilities": ["quarter monitoring.json"], "side_effects": ["QUARTER_PLAN"], "approval_gate": {"required": true, "description": "apply exige aprovação vinculada ao preview_hash; fim do calendário não fecha Quarter."}, "output_path": "context/generated/<client_id>/quarter-lifecycle/close-<quarter_id>-preview.json", "workspace_required": true, "notes": "Não conclui tasks, não resolve operations, não cria o próximo Quarter."
+    },
+    {
       "workflow_id": "week-close",
       "status": "implemented",
       "description": "End-of-week operational snapshot: promised vs. executed, blockers, BI movement, SMART evidence, open flags, carry-forward candidates, and inputs for the next ROPRE. Never creates carry-over automatically.",

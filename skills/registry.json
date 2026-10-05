@@ -111,6 +111,18 @@
       "dependencies": ["promote-client-memory"]
     },
     {
+      "id": "manage-quarter",
+      "category": "ACTION",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "QUARTER_PLAN",
+      "skill_path": "skills/manage-quarter/SKILL.md",
+      "output_schema_path": "skills/manage-quarter/output.schema.json",
+      "summary": "Quarter lifecycle ACTION: create_quarter (writes an active plan.json from an explicit plan input; never converts seasonal drafts, never creates check-ins/tasks; blocks while another Quarter is active) and close_quarter (requires an ended period and a completed ROPRE, flips the plan to closed, writes closure.json listing carry_over_candidates without completing tasks, resolving operations or creating the next Quarter). Hash-bound preview, approval-gated atomic apply, receipt (scripts/lib/quarter_lifecycle.py).",
+      "dependencies": ["read-quarter", "close-ropre"]
+    },
+    {
       "id": "manage-task-ledger",
       "category": "ACTION",
       "version": "1.1.0",

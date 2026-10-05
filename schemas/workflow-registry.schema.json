@@ -47,7 +47,7 @@
         "side_effects": {
           "description": "Aggregate of the side effects this workflow's steps may have. NONE if fully read-only.",
           "type": "array",
-          "items": {"enum": ["NONE", "MEMORY", "QUARTER_MONITORING", "TASK_LEDGER", "ROPRE_CHECK_IN", "EXTERNAL"]}
+          "items": {"enum": ["NONE", "MEMORY", "QUARTER_MONITORING", "TASK_LEDGER", "ROPRE_CHECK_IN", "QUARTER_PLAN", "EXTERNAL"]}
         },
         "approval_gate": {
           "type": "object", "additionalProperties": false,

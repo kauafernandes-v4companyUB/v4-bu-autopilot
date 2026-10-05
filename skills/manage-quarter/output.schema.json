@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/manage-quarter/output.schema.json",
+  "title": "Manage Quarter Output",
+  "description": "Preview/apply of create_quarter or close_quarter (skills/manage-quarter/SKILL.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "skill", "client_id", "quarter_id", "operation", "generated_at", "mode", "status", "base_state_files", "base_state_hash", "preview_hash", "proposed", "carry_over_candidates", "checks", "conflicts", "errors", "warnings", "approval_id", "applied_changes", "receipt"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "skill": {"const": "manage-quarter"},
+    "client_id": {"type": "string", "minLength": 1},
+    "quarter_id": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "operation": {"enum": ["create_quarter", "close_quarter"]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["preview", "apply"]},
+    "status": {"enum": ["success", "no_change", "conflict", "error"]},
+    "base_state_files": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1},
+    "base_state_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "preview_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "proposed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "closure"],
+      "properties": {
+        "plan": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-plan.schema.json"}]},
+        "closure": {"description": "Proposed closure; closed_at, approval_id and receipt_id are filled only at apply.", "type": ["object", "null"]}
+      }
+    },
+    "carry_over_candidates": {"type": "array", "items": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-closure.schema.json#/$defs/carry_over_candidate"}},
+    "checks": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["check", "ok"], "properties": {"check": {"type": "string", "minLength": 1}, "ok": {"type": "boolean"}}}},
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "errors": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/notice"}},
+    "approval_id": {"type": ["string", "null"]},
+    "applied_changes": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "applied_at"], "properties": {"path": {"type": "string", "minLength": 1}, "applied_at": {"type": "string", "format": "date-time"}}}},
+    "receipt": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/action-receipt.schema.json"}]}
+  },
+  "$defs": {
+    "notice": {"type": "object", "additionalProperties": false, "required": ["code", "message"], "properties": {"code": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1}}}
+  }
+}

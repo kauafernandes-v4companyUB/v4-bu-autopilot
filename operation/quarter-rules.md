@@ -11,6 +11,19 @@ keeps other docs/skills from re-stating it.
 the SMART objective is versioned per Quarter and never silently carried
 over from a previous one.
 
+## Lifecycle — create and close are explicit, approved ACTIONs
+
+`skills/manage-quarter/SKILL.md` is the only writer of a Quarter's
+lifecycle: `create_quarter` writes an `active` `plan.json` from an
+explicit plan input (never from a seasonal draft) and refuses while
+another Quarter is active; `close_quarter` requires the period to have
+ended and the Quarter's current ROPRE check-in to be `completed`, flips
+the plan to `closed` and writes `closure.json` with
+`carry_over_candidates` — tasks and operations are only listed, never
+completed or resolved, and the next Quarter is never created
+automatically. Calendar end never closes a Quarter. Both are
+hash-bound previews applied only with an approval bound to that preview.
+
 ## `plan.json` vs `monitoring.json` — never the same file, never mixed
 
 - `clients/<client_id>/quarters/<quarter_id>/plan.json` — what was

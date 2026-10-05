@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-closure.schema.json",
+  "title": "V4 BU Autopilot Quarter Closure",
+  "description": "Registro canonico do fechamento formal de um Quarter (clients/<client_id>/quarters/<quarter_id>/closure.json), escrito somente por manage-quarter close_quarter com aprovacao. O fim do calendario nao fecha Quarter. Lista carry_over_candidates sem concluir tasks nem resolver operations; nunca cria o proximo Quarter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "client_id", "quarter_id", "period", "closed_at", "as_of_date", "ropre_check_in_id", "monitoring_present", "carry_over_candidates", "approval_id", "receipt_id"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "client_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "quarter_id": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+    "period": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/quarter-plan.schema.json#/$defs/period"},
+    "closed_at": {"description": "Timestamp de execucao do apply (relogio real, UTC RFC3339). CLAUDE.md secao 26.", "type": "string", "format": "date-time"},
+    "as_of_date": {"description": "Data usada apenas para derivar atraso dos carry_over_candidates; nunca reescreve tasks/operations.", "type": "string", "format": "date"},
+    "ropre_check_in_id": {"type": ["string", "null"]},
+    "monitoring_present": {"type": "boolean"},
+    "carry_over_candidates": {"type": "array", "items": {"$ref": "#/$defs/carry_over_candidate"}},
+    "approval_id": {"type": "string", "minLength": 1},
+    "receipt_id": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "carry_over_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "statement", "status", "date", "overdue_as_of"],
+      "properties": {
+        "kind": {"enum": ["task", "operation"]},
+        "id": {"type": "string", "minLength": 1},
+        "statement": {"type": "string"},
+        "status": {"type": "string", "minLength": 1},
+        "date": {"description": "due_at (task) ou scheduled_for (operation), quando houver.", "type": ["string", "null"]},
+        "overdue_as_of": {"type": "boolean"}
+      }
+    }
+  }
+}
