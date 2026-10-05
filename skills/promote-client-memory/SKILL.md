@@ -8,7 +8,7 @@ Slug: promote-client-memory
 
 Categoria: action
 
-Versão: 1.0.0
+Versão: 1.1.0
 
 Side Effects: MEMORY
 
@@ -390,6 +390,7 @@ A skill suporta dois modos:
 ### preview (padrão)
 
 - gera `source_outputs`, `promotion_plan`, `conflicts` e `skipped`;
+- gera `mutation_plan`, `base_state_hash` e `preview_hash` (seção 17.2) — `schema_version: "1.1.0"`;
 - não altera nenhum arquivo em `clients/<client_id>/`;
 - `applied_changes` permanece `[]`;
 - `mode = "preview"` no output.
@@ -397,6 +398,7 @@ A skill suporta dois modos:
 ### apply
 
 - só deve ser executado mediante pedido explícito do operador para aplicar a promoção (ex.: "aplique o plano", "promova de fato") — nunca assumido por padrão nem encadeado automaticamente após um preview sem confirmação;
+- exige um registro de aprovação (`schemas/approval.schema.json`) vinculado ao `preview_hash` exato do preview aprovado, e passa pelo gate da seção 17.2 antes de qualquer escrita;
 - aplica **somente** os candidatos com `action` em `{promote, supersede, historize}` presentes no `promotion_plan` validado; candidatos `skip`/`conflict` nunca resultam em escrita;
 - side effect: **MEMORY**;
 - segue a seção 18 (Side Effect Safety) para cada escrita.
@@ -432,6 +434,25 @@ Um `source_output` confiável pode conter uma observação externa, sem `evidenc
 - Quando faltar `evidence_id`, gere `evobs-<16 primeiros hex>` de SHA-256 do JSON canônico UTF-8 (`sort_keys=true`, separadores compactos) de `client_id`, `source_skill` (ou `null`), `source_type`, `source_observation_id` e `source_file_sha256` (ou `null`). Nunca use timestamps, valores calculados ou a ordem de descoberta na identidade.
 - Se o mesmo ID existir e todos os campos materiais forem idênticos — `statement`, `type`, `value`, `unit`, `confidence`, `source_date`, `period`, `source_type`, `reference`, `source_skill` e `external_provenance` — a promoção é `skip`/idempotente e não escreve duplicata. Se a identidade for igual, mas qualquer um desses campos divergir, registre `conflict` em `evidence.json`, preserve o ledger e não sobrescreva.
 - Ausência de `source_observation_id` torna a observação inelegível para esta extensão: registre `missing_data`; não invente uma identidade com timestamp ou conteúdo variável.
+
+---
+
+## 17.2 Hash binding, aprovação e stale safety
+
+Mesmo padrão do Operating Loop (`scripts/lib/approval.py`, `update-google-sheet`): PREVIEW → `mutation_plan` → `preview_hash` → aprovação vinculada → APPLY → detecção de stale. Implementação de referência: `scripts/lib/memory_promotion.py`.
+
+- **`base_state_hash`** — SHA-256 do JSON canônico do conteúdo atual de todo arquivo canônico do qual a promoção depende ou que pode modificar: sempre `evidence.json`, `knowledge.json`, `current-state.json` e `decisions.json`, mais qualquer outro `target_file` do plano (`client.json`, `sources.json`, `strategy.md`, `history/`). Arquivo ausente entra como `null`; `history/` entra como `{arquivo: sha256}`. A lista fica em `mutation_plan.canonical_targets`.
+- **`mutation_plan`** — `canonical_targets`, `base_state_hash`, uma `change` por candidato (`candidate_id`, `target_file`, `target_path`, `action`, `material`) e `will_write` (`false` em preview).
+- **`preview_hash`** — SHA-256 do JSON canônico de `client_id`, `base_state_hash`, `promotion_plan`, `evidence` e `mutation_plan`, com timestamps de execução removidos recursivamente (`generated_at`, `added_at`, `promoted_at`, `historized_at`, `applied_at`, `updated_at`, `created_at`). Mesmo input sobre o mesmo estado canônico gera o mesmo hash, em qualquer horário.
+- **Aprovação** — candidata `draft` via `build_promotion_approval_candidate`, que só vira real por `approval.apply_operator_decision` mediante pedido explícito do operador. Item `memory_promotion` com payload `{client_id, base_state_hash, preview_hash}`; o artefato-fonte é o preview inteiro.
+- **Gate do apply (`check_apply_gate`)**, antes de qualquer escrita, inclusive em destinos que não sejam `evidence.json`:
+  1. preview presente, `mode: preview`, `status: success`, com `preview_hash`/`base_state_hash`/`mutation_plan` — output legado `1.0.0` sem hashes continua legível, mas retorna `PREVIEW_NOT_HASH_BOUND`;
+  2. `preview_hash` recalculado a partir do conteúdo do preview precisa bater (payload alterado depois do preview → `STALE_APPROVAL`);
+  3. aprovação presente, do mesmo cliente, cobrindo o item e validada por `approval.validate_approval` contra o preview exato (preview alterado depois da aprovação → `STALE_APPROVAL`);
+  4. `base_state_hash` recalculado a partir dos arquivos canônicos atuais precisa bater (canônico mudou desde o preview → `STALE_APPROVAL`).
+  Qualquer falha → zero escritas. Hashes anotados à mão em arquivo à parte (ex.: um `.locks.json`) nunca autorizam apply: o gate sempre recalcula a partir do preview e do disco.
+- **Atomicidade** — o resultado inteiro é validado contra o schema antes de uma única substituição atômica (arquivo temporário, fsync, rename). Falha de validação → zero escritas.
+- **Idempotência** — um preview novo sobre evidência já promovida classifica o candidato como `skip` (NO_CHANGE); apply desse preview retorna `no_change` sem escrever.
 
 ---
 
@@ -486,7 +507,8 @@ O output deve validar contra `skills/promote-client-memory/output.schema.json` e
 - `skipped`;
 - `evidence`;
 - `missing_data`;
-- `warnings`.
+- `warnings`;
+- a partir de `schema_version: "1.1.0"`: `base_state_hash`, `preview_hash` e `mutation_plan` (seção 17.2); `approval_id` no apply.
 
 Este é um output temporário de trabalho (CLAUDE.md seção 13) — não é, em si, memória canônica. A memória canônica é o resultado das escritas em `clients/<client_id>/` feitas em modo `apply`.
 

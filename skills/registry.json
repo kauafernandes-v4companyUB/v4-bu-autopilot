@@ -89,13 +89,13 @@
     {
       "id": "promote-client-memory",
       "category": "ACTION",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "implemented",
       "implemented": true,
       "canonical_side_effects": "MEMORY",
       "skill_path": "skills/promote-client-memory/SKILL.md",
       "output_schema_path": "skills/promote-client-memory/output.schema.json",
-      "summary": "Promotes validated context/observations into canonical client memory (knowledge.json, strategy.md, current-state.json, decisions.json, history/, evidence.json), preview by default, apply on explicit request.",
+      "summary": "Promotes validated context/observations into canonical client memory (knowledge.json, strategy.md, current-state.json, decisions.json, history/, evidence.json), preview by default, apply on explicit request. v1.1.0: hash-bound preview (base_state_hash, preview_hash, mutation_plan) and an apply gate bound to an approval record with stale detection (scripts/lib/memory_promotion.py).",
       "dependencies": []
     },
     {

@@ -23,6 +23,7 @@
   ],
   "properties": {
     "schema_version": {
+      "description": "1.0.0 = output legado sem hash binding (legivel, mas nunca suficiente para um apply protegido). 1.1.0 = output com hash binding (SKILL.md secao 17.2).",
       "type": "string"
     },
     "skill": {
@@ -225,9 +226,75 @@
           "type": ["boolean", "null"]
         }
       }
+    },
+    "base_state_hash": {
+      "description": "SKILL.md secao 17.2: SHA-256 (JSON canonico) do conteudo atual de todo arquivo canonico do qual a promocao depende ou que pode modificar (mutation_plan.canonical_targets). Obrigatorio a partir de schema_version 1.1.0.",
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "preview_hash": {
+      "description": "SKILL.md secao 17.2: SHA-256 (JSON canonico, timestamps de execucao removidos) de client_id, base_state_hash, promotion_plan, evidence e mutation_plan. A aprovacao do operador e vinculada a este hash (schemas/approval.schema.json). Obrigatorio a partir de schema_version 1.1.0.",
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "mutation_plan": {
+      "description": "SKILL.md secao 17.2: plano de mutacao canonica coberto pelo preview_hash.",
+      "oneOf": [{ "$ref": "#/$defs/mutation_plan" }, { "type": "null" }]
+    },
+    "approval_id": {
+      "description": "Registro de aprovacao consumido por um apply; null em preview.",
+      "type": ["string", "null"]
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": "1.1.0" } }, "required": ["schema_version"] },
+      "then": {
+        "required": ["base_state_hash", "preview_hash", "mutation_plan"],
+        "properties": {
+          "base_state_hash": { "$ref": "#/$defs/sha256" },
+          "preview_hash": { "$ref": "#/$defs/sha256" },
+          "mutation_plan": { "$ref": "#/$defs/mutation_plan" }
+        }
+      }
+    }
+  ],
   "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "mutation_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_targets", "base_state_hash", "changes", "will_write"],
+      "properties": {
+        "canonical_targets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["evidence.json", "knowledge.json", "current-state.json", "decisions.json", "client.json", "sources.json", "strategy.md", "history/"]
+          }
+        },
+        "base_state_hash": { "$ref": "#/$defs/sha256" },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["candidate_id", "target_file", "action", "material"],
+            "properties": {
+              "candidate_id": { "type": "string", "minLength": 1 },
+              "target_file": { "$ref": "#/$defs/target_file" },
+              "target_path": { "type": ["string", "null"] },
+              "action": { "$ref": "#/$defs/promotion_action" },
+              "material": { "type": "boolean" }
+            }
+          }
+        },
+        "will_write": { "type": "boolean" }
+      }
+    },
     "target_file": {
       "description": "'evidence.json' identifica escritas no ledger canonico de evidencias (clients/<client_id>/evidence.json, schemas/client-evidence.schema.json). Normalmente a escrita e derivada da sincronizacao do evidence ledger a partir de candidatos promote/historize. Uma observacao externa normalizada tambem pode ter candidato direto para evidence.json, conforme SKILL.md secao 17.1.1; isso promove somente a evidencia, sem reinterpretar a observacao nem exigir outra memoria substantiva.",
       "type": "string",
