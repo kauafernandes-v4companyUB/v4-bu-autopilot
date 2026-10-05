@@ -94,3 +94,12 @@ def test_new_canonical_actions_are_registered(repo_root):
     workflows = {w["workflow_id"]: w for w in json.loads((repo_root / "workflows/registry.json").read_text(encoding="utf-8"))["workflows"]}
     for wf in ("create-quarter", "close-quarter"):
         assert workflows[wf]["approval_gate"]["required"] and workflows[wf]["side_effects"] == ["QUARTER_PLAN"]
+
+
+def test_midweek_surfaces_overdue_scheduled_operations(repo_root, validate):
+    from scripts.lib.operator_views import build_midweek
+    before = json.dumps(OPS, sort_keys=True)
+    mw = build_midweek("acme-demo", {"tasks": []}, OPS, TODAY, quarter_id="2026-Q4")
+    assert [o["operation_id"] for o in mw["operations_needing_attention"]] == ["s-past"]
+    assert validate(mw, repo_root / "skills/midweek/output.schema.json") == []
+    assert json.dumps(OPS, sort_keys=True) == before

@@ -25,6 +25,7 @@
     "completed": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}},
     "pending": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}},
     "overdue": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}, "description": "Derived at runtime from due_at < today AND status=pending — never a persisted status (operation/task-rules.md)."},
+    "operations_needing_attention": {"type": "array", "description": "Derived at runtime: operations whose canonical status is scheduled and scheduled_for < today. The ledger keeps status=scheduled; nothing is transitioned automatically.", "items": {"type": "object", "additionalProperties": false, "required": ["operation_id", "statement", "status", "scheduled_for", "derived_state"], "properties": {"operation_id": {"type": "string"}, "statement": {"type": ["string", "null"]}, "status": {"const": "scheduled"}, "scheduled_for": {"type": "string", "format": "date"}, "derived_state": {"const": "OVERDUE"}}}},
     "blocked": {"type": "array", "items": {"$ref": "#/$defs/taskRef"}},
     "changed_evidence_or_results": {
       "type": "array",

@@ -123,14 +123,15 @@ def post_call_preview(client_id: str, text: str, canonical_evidence: dict | None
                 proposals.append({"type":label,"statement":statement,"comparison":comparison,"source_date":source_date}); break
     return {"client_id":client_id,"mode":"preview","status":"success","evidence_proposals":proposals,"task_proposals":[],"operation_proposals":[],"warnings":["explicit operator approval is required before any ACTION"]}
 
-def build_midweek(client_id: str, tasks: dict, operations: dict, today: date | None = None, evidence_since_week_start: list[dict] | None = None, monitoring: dict | None = None) -> dict:
+def build_midweek(client_id: str, tasks: dict, operations: dict, today: date | None = None, evidence_since_week_start: list[dict] | None = None, monitoring: dict | None = None, quarter_id: str | None = None) -> dict:
     """Canonical-ledger midweek projection; never infers execution."""
     today = today or date.today(); start = today - timedelta(days=today.weekday()); end = start + timedelta(days=6)
     all_tasks = tasks.get("tasks", []); planned = [t for t in all_tasks if t.get("due_at") and start <= date.fromisoformat(t["due_at"]) <= end]
     completed = [t for t in all_tasks if t.get("status") == "completed"]; pending = [t for t in all_tasks if t.get("status") == "pending"]
     overdue = [t for t in pending if date.fromisoformat(t["due_at"]) < today]
     decisions = [o for o in resolve_deferred_operations(operations.get("operations", []), all_tasks) if o["resolved_state"] == "READY_FOR_DECISION" or (o.get("type") == "decision_pending" and o.get("status") in {"pending", "active"})]
-    return {"schema_version":"1.0.0","skill":"midweek","client_id":client_id,"generated_at":utcnow(),"status":"success","week_of":{"from":str(start),"to":str(end)}, "planned_this_week":[_task_ref(t) for t in planned],"completed":[_task_ref(t) for t in completed],"pending":[_task_ref(t) for t in pending],"overdue":[_task_ref(t) for t in overdue],"blocked":[], "changed_evidence_or_results": evidence_since_week_start or [],"risks":[f for f in (monitoring or {}).get("flags", []) if f.get("type") == "risk" and f.get("status") != "resolved"], "actions_needing_decision":[{"statement":o["statement"],"source":"operations"} for o in decisions],"missing_data":[],"warnings":[]}
+    attention = [_op_ref(o, "OVERDUE") for o in operations.get("operations", []) if o.get("status") == "scheduled" and o.get("scheduled_for") and date.fromisoformat(o["scheduled_for"]) < today]
+    return {"schema_version":"1.0.0","skill":"midweek","client_id":client_id,"quarter_id":quarter_id,"generated_at":utcnow(),"status":"success","operations_needing_attention":attention,"week_of":{"from":str(start),"to":str(end)}, "planned_this_week":[_task_ref(t) for t in planned],"completed":[_task_ref(t) for t in completed],"pending":[_task_ref(t) for t in pending],"overdue":[_task_ref(t) for t in overdue],"blocked":[], "changed_evidence_or_results": evidence_since_week_start or [],"risks":[f for f in (monitoring or {}).get("flags", []) if f.get("type") == "risk" and f.get("status") != "resolved"], "actions_needing_decision":[{"statement":o["statement"],"source":"operations"} for o in decisions],"missing_data":[],"warnings":[]}
 
 def week_close_preview(client_id: str, tasks: dict, operations: dict, today: date | None = None, monitoring: dict | None = None) -> dict:
     """Read-only close artifact; carry-forward remains a candidate only."""

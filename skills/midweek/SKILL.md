@@ -41,6 +41,7 @@ Obrigatório: `client_id`. Opcional: `quarter_id` (default: resolução por `rea
 
 - nunca marcar uma task como `completed` sem que `tasks.json` já diga isso;
 - `overdue` é sempre derivado, nunca lido de um campo persistido;
+- `operations_needing_attention` lista operations com status canônico `scheduled` e `scheduled_for` anterior a hoje — derivado só para a view; o ledger nunca é transicionado automaticamente;
 - nunca inventar `changed_evidence_or_results` quando não há execução anterior para comparar — declarar ausência em `missing_data`.
 
 ## 8. Idempotência
