@@ -108,3 +108,56 @@ def test_ambiguous_existing_records_raise_instead_of_choosing():
             duplicated, month="2026-01", channel="meta_ads", actual_spend=5.0,
             evidence_ids=["ev-1"], observed_at="2026-01-15T00:00:00Z", planned_budget=1.0,
         )
+
+
+# --- Money normalization (variance is BRL; attainment is a percentage) ---
+
+
+def test_money_variance_is_exact_two_decimals_for_classic_float_noise_case():
+    # 1069.07 - 2000.0 is -930.9300000000001 in binary float.
+    calc = compute_media_calculation(actual_spend=1069.07, planned_budget=2000.0)
+    assert calc.variance_value == -930.93
+    assert repr(calc.variance_value) == "-930.93"
+
+
+@pytest.mark.parametrize(
+    ("actual", "planned", "expected"),
+    [(0.3, 0.1, 0.2), (0.1, 0.3, -0.2), (100.10, 100.0, 0.1), (1.15, 0.0, 1.15), (2000.0, 1999.99, 0.01)],
+)
+def test_classic_float_cases_never_contaminate_money(actual, planned, expected):
+    calc = compute_media_calculation(actual_spend=actual, planned_budget=planned)
+    assert repr(calc.variance_value) == repr(expected)
+
+
+def test_planned_zero_keeps_null_attainment_and_money_variance():
+    calc = compute_media_calculation(actual_spend=0.3, planned_budget=0.0)
+    assert calc.attainment_percent is None
+    assert repr(calc.variance_value) == "0.3"
+
+
+@pytest.mark.parametrize("bad_actual", [None, -0.01, True, "10"])
+def test_missing_or_invalid_actual_is_rejected_not_guessed(bad_actual):
+    with pytest.raises(ValueError):
+        compute_media_calculation(actual_spend=bad_actual, planned_budget=2000.0)
+
+
+def test_attainment_keeps_full_precision_not_money_rounding():
+    calc = compute_media_calculation(actual_spend=1069.07, planned_budget=2000.0)
+    assert calc.attainment_percent == 1069.07 / 2000.0 * 100
+    calc = compute_media_calculation(actual_spend=1.0, planned_budget=3.0)
+    assert calc.attainment_percent == 1.0 / 3.0 * 100  # not 33.33
+
+
+def test_upserted_record_with_normalized_money_validates_against_monitoring_schema(repo_root, validate):
+    media, status = upsert_media_actual(
+        [], month="2026-03", channel="meta_ads", actual_spend=1069.07, evidence_ids=["ev-synth-1"],
+        observed_at="2026-04-02T10:00:00Z", planned_budget=2000.0,
+    )
+    assert status == "created" and media[0]["variance_value"] == -930.93
+    monitoring = {
+        "schema_version": "1.0.0", "client_id": "acme-demo", "quarter_id": "2026-Q1", "updated_at": "2026-04-02T10:00:00Z",
+        "objective_progress": {"status": "unknown", "current_value": None, "target_value": 10, "progress_percent": None,
+                               "observed_at": None, "evidence_ids": []},
+        "media_monitoring": media, "flags": [],
+    }
+    assert validate(monitoring, repo_root / "schemas/quarter-monitoring.schema.json") == []

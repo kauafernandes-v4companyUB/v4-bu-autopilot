@@ -40,6 +40,12 @@ attainment_percent = actual_spend / planned_budget * 100   (null if planned_budg
 variance_value     = actual_spend - planned_budget          (null only if planned_budget is null)
 ```
 
+`variance_value` is money: computed in `Decimal` and normalized to 2
+decimal places (`ROUND_HALF_UP`, `money_difference`), so binary float
+noise such as `-930.9300000000001` is never persisted. `attainment_percent`
+is a percentage, not money, and keeps full float precision. A missing or
+negative `actual_spend` is rejected, never guessed.
+
 An actual for a `(month, channel)` not present in `plan.json` is kept
 (never dropped), with `planned_budget`/`attainment_percent`/
 `variance_value` as `null`, plus an `unplanned_media_actual` warning —

@@ -9,7 +9,10 @@ rules) as executable, versioned code instead of only prose.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
+
+MONEY_QUANTUM = Decimal("0.01")
 
 
 class AmbiguousMediaKey(Exception):
@@ -25,13 +28,26 @@ class MediaCalculation:
     variance_value: Optional[float]
 
 
+def money_difference(a: float, b: float) -> float:
+    """a - b for BRL amounts, computed in Decimal from the values' decimal
+    representation and normalized to 2 places (ROUND_HALF_UP), so binary
+    float noise (e.g. -930.9300000000001) never reaches canonical money."""
+    return float((Decimal(str(a)) - Decimal(str(b))).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP))
+
+
 def compute_media_calculation(actual_spend: float, planned_budget: Optional[float]) -> MediaCalculation:
     """attainment_percent = actual/planned*100 (None when planned is None
-    or 0); variance_value = actual - planned (None only when planned is
-    None)."""
+    or 0), kept at full float precision — it is a percentage, not money;
+    variance_value = actual - planned as money (2 decimal places, see
+    money_difference), None only when planned is None.
+
+    actual_spend must be a real number >= 0 (monitor-quarter never accepts
+    a missing or negative actual)."""
+    if actual_spend is None or isinstance(actual_spend, bool) or not isinstance(actual_spend, (int, float)) or actual_spend < 0:
+        raise ValueError(f"actual_spend must be a number >= 0, got {actual_spend!r}")
     if planned_budget is None:
         return MediaCalculation(planned_budget=None, attainment_percent=None, variance_value=None)
-    variance = actual_spend - planned_budget
+    variance = money_difference(actual_spend, planned_budget)
     if planned_budget == 0:
         return MediaCalculation(planned_budget=planned_budget, attainment_percent=None, variance_value=variance)
     attainment = actual_spend / planned_budget * 100
