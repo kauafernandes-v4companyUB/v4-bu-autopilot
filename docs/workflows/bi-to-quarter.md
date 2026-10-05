@@ -25,10 +25,14 @@ flowchart LR
 2. **`promote-client-memory`** (ACTION), `mode: preview`: takes the
    eligible observation, computes its deterministic `evidence_id`
    (`scripts/lib/evidence_id.py`), and proposes it for
-   `clients/<id>/evidence.json` — nothing written yet.
-3. **`promote-client-memory`**, `mode: apply` (only on explicit request):
-   writes the evidence to the canonical ledger, validated against
-   `schemas/client-evidence.schema.json`.
+   `clients/<id>/evidence.json` — nothing written yet. The preview is
+   hash-bound (`base_state_hash`, `preview_hash`, `mutation_plan`;
+   SKILL.md section 17.2, `scripts/lib/memory_promotion.py`).
+3. **`promote-client-memory`**, `mode: apply` (only on explicit request
+   and with an approval bound to that `preview_hash`): re-checks the
+   preview and canonical state (`STALE_APPROVAL` on any drift, zero
+   writes), then writes the evidence to the canonical ledger, validated
+   against `schemas/client-evidence.schema.json`.
 4. **`monitor-quarter`** (ACTION), `mode: preview`: builds an
    `upsert_media_actual` operation referencing that `evidence_id`. If
    the evidence isn't in the canonical ledger yet (step 3 hasn't
