@@ -17,17 +17,19 @@ def test_deterministic_id_is_stable_across_calls():
 
 
 def test_deterministic_id_matches_known_reference_value():
-    # Recomputed independently from a real read-bi.json observation during
-    # the Walmaq BI apply (see project history) — pinned here so the
-    # algorithm can never silently drift.
+    # Synthetic fixture. The expected value was computed independently with
+    # hashlib over the canonical JSON documented in
+    # skills/promote-client-memory/SKILL.md section 17.1.1 (not via this
+    # module) — pinned here so the algorithm can never silently drift.
+    # source_file_sha256 = sha256(b"synthetic-bi-fixture-file").
     eid = compute_evidence_id(
-        client_id="walmaq",
+        client_id="acme-demo",
         source_skill="read-bi",
         source_type="pdf",
-        source_observation_id="biobs-4ddc33077f4a1ad3",
-        source_file_sha256="e278f84acbcfe44d19405cf567eecc23551a0e816c66dbc8af682a07c6b79f75",
+        source_observation_id="biobs-0000000000000001",
+        source_file_sha256="afa29227c799a1330637e0b616fb069d1f70f2580074074e90850ad5cc2964c4",
     )
-    assert eid == "evobs-c26aed008bb65da0"
+    assert eid == "evobs-8d6060a2d8162d19"
 
 
 def test_deterministic_id_ignores_argument_object_identity_not_values():

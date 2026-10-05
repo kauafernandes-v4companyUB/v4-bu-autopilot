@@ -55,7 +55,7 @@ A task's `task_id` is always derived deterministically from
 `(client_id, quarter_id, origin_action_id)` via
 `scripts/lib/task_identity.py::compute_task_id` — never from a
 timestamp or the order it was discovered. This is what stops
-"Criar criativos Semana do Cliente" from being proposed as three
+"Criar criativos da campanha X" from being proposed as three
 different tasks across three separate `replan-client` runs: the same
 action, in the same Quarter, for the same client, always produces the
 same `task_id`, and `manage-task-ledger`'s own `duplicate_task_id`

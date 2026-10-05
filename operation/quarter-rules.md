@@ -33,7 +33,7 @@ Exactly one -> update in place. More than one existing (an already
 operation replayed is a no-op (idempotent), never a duplicate.
 
 Formulas (`scripts/lib/media_monitoring.py` is the pinned reference
-implementation, tested against the real Walmaq September 2026 numbers):
+implementation, tested with synthetic fixtures):
 
 ```
 attainment_percent = actual_spend / planned_budget * 100   (null if planned_budget is 0 or null)

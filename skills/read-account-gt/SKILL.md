@@ -311,14 +311,14 @@ Exemplo: "ontem tivemos 12 leads a R$ 18" → `performance_mentions`, `type: met
 - não equivaler automaticamente a fala direta do cliente;
 - `confidence` normalmente não deve superar `medium` sem corroboração de check-in/WhatsApp/fonte direta (usar `corroborated: true` apenas quando essa corroboração já constar explicitamente na própria fonte lida nesta execução; do contrário manter `corroborated` ausente/`false`).
 
-Exemplo: "Jean falou que quer focar aço essa semana", dita pelo Account, é modelada em `client_reported_context` com `reported_by: "Account"`, `attributed_to_client: "Jean"`, `indirect: true` — nunca como evidência direta de fala do Jean.
+Exemplo: "o contato do cliente falou que quer focar a linha X essa semana", dita pelo Account, é modelada em `client_reported_context` com `reported_by: "Account"`, `attributed_to_client: "Contato Exemplo"`, `indirect: true` — nunca como evidência direta de fala do contato.
 
 ### 16.3 Decisão interna Account × GT
 
 - pode ser classificada como `decision` apenas se estiver explicitamente decidida entre os participantes;
 - se depender do cliente, preservar `requires_client_validation: true`.
 
-Exemplo: "vamos subir aço amanhã", entre Account e GT, pode ser `decision` (se afirmada como decidida) ou `planned_action` (se ainda condicional), dependendo da clareza do compromisso.
+Exemplo: "vamos subir a linha X amanhã", entre Account e GT, pode ser `decision` (se afirmada como decidida) ou `planned_action` (se ainda condicional), dependendo da clareza do compromisso.
 
 ### 16.4 Ideia ou sugestão
 

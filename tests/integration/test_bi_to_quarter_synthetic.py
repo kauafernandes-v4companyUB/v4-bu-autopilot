@@ -4,7 +4,7 @@
     (preview via evidence_overlay, then apply against canonical evidence)
     -> idempotent replay
 
-...entirely on a synthetic client in a temp workspace. NEVER uses Walmaq
+...entirely on a synthetic client in a temp workspace. NEVER uses the pilot client
 or any real client data — see CLAUDE.md/mission section 10.
 
 This exercises the same reference logic (scripts/lib/*) that pins the

@@ -1,5 +1,5 @@
 """Deterministic task identity (mission: avoid a task like 'Criar
-criativos Semana do Cliente' being duplicated every time replan-client
+criativos da campanha X' being duplicated every time replan-client
 runs again).
 
 Identity = client_id + quarter_id + origin action_id (the replan-client

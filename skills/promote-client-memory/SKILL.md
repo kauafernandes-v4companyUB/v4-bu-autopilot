@@ -346,7 +346,7 @@ Toda promoção relevante deve preservar:
 
 Não duplicar o texto completo da evidência no destino canônico se um ID/referência for suficiente para rastreabilidade — o texto completo mora em `clients/<client_id>/evidence.json`, não em `knowledge.json`/`strategy.md`/`history/`.
 
-`strategy.md` pode citar `evidence_ids` de forma enxuta (ex.: "Fonte canônica: `walmaq-cc-031` — confidence: high"), desde que esses IDs existam em `clients/<client_id>/evidence.json`. Nunca escrever em `strategy.md` (ou em qualquer arquivo canônico) que a rastreabilidade completa está em `context/generated/`.
+`strategy.md` pode citar `evidence_ids` de forma enxuta (ex.: "Fonte canônica: `<client_id>-cc-031` — confidence: high"), desde que esses IDs existam em `clients/<client_id>/evidence.json`. Nunca escrever em `strategy.md` (ou em qualquer arquivo canônico) que a rastreabilidade completa está em `context/generated/`.
 
 ---
 

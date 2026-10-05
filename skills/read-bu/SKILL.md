@@ -214,9 +214,9 @@ Regras:
 
 Exemplos:
 
-Glam Houz -> glam-houz
+Loja Exemplo -> loja-exemplo
 
-Rei do Pano -> rei-do-pano
+Ateliê Exemplo -> atelie-exemplo
 
 O display_name deve preservar o nome original.
 

@@ -16,8 +16,8 @@ def _op(op_id="d1", status="deferred", kind="deferred", ref="t1"):
 
 
 def test_router_known_intents_are_read_only_or_preview():
-    assert route_command("me prepara pra call da walmaq", "walmaq")["workflow"] == "prepare-client-call"
-    post = route_command("acabei de sair da call da walmaq", "walmaq")
+    assert route_command("me prepara pra call da acme", "acme-demo")["workflow"] == "prepare-client-call"
+    post = route_command("acabei de sair da call da acme", "acme-demo")
     assert post["intent"] == "post_call" and post["approval_required"]
 
 

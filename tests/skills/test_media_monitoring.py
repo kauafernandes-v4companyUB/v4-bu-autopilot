@@ -10,10 +10,10 @@ from scripts.lib.media_monitoring import (
 
 
 def test_attainment_and_variance_known_values():
-    # Pinned against the real Walmaq apply (September 2026, Meta Ads).
-    calc = compute_media_calculation(actual_spend=485.88, planned_budget=2000.0)
-    assert calc.variance_value == pytest.approx(-1514.12)
-    assert calc.attainment_percent == pytest.approx(24.294, abs=1e-6)
+    # Synthetic fixture: a non-integer actual exercises float precision.
+    calc = compute_media_calculation(actual_spend=512.34, planned_budget=2000.0)
+    assert calc.variance_value == pytest.approx(-1487.66)
+    assert calc.attainment_percent == pytest.approx(25.617, abs=1e-6)
 
 
 def test_planned_zero_gives_null_attainment_but_real_variance():

@@ -2,7 +2,7 @@
 the acme-demo chain doesn't exercise on its own — conflicts, opposing
 evidence, and the blocking/non-blocking missing_data distinction —
 using small standalone constructed instances validated against the real
-schema, never Walmaq or any real client shape.
+schema, never the pilot client or any real client shape.
 """
 
 from __future__ import annotations

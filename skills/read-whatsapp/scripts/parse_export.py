@@ -216,18 +216,18 @@ class ParserTests(unittest.TestCase):
 
     def test_leading_format_character_starts_a_new_message(self):
         result = self.parse_text(
-            "[14/09/2026, 10:19:22] Jean Walmaq: Valeu\n"
-            "\u200e[14/09/2026, 11:04:02] Jean Walmaq: Situação das vendas no mes "
-            "<anexado: 00004434-PHOTO-2026-09-14-11-04-02.jpg>"
+            "[02/03/2026, 10:19:22] Contato Exemplo: Valeu\n"
+            "\u200e[02/03/2026, 11:04:02] Contato Exemplo: Segue o resumo sintético "
+            "<anexado: 00000001-PHOTO-2026-03-02-11-04-02.jpg>"
         )
         first, second = result["messages"]
         self.assertEqual(result["message_count"], 2)
         self.assertEqual((first["source_sequence"], second["source_sequence"]), (1, 2))
-        self.assertEqual((second["message_date"], second["local_time_reference"]), ("2026-09-14", "11:04:02"))
-        self.assertEqual(second["participant_raw"], "Jean Walmaq")
+        self.assertEqual((second["message_date"], second["local_time_reference"]), ("2026-03-02", "11:04:02"))
+        self.assertEqual(second["participant_raw"], "Contato Exemplo")
         self.assertEqual(first["body_raw"], "Valeu")
-        self.assertIn("Situação das vendas no mes", second["body_raw"])
-        self.assertEqual(second["attachment_filenames"], ["00004434-PHOTO-2026-09-14-11-04-02.jpg"])
+        self.assertIn("Segue o resumo sintético", second["body_raw"])
+        self.assertEqual(second["attachment_filenames"], ["00000001-PHOTO-2026-03-02-11-04-02.jpg"])
         self.assertEqual(first["attachment_filenames"], [])
 
     def test_range_uses_dates_not_physical_endpoints(self):

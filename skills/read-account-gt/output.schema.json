@@ -466,7 +466,7 @@
       "properties": {
         "statement": { "type": "string", "minLength": 1 },
         "reported_by": { "type": "string", "minLength": 1, "description": "Quem relatou (ex.: Account)." },
-        "attributed_to_client": { "type": "string", "minLength": 1, "description": "A quem, do lado do cliente, o relato e atribuido (ex.: Jean)." },
+        "attributed_to_client": { "type": "string", "minLength": 1, "description": "A quem, do lado do cliente, o relato e atribuido (ex.: Contato Exemplo)." },
         "indirect": {
           "const": true,
           "description": "Sempre true. Este bloco nunca representa fala direta do cliente."
