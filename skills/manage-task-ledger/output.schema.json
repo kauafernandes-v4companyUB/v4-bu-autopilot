@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "skill", "client_id", "generated_at", "mode", "status", "source_files", "operations", "mutation_plan", "preview_hash", "before", "after", "task_summary", "applied_changes", "conflicts", "missing_data", "warnings", "validation"],
   "properties": {
+    "receipt": {"description": "V1: action receipt persisted by a material apply (schemas/action-receipt.schema.json); null/absent in preview and no_change.", "oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/action-receipt.schema.json"}]},
     "schema_version": {"const": "1.0.0"},
     "skill": {"const": "manage-task-ledger"},
     "client_id": {"$ref": "#/$defs/clientId"},

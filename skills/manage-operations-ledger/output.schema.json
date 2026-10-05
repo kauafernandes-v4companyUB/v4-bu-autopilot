@@ -4,10 +4,23 @@
   "type": "object", "additionalProperties": false,
   "required": ["schema_version", "skill", "client_id", "mode", "status", "operations", "warnings", "errors"],
   "properties": {
-    "schema_version": {"const": "1.0.0"}, "skill": {"const": "manage-operations-ledger"},
+    "schema_version": {"enum": ["1.0.0", "1.1.0"], "description": "1.0.0 = legacy output without hash binding; 1.1.0 = V1 hash-bound preview/apply (SKILL.md, operation/action-contract.md)."},
+    "skill": {"const": "manage-operations-ledger"},
     "client_id": {"type": "string"}, "mode": {"enum": ["preview", "apply"]},
     "status": {"enum": ["success", "no_change", "conflict", "error"]},
     "operations": {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/operations-ledger.schema.json"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "changes": {"type": "array", "items": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["add", "transition"]}}}},
+    "applied_summary": {"type": "array", "items": {"type": "string"}},
+    "base_state_files": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "base_state_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "preview_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "approval_id": {"type": ["string", "null"]},
+    "receipt": {"oneOf": [{"type": "null"}, {"$ref": "https://schemas.v4-bu-autopilot.internal/schemas/action-receipt.schema.json"}]},
     "warnings": {"type": "array", "items": {"type": "string"}}, "errors": {"type": "array", "items": {"type": "string"}}
-  }
+  },
+  "allOf": [
+    {"if": {"properties": {"schema_version": {"const": "1.1.0"}}, "required": ["schema_version"]},
+     "then": {"required": ["generated_at", "changes", "base_state_files", "base_state_hash", "preview_hash", "approval_id", "receipt"]}}
+  ]
 }

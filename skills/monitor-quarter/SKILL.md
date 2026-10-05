@@ -9,7 +9,7 @@ description: Safely preview and apply evidence-backed observations to one existi
 
 - **Classe:** ACTION
 - **Canonical Side Effects:** `QUARTER_MONITORING`
-- **Versão:** 1.1.0
+- **Versão:** 1.2.0
 - **Contrato de output:** `skills/monitor-quarter/output.schema.json`
 - **Destino canônico exclusivo:** `clients/<client_id>/quarters/<quarter_id>/monitoring.json`
 
@@ -62,6 +62,8 @@ O preview produz `preview_hash`: SHA-256 de uma serialização JSON canônica (c
 Nunca é implícito. Requer pedido explícito, o `preview_hash` aprovado e o plano aprovado correspondente. Antes de escrever, reler e revalidar plano e monitoring, reconstruir a representação canônica de `before` e compará-la ao snapshot/base hash do preview. Se diferir, ou se o hash não reproduzir o plano aprovado, retornar `status: conflict` com `stale_preview`; não aplicar nada.
 
 Aplicar somente o `after` lógico aprovado; `updated_at` é o único metadado de execução substituído pelo relógio real no momento do apply. Primeiro validar o objeto final inteiro contra `quarter-monitoring.schema.json`; então escrever uma única substituição atômica de `monitoring.json` (arquivo temporário no mesmo diretório, fsync e rename). Em operações múltiplas, qualquer operação inválida, conflito ou falha de validação aborta toda a aplicação: zero mutações canônicas. Apenas um apply material altera `updated_at`, com o relógio real UTC RFC3339 imediatamente antes da validação/escrita. Preview não muda timestamp; no-op apply conserva o arquivo e não finge alteração.
+
+**Receipt (V1).** Todo apply com mutação material persiste `clients/<client_id>/receipts/<receipt_id>.json` (`schemas/action-receipt.schema.json`) na mesma escrita atômica do arquivo canônico — `receipt_id` derivado de `{skill}-{client_id}-{preview_hash[:12]}`, `input_hash` sobre `{preview_hash, base_state_hash}`, um `effect` por arquivo com hash antes/depois e o `approval_id`/identificador da aprovação do `preview_hash` (helpers em `scripts/lib/canonical_action.py`). `no_change` não escreve receipt. O output de apply expõe o mesmo objeto em `receipt`.
 
 ## 5.1 Evidence overlay (somente preview)
 

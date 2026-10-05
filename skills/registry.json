@@ -101,7 +101,7 @@
     {
       "id": "monitor-quarter",
       "category": "ACTION",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "status": "implemented",
       "implemented": true,
       "canonical_side_effects": "QUARTER_MONITORING",
@@ -125,7 +125,7 @@
     {
       "id": "manage-task-ledger",
       "category": "ACTION",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "status": "implemented",
       "implemented": true,
       "canonical_side_effects": "TASK_LEDGER",
@@ -149,7 +149,7 @@
     {
       "id": "close-ropre",
       "category": "ACTION",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "implemented",
       "implemented": true,
       "canonical_side_effects": "ROPRE_CHECK_IN",
@@ -342,7 +342,7 @@
     {
       "id": "manage-operations-ledger",
       "category": "ACTION",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "implemented",
       "implemented": true,
       "canonical_side_effects": "OPERATIONS_LEDGER",

@@ -9,7 +9,7 @@ description: Safely preview and apply the canonical draft-to-ready-to-completed 
 
 - **Class:** ACTION
 - **Canonical Side Effects:** `ROPRE_CHECK_IN`
-- **Version:** 1.0.0
+- **Version:** 1.1.0
 - **Output contract:** `skills/close-ropre/output.schema.json`
 - **Only canonical targets:** `quarters/<quarter_id>/check-ins/current.json` and `history/<check_in_id>.json`
 
@@ -126,6 +126,8 @@ history and every hash dependency, recompute hashes and validate all dependencie
 change is `conflict/stale_preview`, zero writes. Validate every final object
 before atomic replacement. Apply is only `success`, `no_change`, `conflict` or
 `error`; `partial` is preview-only and never authorizes partial application.
+
+**Receipt (V1).** Every apply with a material mutation persists `clients/<client_id>/receipts/<receipt_id>.json` (`schemas/action-receipt.schema.json`) in the same atomic write as the canonical file — `receipt_id` derived from `{skill}-{client_id}-{preview_hash[:12]}`, `input_hash` over `{preview_hash, base_state_hash}`, one `effect` per file with before/after hashes, and the identifier of the approval of that `preview_hash` (helpers in `scripts/lib/canonical_action.py`). `no_change` writes no receipt. The apply output exposes the same object as `receipt`.
 
 ## 6. Output and quality
 

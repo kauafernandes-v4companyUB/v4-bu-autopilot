@@ -231,3 +231,113 @@ def rebuild_operator_inbox(
         elif operation["type"] == "decision_pending":
             inbox["decisions"].append(item)
     return inbox
+
+
+# ---------------------------------------------------------------------------
+# V1 ACTION contract (operation/action-contract.md): hash-bound preview,
+# approval-gated atomic apply, receipt. Pure helpers above stay the rules.
+# ---------------------------------------------------------------------------
+
+V1_ACTION = "manage-operations-ledger"
+V1_ITEM_TYPE = "operations_ledger_change"
+V1_SOURCE_TYPE = "operations_ledger_preview"
+V1_BOUND_FILES = ["operations.json", "tasks.json"]
+
+
+def _v1_run(ledger: dict, changes: list[dict], now: str) -> tuple[dict, list[str], list[str]]:
+    """Apply `changes` in memory. Returns (ledger, applied_descriptions, errors)."""
+    current, applied, errors = json.loads(json.dumps(ledger)), [], []
+    for i, change in enumerate(changes):
+        try:
+            if change.get("kind") == "add":
+                current, result = add_operation(current, change["operation"], now)
+                if result != "no_change":
+                    applied.append(f"add:{change['operation']['operation_id']}")
+            elif change.get("kind") == "transition":
+                ops = [o for o in current.get("operations", []) if o["operation_id"] == change["operation_id"]]
+                if len(ops) != 1:
+                    raise OperationsLedgerError(f"operation {change['operation_id']!r} not found exactly once")
+                if ops[0]["status"] == change["target_status"]:
+                    continue
+                new = transition(ops[0], change["target_status"], now, materialized_task_id=change.get("materialized_task_id"))
+                current = {**current, "updated_at": now,
+                           "operations": [new if o["operation_id"] == new["operation_id"] else o for o in current["operations"]]}
+                applied.append(f"transition:{change['operation_id']}->{change['target_status']}")
+            else:
+                raise OperationsLedgerError(f"change {i}: kind must be 'add' or 'transition'")
+        except (OperationsLedgerError, KeyError) as exc:
+            errors.append(f"change {i}: {exc}")
+    return current, applied, errors
+
+
+def preview_changes(client_dir: Path, *, client_id: str, changes: list[dict], clock=None) -> dict:
+    """Hash-bound preview of explicit operator changes to operations.json."""
+    from scripts.lib import canonical_action as ca
+    from scripts.lib.exec_clock import utc_now_rfc3339
+
+    now = (clock or utc_now_rfc3339)()
+    path = client_dir / "operations.json"
+    ledger = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {
+        "schema_version": "1.0.0", "client_id": client_id, "updated_at": None, "operations": []}
+    after, applied, errors = _v1_run(ledger, changes, now)
+    tasks_path = client_dir / "tasks.json"
+    tasks = json.loads(tasks_path.read_text(encoding="utf-8")) if tasks_path.is_file() else None
+    if not errors:
+        errors += ca.schema_errors(after, "schemas/operations-ledger.schema.json")
+        errors += validate_semantics(after, tasks, client_dir / "receipts")
+    status = "error" if errors else ("no_change" if not applied else "success")
+    preview = {"schema_version": "1.1.0", "skill": V1_ACTION, "client_id": client_id, "mode": "preview", "status": status,
+               "generated_at": now, "changes": changes, "applied_summary": applied, "operations": after if not errors else ledger,
+               "base_state_files": list(V1_BOUND_FILES), "base_state_hash": ca.state_hash(client_dir, V1_BOUND_FILES),
+               "preview_hash": None, "approval_id": None, "receipt": None, "warnings": [], "errors": errors}
+    preview["preview_hash"] = v1_preview_hash(preview)
+    return preview
+
+
+def v1_preview_hash(preview: dict) -> str:
+    from scripts.lib import canonical_action as ca
+    from scripts.lib.artifact_hash import content_sha256
+
+    return content_sha256(ca.semantic({"client_id": preview["client_id"], "base_state_hash": preview["base_state_hash"],
+                                       "changes": preview["changes"], "operations": preview["operations"]}))
+
+
+def v1_approval_item_id(preview: dict) -> str:
+    return f"operations-ledger:{preview['client_id']}"
+
+
+def build_changes_approval_candidate(preview: dict, *, approval_id: str, created_at: str, preview_path: str) -> dict:
+    from scripts.lib import canonical_action as ca
+
+    return ca.build_approval_candidate(preview, item_id=v1_approval_item_id(preview), item_type=V1_ITEM_TYPE,
+                                       source_type=V1_SOURCE_TYPE, approval_id=approval_id, created_at=created_at,
+                                       preview_path=preview_path)
+
+
+def apply_changes(preview: dict | None, approval: dict | None, client_dir: Path, *, clock=None) -> dict:
+    """Gate -> re-run the approved changes on the (unchanged) ledger -> one
+    atomic write of operations.json + receipt. Any failure: zero writes."""
+    from scripts.lib import canonical_action as ca
+    from scripts.lib.exec_clock import utc_now_rfc3339
+
+    if preview is not None and preview.get("mode") == "preview" and preview.get("status") == "no_change":
+        return {**preview, "mode": "apply"}
+    gate = ca.check_gate(preview, approval, client_dir, item_id=v1_approval_item_id(preview) if preview else "",
+                         item_type=V1_ITEM_TYPE, bound_files=V1_BOUND_FILES, recompute_preview_hash=v1_preview_hash)
+    base = {**(preview or {}), "mode": "apply", "receipt": None}
+    if gate:
+        return {**base, "status": "error" if gate[0]["code"] in ("NO_PREVIEW", "NO_APPROVAL", "PREVIEW_NOT_HASH_BOUND") else "conflict",
+                "errors": [f"{g['code']}: {g['message']}" for g in gate]}
+    now = (clock or utc_now_rfc3339)()
+    path = client_dir / "operations.json"
+    before = path.read_bytes() if path.is_file() else None
+    ledger = json.loads(before) if before else {"schema_version": "1.0.0", "client_id": preview["client_id"], "updated_at": None, "operations": []}
+    after, _applied, errors = _v1_run(ledger, preview["changes"], now)
+    if errors:
+        return {**base, "status": "conflict", "errors": errors}
+    data = ca.serialize_json(after)
+    receipt = ca.build_action_receipt(action=V1_ACTION, client_id=preview["client_id"], preview=preview, approval=approval,
+                                      executed_at=now, status="success",
+                                      effects=[ca.effect(f"clients/{preview['client_id']}/operations.json", "update" if before else "create", before, data)])
+    ca.atomic_multi_write(client_dir, {"operations.json": data, f"receipts/{receipt['receipt_id']}.json": ca.serialize_json(receipt)})
+    return {**base, "status": "success", "operations": after, "approval_id": approval["approval_id"], "receipt": receipt, "errors": []}

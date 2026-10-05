@@ -9,7 +9,7 @@ description: Safely preview and atomically apply explicit, evidence-backed chang
 
 - Class: ACTION
 - Canonical Side Effects: TASK_LEDGER
-- Version: 1.1.0
+- Version: 1.2.0
 - Canonical target: clients/<client_id>/tasks.json
 - Output contract: skills/manage-task-ledger/output.schema.json
 
@@ -100,6 +100,8 @@ A material apply replaces only after.updated_at with the real UTC RFC3339 apply
 timestamp; every other after field equals the approved logical plan. Preview may
 use its real timestamp only to form a valid proposal. No-op does not rewrite the
 file and preserves updated_at.
+
+**Receipt (V1).** Every apply with a material mutation persists `clients/<client_id>/receipts/<receipt_id>.json` (`schemas/action-receipt.schema.json`) in the same atomic write as the canonical file — `receipt_id` derived from `{skill}-{client_id}-{preview_hash[:12]}`, `input_hash` over `{preview_hash, base_state_hash}`, one `effect` per file with before/after hashes, and the identifier of the approval of that `preview_hash` (helpers in `scripts/lib/canonical_action.py`). `no_change` writes no receipt. The apply output exposes the same object as `receipt`.
 
 ## 6. Operation rules
 

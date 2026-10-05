@@ -9,7 +9,7 @@ description: Maintains the private canonical ledger of pending operator decision
 
 - Class: ACTION
 - Canonical Side Effects: OPERATIONS_LEDGER
-- Version: 1.0.0
+- Version: 1.1.0
 - Canonical target: clients/<client_id>/operations.json
 - Output contract: skills/manage-operations-ledger/output.schema.json
 
@@ -38,5 +38,13 @@ as `APROVADA / AGUARDANDO CANAL DE EXECUÇÃO`.
 
 Preview is read-only. Apply writes only the selected client's
 `operations.json` atomically after schema, duplicate-ID, task-reference and
-receipt-reference validation. It never invokes a transport, publishes eKyte,
+receipt-reference validation.
+
+Since 1.1.0 (V1 ACTION contract, `operation/action-contract.md`): a preview
+of explicit `add`/`transition` changes carries `base_state_hash` (over
+`operations.json` and `tasks.json`) and `preview_hash`; apply requires an
+approval record (`operations_ledger_change`) bound to that preview, re-runs
+the same changes, returns `STALE_APPROVAL` with zero writes on any drift, and
+persists a receipt in the same atomic write
+(`scripts/lib/operations_ledger.py::preview_changes` / `apply_changes`). It never invokes a transport, publishes eKyte,
 or changes a campaign.
