@@ -10,10 +10,11 @@ from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from typing import Iterable
 
-from scripts.lib.operations_ledger import external_execution_status
+from scripts.lib.operations_ledger import external_execution_status, human_external_state
 
 def utcnow() -> str: return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 def _task_ref(t): return {k: t.get(k) for k in ("task_id", "title", "due_at", "status")}
+def _op_ref(o, state): return {"operation_id": o.get("operation_id"), "statement": o.get("statement"), "status": o.get("status"), "scheduled_for": o.get("scheduled_for"), "derived_state": state}
 def _load(path: Path, default):
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
 
@@ -33,7 +34,7 @@ def resolve_deferred_operations(operations: Iterable[dict], tasks: Iterable[dict
 
 def daily_view(tasks: dict, operations: dict, today: date | None = None, capabilities: dict | None = None) -> dict:
     today = today or date.today(); capabilities = capabilities or {}
-    result = {k: [] for k in ("TODAY", "OVERDUE", "NEXT_7_DAYS", "BLOCKED", "WAITING_DECISION", "DEFERRED", "EXTERNAL_APPROVED", "EXTERNAL_EXECUTION_READY", "EXTERNAL_NOT_EXECUTABLE")}
+    result = {k: [] for k in ("TODAY", "OVERDUE", "NEXT_7_DAYS", "BLOCKED", "WAITING_DECISION", "DEFERRED", "EXTERNAL_APPROVED", "EXTERNAL_EXECUTION_READY", "EXTERNAL_NOT_EXECUTABLE", "OPERATIONS_OVERDUE", "OPERATIONS_SCHEDULED", "EXTERNAL_REVIEW")}
     for task in tasks.get("tasks", []):
         if task.get("status") != "pending": continue
         due = date.fromisoformat(task["due_at"])
@@ -43,6 +44,16 @@ def daily_view(tasks: dict, operations: dict, today: date | None = None, capabil
     projected = resolve_deferred_operations(operations.get("operations", []), tasks.get("tasks", []))
     for op in projected:
         state, typ = op["resolved_state"], op.get("type")
+        # Scheduled operations: overdue is derived from `today` for the view only;
+        # the canonical status stays "scheduled" until an explicit ACTION changes it.
+        if op.get("status") == "scheduled" and op.get("scheduled_for"):
+            when = date.fromisoformat(op["scheduled_for"])
+            if when < today: result["OPERATIONS_OVERDUE"].append(_op_ref(op, "OVERDUE"))
+            else: result["OPERATIONS_SCHEDULED"].append(_op_ref(op, "TODAY" if when == today else "SCHEDULED"))
+        if typ in ("external_approved", "external_rejected") or op.get("external"):
+            ref = _op_ref(op, None); ref["external_state"] = human_external_state(op, capability=capabilities.get(op["operation_id"]))
+            ref["system"] = (op.get("external") or {}).get("system")
+            result["EXTERNAL_REVIEW"].append(ref)
         if state == "READY_FOR_DECISION" or typ == "decision_pending" and op.get("status") in {"pending", "active"}: result["WAITING_DECISION"].append(op)
         elif state == "deferred": result["DEFERRED"].append(op)
         elif typ == "external_approved":
@@ -57,8 +68,9 @@ def operator_brief(client_id: str, client_dir: Path, today: date | None = None) 
     view = daily_view(tasks, ops, today)
     return {"schema_version":"1.0.0", "skill":"operator-brief", "client_id":client_id, "generated_at":utcnow(),
       "summary": {"open_tasks": sum(t.get("status")=="pending" for t in tasks["tasks"]), "open_operations": len([o for o in ops["operations"] if o.get("status") not in {"completed","cancelled","executed","revoked","superseded","materialized"}])},
-      "priorities": view["TODAY"] + view["OVERDUE"], "pendencias": view["NEXT_7_DAYS"], "decisions": view["WAITING_DECISION"], "next_milestones": view["NEXT_7_DAYS"],
-      "risks_flags": [], "approved_not_executed": view["EXTERNAL_APPROVED"], "missing_data": []}
+      "priorities": view["TODAY"] + view["OVERDUE"] + view["OPERATIONS_OVERDUE"], "pendencias": view["NEXT_7_DAYS"], "decisions": view["WAITING_DECISION"], "next_milestones": view["NEXT_7_DAYS"] + view["OPERATIONS_SCHEDULED"],
+      "overdue_operations": view["OPERATIONS_OVERDUE"], "risks_flags": [], "approved_not_executed": view["EXTERNAL_APPROVED"],
+      "external_action_review": view["EXTERNAL_REVIEW"], "missing_data": []}
 
 def prepare_call(client_id: str, client_dir: Path, today: date | None = None) -> dict:
     brief = operator_brief(client_id, client_dir, today)

@@ -7,7 +7,9 @@ before calling it.
 
 | Intent | Workflow | Mutation |
 | --- | --- | --- |
-| daily brief / pending decisions / overdue | `operator-brief` | no |
+| daily brief / pending decisions / overdue (tasks and scheduled operations) | `operator-brief` | no |
+| external action review | `operator-brief` (`external_action_review`) | no |
+| create / close Quarter | `create-quarter` / `close-quarter` (`manage-quarter`) | preview; apply only with approval |
 | prepare call | `prepare-client-call` | no |
 | process call | `process-client-call` | preview only |
 | source intake | `source-intake` | no |

@@ -166,7 +166,17 @@ def check_workflow_registry(registry: Registry) -> tuple[str, list[str]]:
             if unimplemented:
                 problems.append(f"workflow {wf['workflow_id']!r} is status=implemented but references non-implemented skill(s): {unimplemented}")
 
+    problems.extend(operator_route_problems(ids_seen, implemented_skill_ids))
     return ("FAIL" if problems else "PASS"), problems
+
+
+def operator_route_problems(workflow_ids: set[str], implemented_skill_ids: set[str]) -> list[str]:
+    """Every operator_router destination must be a registered workflow or an
+    implemented skill — no dangling route (operation/operator-commands.md)."""
+    from scripts.lib.operator_router import _ROUTES
+
+    return [f"operator route {intent!r} points to unregistered destination {target!r}"
+            for intent, target, *_ in _ROUTES if target not in workflow_ids and target not in implemented_skill_ids]
 
 
 def check_approval_schema(registry: Registry) -> tuple[str, list[str]]:

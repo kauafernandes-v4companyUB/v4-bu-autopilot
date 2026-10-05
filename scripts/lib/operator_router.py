@@ -20,7 +20,11 @@ _ROUTES = (
     ("show_pending_decisions", "operator-brief", (r"decisões.*esperando", r"decisoes.*esperando"), False, False),
     ("show_overdue", "operator-brief", (r"atrasad", r"overdue"), False, False),
     ("source_intake", "source-intake", (r"processe as novas fontes", r"novas fontes"), False, False),
-    ("external_action_review", "external-action-review", (r"ação externa", r"acao externa", r"ekyte"), False, True),
+    # Read-only review of approved/blocked external actions (operator-brief
+    # "external_action_review"); never executes Meta/eKyte/Sheets.
+    ("external_action_review", "operator-brief", (r"ação externa", r"acao externa", r"ações externas", r"acoes externas", r"ekyte"), False, False),
+    ("create_quarter", "create-quarter", (r"(crie|abra) o quarter",), True, True),
+    ("close_quarter", "close-quarter", (r"(feche|encerre) o quarter",), True, True),
 )
 
 _CONTEXT = {

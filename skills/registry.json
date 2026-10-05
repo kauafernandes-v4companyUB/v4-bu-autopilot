@@ -315,7 +315,7 @@
       "dependencies": ["manage-task-ledger", "read-quarter"]
     },
     {
-      "id": "operator-brief", "category": "INTELLIGENCE", "version": "1.0.0", "status": "implemented", "implemented": true,
+      "id": "operator-brief", "category": "INTELLIGENCE", "version": "1.1.0", "status": "implemented", "implemented": true,
       "canonical_side_effects": "NONE", "skill_path": "skills/operator-brief/SKILL.md", "output_schema_path": "skills/operator-brief/output.schema.json",
       "summary": "Read-only daily briefing reconstructed from canonical operational state.", "dependencies": ["manage-task-ledger", "manage-operations-ledger", "read-quarter"]
     },

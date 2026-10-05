@@ -5,7 +5,7 @@
   "type": "object", "additionalProperties": false,
   "required": ["intent", "client_id", "required_context", "workflow", "mutation_allowed", "approval_required"],
   "properties": {
-    "intent": {"enum": ["daily_brief", "pre_call", "post_call", "what_changed", "midweek", "week_close", "prepare_ropre", "replan", "show_pending_decisions", "show_overdue", "source_intake", "external_action_review"]},
+    "intent": {"enum": ["daily_brief", "pre_call", "post_call", "what_changed", "midweek", "week_close", "prepare_ropre", "replan", "show_pending_decisions", "show_overdue", "source_intake", "external_action_review", "create_quarter", "close_quarter"]},
     "client_id": {"type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "required_context": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
     "workflow": {"type": "string", "minLength": 1},
