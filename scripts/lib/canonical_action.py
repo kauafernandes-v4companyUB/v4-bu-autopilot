@@ -110,8 +110,13 @@ def schema_errors(instance, schema: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def base_hash_of(preview: dict) -> Optional[str]:
+    """Contracts place base_state_hash at the top level or inside mutation_plan."""
+    return preview.get("base_state_hash") or (preview.get("mutation_plan") or {}).get("base_state_hash")
+
+
 def approval_payload(preview: dict) -> dict:
-    return {"client_id": preview["client_id"], "base_state_hash": preview["base_state_hash"],
+    return {"client_id": preview["client_id"], "base_state_hash": base_hash_of(preview),
             "preview_hash": preview["preview_hash"]}
 
 
@@ -132,11 +137,14 @@ def build_approval_candidate(preview: dict, *, item_id: str, item_type: str, sou
 
 def check_gate(preview: Optional[dict], approval: Optional[dict], client_dir: Path, *,
                item_id: str, item_type: str, bound_files: list[str],
-               recompute_preview_hash: Callable[[dict], str]) -> list[dict]:
+               recompute_preview_hash: Callable[[dict], str],
+               recompute_base_hash: Optional[Callable[[], str]] = None) -> list[dict]:
+    """`recompute_base_hash` lets a contract that defines its own base state
+    (e.g. monitor-quarter's {plan, monitoring}) re-derive it from disk."""
     """Any notice returned means the apply must perform zero writes."""
     if preview is None or preview.get("mode") != "preview":
         return [notice("NO_PREVIEW", "apply requires the approved preview output (mode=preview)")]
-    if not preview.get("preview_hash") or not preview.get("base_state_hash"):
+    if not preview.get("preview_hash") or not base_hash_of(preview):
         return [notice("PREVIEW_NOT_HASH_BOUND", "preview has no preview_hash/base_state_hash (legacy output); re-run preview")]
     if preview.get("status") != "success":
         return [notice("NO_PREVIEW", f"preview status is {preview.get('status')!r}; only a success preview is applicable")]
@@ -153,7 +161,8 @@ def check_gate(preview: Optional[dict], approval: Optional[dict], client_dir: Pa
     bad = [c for c in ap.validate_approval(approval, preview, {item_id: approval_payload(preview)}) if not c.ok]
     if bad:
         return [notice("STALE_APPROVAL", bad[0].reason)]
-    if state_hash(client_dir, bound_files) != preview["base_state_hash"]:
+    current = recompute_base_hash() if recompute_base_hash else state_hash(client_dir, bound_files)
+    if current != base_hash_of(preview):
         return [notice("STALE_APPROVAL", "canonical state changed since the preview (base_state_hash mismatch); re-run preview and re-approve")]
     return []
 
@@ -207,7 +216,7 @@ def build_action_receipt(*, action: str, client_id: str, preview: dict, approval
     return build_receipt(
         receipt_id=f"{action}-{client_id}-{preview['preview_hash'][:12]}", action=action, client_id=client_id,
         executed_at=executed_at, input_payload={"preview_hash": preview["preview_hash"],
-                                                "base_state_hash": preview["base_state_hash"]},
+                                                "base_state_hash": base_hash_of(preview)},
         approval_id=(approval or {}).get("approval_id"), status=status, effects=effects,
     )
 
