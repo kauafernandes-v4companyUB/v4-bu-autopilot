@@ -108,7 +108,9 @@
       "skill_path": "skills/monitor-quarter/SKILL.md",
       "output_schema_path": "skills/monitor-quarter/output.schema.json",
       "summary": "Previews/applies evidence-backed observations to an existing Quarter's monitoring.json. v1.1.0 adds a preview-only evidence_overlay to evaluate operations against evidence proposed by an upstream ACTION preview not yet in the canonical ledger; apply always requires canonical evidence.",
-      "dependencies": ["promote-client-memory"]
+      "dependencies": [
+        "promote-client-memory"
+      ]
     },
     {
       "id": "manage-quarter",
@@ -120,7 +122,10 @@
       "skill_path": "skills/manage-quarter/SKILL.md",
       "output_schema_path": "skills/manage-quarter/output.schema.json",
       "summary": "Quarter lifecycle ACTION: create_quarter (writes an active plan.json from an explicit plan input; never converts seasonal drafts, never creates check-ins/tasks; blocks while another Quarter is active) and close_quarter (requires an ended period and a completed ROPRE, flips the plan to closed, writes closure.json listing carry_over_candidates without completing tasks, resolving operations or creating the next Quarter). Hash-bound preview, approval-gated atomic apply, receipt (scripts/lib/quarter_lifecycle.py).",
-      "dependencies": ["read-quarter", "close-ropre"]
+      "dependencies": [
+        "read-quarter",
+        "close-ropre"
+      ]
     },
     {
       "id": "manage-source-manifest",
@@ -132,7 +137,9 @@
       "skill_path": "skills/manage-source-manifest/SKILL.md",
       "output_schema_path": "skills/manage-source-manifest/output.schema.json",
       "summary": "Persists source-intake discovery (NEW_SOURCE / NO_CHANGE / NEW_REVISION / MISSING) of private raw files into clients/<client_id>/source-manifest.json with stable source_id and revisions, and records processing pointers; hash-bound preview, approval-gated atomic apply, receipt (scripts/lib/source_manifest.py).",
-      "dependencies": ["source-intake"]
+      "dependencies": [
+        "source-intake"
+      ]
     },
     {
       "id": "manage-task-ledger",
@@ -156,7 +163,9 @@
       "skill_path": "skills/prepare-ropre/SKILL.md",
       "output_schema_path": "skills/prepare-ropre/output.schema.json",
       "summary": "Assembles a read-only, evidence-traceable weekly ROPRE draft for a resolved Quarter.",
-      "dependencies": ["read-quarter"]
+      "dependencies": [
+        "read-quarter"
+      ]
     },
     {
       "id": "close-ropre",
@@ -168,7 +177,9 @@
       "skill_path": "skills/close-ropre/SKILL.md",
       "output_schema_path": "skills/close-ropre/output.schema.json",
       "summary": "Previews/applies the draft->ready->completed lifecycle for one approved ROPRE check-in.",
-      "dependencies": ["prepare-ropre"]
+      "dependencies": [
+        "prepare-ropre"
+      ]
     },
     {
       "id": "build-context-pack",
@@ -180,7 +191,14 @@
       "skill_path": "skills/build-context-pack/SKILL.md",
       "output_schema_path": "skills/build-context-pack/output.schema.json",
       "summary": "Consolidates already-normalized SOURCE/canonical outputs for one client into a Context Pack (schemas/context-pack.schema.json). Read-only, never diagnoses.",
-      "dependencies": ["read-client-context", "read-quarter", "read-bi", "read-whatsapp", "read-account-gt", "manage-task-ledger"]
+      "dependencies": [
+        "read-client-context",
+        "read-quarter",
+        "read-bi",
+        "read-whatsapp",
+        "read-account-gt",
+        "manage-task-ledger"
+      ]
     },
     {
       "id": "diagnose-client",
@@ -192,7 +210,9 @@
       "skill_path": "skills/diagnose-client/SKILL.md",
       "output_schema_path": "skills/diagnose-client/output.schema.json",
       "summary": "Diagnoses a client from a Context Pack, distinguishing OBSERVED_ISSUE / OBSERVATION / HYPOTHESIS / MISSING_DATA / RISK explicitly. No numeric health score.",
-      "dependencies": ["build-context-pack"]
+      "dependencies": [
+        "build-context-pack"
+      ]
     },
     {
       "id": "calculate-gap",
@@ -204,7 +224,9 @@
       "skill_path": "skills/calculate-gap/SKILL.md",
       "output_schema_path": "skills/calculate-gap/output.schema.json",
       "summary": "Calculates the gap between current results and SMART target/plan only when mathematically possible — calculable=false never invents current=0.",
-      "dependencies": ["diagnose-client"]
+      "dependencies": [
+        "diagnose-client"
+      ]
     },
     {
       "id": "identify-priorities",
@@ -216,7 +238,9 @@
       "skill_path": "skills/identify-priorities/SKILL.md",
       "output_schema_path": "skills/identify-priorities/output.schema.json",
       "summary": "Ranks operational priorities from diagnosis + gaps using explicit rationale dimensions — no arbitrary numeric score.",
-      "dependencies": ["calculate-gap"]
+      "dependencies": [
+        "calculate-gap"
+      ]
     },
     {
       "id": "replan-client",
@@ -228,7 +252,9 @@
       "skill_path": "skills/replan-client/SKILL.md",
       "output_schema_path": "skills/replan-client/output.schema.json",
       "summary": "Produces a replanning proposal (workstreams + action proposals) from priorities. Never mutates Quarter plan.json.",
-      "dependencies": ["identify-priorities"]
+      "dependencies": [
+        "identify-priorities"
+      ]
     },
     {
       "id": "plan-seasonal-calendar",
@@ -264,7 +290,9 @@
       "skill_path": "skills/audit-plan/SKILL.md",
       "output_schema_path": "skills/audit-plan/output.schema.json",
       "summary": "Audits a replanning proposal before task generation (unsupported claims, invented deadlines, semantic elevation, etc.). audit_status: fail blocks generate-tasks.",
-      "dependencies": ["replan-client"]
+      "dependencies": [
+        "replan-client"
+      ]
     },
     {
       "id": "generate-tasks",
@@ -276,7 +304,10 @@
       "skill_path": "skills/generate-tasks/SKILL.md",
       "output_schema_path": "skills/generate-tasks/output.schema.json",
       "summary": "Converts audit-passed replanning actions into task proposals compatible with manage-task-ledger's create_task. Preview only in this MVP — never writes tasks.json itself, never calls manage-task-ledger apply. v1.1.0: task_id is always derived deterministically via scripts/lib/task_identity.py (client_id+quarter_id+action_id), preventing duplicate tasks across repeated replanning runs.",
-      "dependencies": ["audit-plan", "manage-task-ledger"]
+      "dependencies": [
+        "audit-plan",
+        "manage-task-ledger"
+      ]
     },
     {
       "id": "publish-ekyte",
@@ -288,7 +319,10 @@
       "skill_path": "skills/publish-ekyte/SKILL.md",
       "output_schema_path": "skills/publish-ekyte/output.schema.json",
       "summary": "Maps an approved, canonical task to an eKyte-shaped payload and previews/applies publication. Honest capability status: IMPLEMENTED_DRY_RUN — contract, payload mapping, approval gating and idempotency are real and tested (scripts/lib/ekyte_transport.py FakeEkyteTransport); no real eKyte API/connector is documented or available (see docs/workflows/ekyte-publication.md), so real-world apply currently only produces a manual_export packet, never a programmatic publish.",
-      "dependencies": ["generate-tasks", "manage-task-ledger"]
+      "dependencies": [
+        "generate-tasks",
+        "manage-task-ledger"
+      ]
     },
     {
       "id": "reconcile-ekyte",
@@ -300,7 +334,9 @@
       "skill_path": "skills/reconcile-ekyte/SKILL.md",
       "output_schema_path": "skills/reconcile-ekyte/output.schema.json",
       "summary": "Compares the local task ledger's external bindings against eKyte (via whatever transport is configured) and reports MATCHED/LOCAL_ONLY/STATUS_MISMATCH/DUE_DATE_MISMATCH/UNKNOWN. REMOTE_ONLY is a known, documented limitation of the minimal transport interface (no list_tasks). Never auto-corrects.",
-      "dependencies": ["manage-task-ledger"]
+      "dependencies": [
+        "manage-task-ledger"
+      ]
     },
     {
       "id": "midweek",
@@ -312,7 +348,10 @@
       "skill_path": "skills/midweek/SKILL.md",
       "output_schema_path": "skills/midweek/output.schema.json",
       "summary": "Mid-week operational snapshot: planned/completed/pending/overdue/blocked, changed evidence/results, risks, actions needing decision. Never invents execution.",
-      "dependencies": ["manage-task-ledger", "read-quarter"]
+      "dependencies": [
+        "manage-task-ledger",
+        "read-quarter"
+      ]
     },
     {
       "id": "week-close",
@@ -324,32 +363,87 @@
       "skill_path": "skills/week-close/SKILL.md",
       "output_schema_path": "skills/week-close/output.schema.json",
       "summary": "End-of-week operational snapshot: promised vs. executed, blockers, BI movement, SMART evidence, open flags, carry-forward candidates, ROPRE-prep inputs. Never creates carry-over automatically.",
-      "dependencies": ["manage-task-ledger", "read-quarter"]
+      "dependencies": [
+        "manage-task-ledger",
+        "read-quarter"
+      ]
     },
     {
-      "id": "operator-brief", "category": "INTELLIGENCE", "version": "1.1.0", "status": "implemented", "implemented": true,
-      "canonical_side_effects": "NONE", "skill_path": "skills/operator-brief/SKILL.md", "output_schema_path": "skills/operator-brief/output.schema.json",
-      "summary": "Read-only daily briefing reconstructed from canonical operational state.", "dependencies": ["manage-task-ledger", "manage-operations-ledger", "read-quarter"]
+      "id": "operator-brief",
+      "category": "INTELLIGENCE",
+      "version": "1.1.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/operator-brief/SKILL.md",
+      "output_schema_path": "skills/operator-brief/output.schema.json",
+      "summary": "Read-only daily briefing reconstructed from canonical operational state.",
+      "dependencies": [
+        "manage-task-ledger",
+        "manage-operations-ledger",
+        "read-quarter"
+      ]
     },
     {
-      "id": "prepare-client-call", "category": "INTELLIGENCE", "version": "1.0.0", "status": "implemented", "implemented": true,
-      "canonical_side_effects": "NONE", "skill_path": "skills/prepare-client-call/SKILL.md", "output_schema_path": "skills/prepare-client-call/output.schema.json",
-      "summary": "Read-only call preparation from the selected client's canonical records.", "dependencies": ["operator-brief"]
+      "id": "prepare-client-call",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/prepare-client-call/SKILL.md",
+      "output_schema_path": "skills/prepare-client-call/output.schema.json",
+      "summary": "Read-only call preparation from the selected client's canonical records.",
+      "dependencies": [
+        "operator-brief"
+      ]
     },
     {
-      "id": "process-client-call", "category": "SOURCE", "version": "1.0.0", "status": "implemented", "implemented": true,
-      "canonical_side_effects": "NONE", "skill_path": "skills/process-client-call/SKILL.md", "output_schema_path": "skills/process-client-call/output.schema.json",
-      "summary": "Preview-only post-call normalization and canonical diff; never applies.", "dependencies": ["promote-client-memory", "manage-task-ledger", "manage-operations-ledger"]
+      "id": "process-client-call",
+      "category": "SOURCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/process-client-call/SKILL.md",
+      "output_schema_path": "skills/process-client-call/output.schema.json",
+      "summary": "Preview-only post-call normalization and canonical diff; never applies.",
+      "dependencies": [
+        "promote-client-memory",
+        "manage-task-ledger",
+        "manage-operations-ledger"
+      ]
     },
     {
-      "id": "source-intake", "category": "SOURCE", "version": "1.0.0", "status": "implemented", "implemented": true,
-      "canonical_side_effects": "NONE", "skill_path": "skills/source-intake/SKILL.md", "output_schema_path": "skills/source-intake/output.schema.json",
-      "summary": "Preview-only idempotent discovery of private source revisions.", "dependencies": ["read-whatsapp", "read-account-gt", "read-client-context", "read-bi"]
+      "id": "source-intake",
+      "category": "SOURCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/source-intake/SKILL.md",
+      "output_schema_path": "skills/source-intake/output.schema.json",
+      "summary": "Preview-only idempotent discovery of private source revisions.",
+      "dependencies": [
+        "read-whatsapp",
+        "read-account-gt",
+        "read-client-context",
+        "read-bi"
+      ]
     },
     {
-      "id": "what-changed", "category": "INTELLIGENCE", "version": "1.0.0", "status": "implemented", "implemented": true,
-      "canonical_side_effects": "NONE", "skill_path": "skills/what-changed/SKILL.md", "output_schema_path": "skills/what-changed/output.schema.json",
-      "summary": "Read-only semantic change comparison which ignores generated timestamps.", "dependencies": ["operator-brief"]
+      "id": "what-changed",
+      "category": "INTELLIGENCE",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "NONE",
+      "skill_path": "skills/what-changed/SKILL.md",
+      "output_schema_path": "skills/what-changed/output.schema.json",
+      "summary": "Read-only semantic change comparison which ignores generated timestamps.",
+      "dependencies": [
+        "operator-brief"
+      ]
     },
     {
       "id": "manage-operations-ledger",
@@ -361,7 +455,9 @@
       "skill_path": "skills/manage-operations-ledger/SKILL.md",
       "output_schema_path": "skills/manage-operations-ledger/output.schema.json",
       "summary": "Persists operator decisions that remain pending between proposal and later task materialization or separately authorized external execution. It never replaces tasks.json or executes a transport.",
-      "dependencies": ["manage-task-ledger"]
+      "dependencies": [
+        "manage-task-ledger"
+      ]
     },
     {
       "id": "metrics-sheet",
@@ -373,7 +469,10 @@
       "skill_path": "skills/metrics-sheet/SKILL.md",
       "output_schema_path": "skills/metrics-sheet/output.schema.json",
       "summary": "Projects canonical Quarter metrics (planned/actual media, variance, objective progress, evidence values) onto explicitly mapped cells of a client's metrics sheet; prepares an update-google-sheet patch, never writes and never reads the sheet back into canonical memory.",
-      "dependencies": ["read-google-sheet", "update-google-sheet"]
+      "dependencies": [
+        "read-google-sheet",
+        "update-google-sheet"
+      ]
     },
     {
       "id": "operational-playbook",
@@ -385,7 +484,10 @@
       "skill_path": "skills/operational-playbook/SKILL.md",
       "output_schema_path": "skills/operational-playbook/output.schema.json",
       "summary": "Projects approved actions onto a playbook tab: classifies CONFIRMED_ACTION / RECOMMENDATION / CLIENT_CONFIRMATION_REQUIRED / DEPENDENCY / DECISION_REQUIRED, never invents dates, duplicates the template tab once under a stable title and patches content; prepares update-google-sheet patches only.",
-      "dependencies": ["read-google-sheet", "update-google-sheet"]
+      "dependencies": [
+        "read-google-sheet",
+        "update-google-sheet"
+      ]
     },
     {
       "id": "creative-performance-export",
@@ -397,19 +499,39 @@
       "skill_path": "skills/creative-performance-export/SKILL.md",
       "output_schema_path": "skills/creative-performance-export/output.schema.json",
       "summary": "Exports one document-winning-creative report as a normalized row (stable key client:creative_id, INSERT / UPDATE_EXISTING / NO_CHANGE, missing values NOT_AVAILABLE) of a client's creative sheet; prepares an update-google-sheet patch only.",
-      "dependencies": ["read-google-sheet", "update-google-sheet"]
+      "dependencies": [
+        "read-google-sheet",
+        "update-google-sheet"
+      ]
     },
     {
       "id": "update-google-sheet",
       "category": "ACTION",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "implemented",
       "implemented": true,
       "canonical_side_effects": "EXTERNAL",
       "skill_path": "skills/update-google-sheet/SKILL.md",
       "output_schema_path": "skills/update-google-sheet/output.schema.json",
-      "summary": "Previews/applies a previously prepared cell-content patch (schemas/google-sheet-patch.schema.json) to one client's declared, writable Google Sheet. Preview never writes; apply requires explicit hash-locked approval, re-reads and aborts on drift, writes content only (values.batchUpdate), never overwrites a formula without replace_existing_formula, then verifies targets, formulas outside the patch and formatting. Replays are no_change. Never decides content.",
-      "dependencies": ["read-google-sheet"]
+      "summary": "Previews/applies a previously prepared cell-content patch (schemas/google-sheet-patch.schema.json) to one client's declared, writable Google Sheet. Preview never writes; apply requires explicit hash-locked approval, re-reads and aborts on drift, writes content only (values.batchUpdate) plus the structural duplicate_sheet/add_sheet, never overwrites a formula without replace_existing_formula, then verifies targets, formulas outside the patch and formatting. Replays are no_change. Multi-client sheets are writable only as BU-registry destinations limited to their allowed_client_ids. Never decides content.",
+      "dependencies": [
+        "read-google-sheet"
+      ]
+    },
+    {
+      "id": "export-creative-performance-to-google-sheet",
+      "category": "ACTION",
+      "version": "1.0.0",
+      "status": "implemented",
+      "implemented": true,
+      "canonical_side_effects": "EXTERNAL",
+      "skill_path": "skills/export-creative-performance-to-google-sheet/SKILL.md",
+      "output_schema_path": "skills/export-creative-performance-to-google-sheet/output.schema.json",
+      "summary": "Exports explicitly scoped final creative-performance.json reports (JSON only) to five managed tabs of one BU-registry Google Sheet: idempotent upsert keyed by client_id+creative_id(+item id) — INSERT / UPDATE (report_sha256 changed) / NO_CHANGE, never deleting rows; absent metrics stay empty, provided vs derived kept, original result type kept, hypotheses stay hypotheses. Emits patches (add_sheet structure phase, then content) applied only through update-google-sheet preview -> explicit approval -> apply -> re-read verification.",
+      "dependencies": [
+        "document-winning-creative",
+        "update-google-sheet"
+      ]
     }
   ]
 }

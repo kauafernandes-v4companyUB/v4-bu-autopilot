@@ -23,13 +23,17 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from scripts.lib.google_sheets_transport import (
+    LIBRARY_NUM_RETRIES,
     GoogleSheetsAPIError,
     GoogleSheetsAuthError,
     GoogleInsufficientScope,
     GoogleSheetsDependencyMissing,
     GoogleSheetsNotFound,
     GoogleSheetsPermissionDenied,
+    ReadRetryPolicy,
+    RetryEvent,
     map_google_error,
+    run_read_with_retry,
 )
 
 MIME_GOOGLE_SHEET = "application/vnd.google-apps.spreadsheet"
@@ -106,9 +110,15 @@ def _q_literal(value: str) -> str:
 
 
 class GoogleApiDriveTransport(GoogleDriveTransport):
-    """Drive API v3. `service` injectable for offline request-shape tests."""
+    """Drive API v3. `service` injectable for offline request-shape tests.
 
-    def __init__(self, service: Any = None, credentials: Any = None, num_retries: int = 2):
+    Same retry rule as the Sheets transport: files.create / files.copy are
+    sent exactly once (a failed response may hide a created file — a blind
+    retry could duplicate it); reads (files.get, files.list, media download)
+    retry quota errors via ReadRetryPolicy only. googleapiclient's own
+    num_retries is LIBRARY_NUM_RETRIES (0) on every call."""
+
+    def __init__(self, service: Any = None, credentials: Any = None, read_retry: Optional[ReadRetryPolicy] = None):
         if service is None:
             if credentials is None:
                 raise GoogleSheetsAuthError("no credentials supplied — use scripts/lib/google_sheets_auth.py build_real_drive_transport()")
@@ -118,19 +128,33 @@ class GoogleApiDriveTransport(GoogleDriveTransport):
                 raise GoogleSheetsDependencyMissing("google-api-python-client is not installed: pip install -r requirements-google.txt") from e
             service = build("drive", "v3", credentials=credentials, cache_discovery=False)
         self._service = service
-        self._num_retries = num_retries
+        self._read_retry = read_retry or ReadRetryPolicy()
+        self.retry_events: list[RetryEvent] = []
+
+    @staticmethod
+    def _mapped(e: Exception) -> Exception:
+        mapped = map_google_error(e)
+        return DriveFileNotFound(str(mapped)) if type(mapped) is GoogleSheetsNotFound else mapped
 
     def _execute(self, request: Any) -> Any:
+        """WRITES (files.create / files.copy): exactly one attempt."""
         try:
-            return request.execute(num_retries=self._num_retries)
+            return request.execute(num_retries=LIBRARY_NUM_RETRIES)
         except Exception as e:  # noqa: BLE001 - every failure is mapped, none swallowed
-            mapped = map_google_error(e)
-            if type(mapped) is GoogleSheetsNotFound:
-                mapped = DriveFileNotFound(str(mapped))
-            raise mapped from e
+            raise self._mapped(e) from e
+
+    def _read(self, call: Any, operation: str) -> Any:
+        """Idempotent READS: quota errors are retried per ReadRetryPolicy."""
+        try:
+            return run_read_with_retry(call, policy=self._read_retry, operation=operation, events=self.retry_events)
+        except Exception as e:  # noqa: BLE001 - every failure is mapped, none swallowed
+            raise self._mapped(e) from e
+
+    def _execute_read(self, request: Any, operation: str) -> Any:
+        return self._read(lambda: request.execute(num_retries=LIBRARY_NUM_RETRIES), operation)
 
     def get_file_metadata(self, file_id: str) -> dict:
-        return normalize_file(self._execute(self._service.files().get(fileId=file_id, fields=_FILE_FIELDS, supportsAllDrives=True)))
+        return normalize_file(self._execute_read(self._service.files().get(fileId=file_id, fields=_FILE_FIELDS, supportsAllDrives=True), "files.get"))
 
     def download_file(self, file_id: str) -> bytes:
         try:
@@ -139,13 +163,10 @@ class GoogleApiDriveTransport(GoogleDriveTransport):
             raise GoogleSheetsDependencyMissing("google-api-python-client is not installed: pip install -r requirements-google.txt") from e
         buf = io.BytesIO()
         downloader = MediaIoBaseDownload(buf, self._service.files().get_media(fileId=file_id, supportsAllDrives=True))
-        try:
-            done = False
-            while not done:
-                _, done = downloader.next_chunk(num_retries=self._num_retries)
-        except Exception as e:  # noqa: BLE001
-            mapped = map_google_error(e)
-            raise (DriveFileNotFound(str(mapped)) if type(mapped) is GoogleSheetsNotFound else mapped) from e
+        done = False
+        while not done:
+            # a failed chunk does not advance the download: re-requesting it is idempotent
+            _, done = self._read(lambda: downloader.next_chunk(num_retries=LIBRARY_NUM_RETRIES), "files.get_media")
         return buf.getvalue()
 
     def import_as_google_sheet(self, content: bytes, *, name: str, parent_id: Optional[str], app_properties: dict) -> dict:
@@ -171,10 +192,10 @@ class GoogleApiDriveTransport(GoogleDriveTransport):
             f"appProperties has {{ key='{APP_PROP_OPERATION}' and value={_q_literal(operation)} }} and "
             f"name = {_q_literal(name)} and trashed = false"
         )
-        resp = self._execute(self._service.files().list(
+        resp = self._execute_read(self._service.files().list(
             q=q, spaces="drive", fields=f"files({_FILE_FIELDS})", pageSize=10,
             supportsAllDrives=True, includeItemsFromAllDrives=True,
-        ))
+        ), "files.list")
         return [normalize_file(f) for f in resp.get("files", [])]
 
 

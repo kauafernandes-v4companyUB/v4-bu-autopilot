@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.v4-bu-autopilot.internal/skills/update-google-sheet/output.schema.json",
   "title": "Update Google Sheet Output",
-  "description": "EXTERNAL ACTION. Previews/applies a structured patch (schemas/google-sheet-patch.schema.json) to one client's declared spreadsheet. preview never writes. apply requires an explicit operator approval hash-locked to the preview, re-reads live state, aborts on drift, writes content (values.batchUpdate), clears values (values.batchClear, preserving format) duplicates a tab only via duplicate_sheet (native duplicateSheet), and — only for set_number_format — the number format (repeatCell restricted to userEnteredFormat.numberFormat), then re-reads and verifies targets, formulas outside the patch and structure/formatting.",
+  "description": "EXTERNAL ACTION. Previews/applies a structured patch (schemas/google-sheet-patch.schema.json) to one client's declared spreadsheet. preview never writes. apply requires an explicit operator approval hash-locked to the preview, re-reads live state, aborts on drift, writes content (values.batchUpdate), clears values (values.batchClear, preserving format) duplicates a tab only via duplicate_sheet (native duplicateSheet), creates new empty tabs only via add_sheet (native addSheet), and — only for set_number_format — the number format (repeatCell restricted to userEnteredFormat.numberFormat), then re-reads and verifies targets, formulas outside the patch and structure/formatting.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -204,7 +204,8 @@
                       "values.batchUpdate",
                       "values.batchClear",
                       "spreadsheets.batchUpdate:repeatCell(userEnteredFormat.numberFormat)",
-                      "spreadsheets.batchUpdate:duplicateSheet"
+                      "spreadsheets.batchUpdate:duplicateSheet",
+                      "spreadsheets.batchUpdate:addSheet"
                     ]
                   }
                 }
@@ -320,7 +321,8 @@
                       "values.batchUpdate",
                       "values.batchClear",
                       "spreadsheets.batchUpdate:repeatCell(userEnteredFormat.numberFormat)",
-                      "spreadsheets.batchUpdate:duplicateSheet"
+                      "spreadsheets.batchUpdate:duplicateSheet",
+                      "spreadsheets.batchUpdate:addSheet"
                     ]
                   }
                 }
@@ -355,6 +357,39 @@
                         "integer",
                         "null"
                       ]
+                    }
+                  }
+                }
+              ]
+            },
+            "created_sheets": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sheet_id": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      },
+                      "title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "index": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      }
                     }
                   }
                 }
@@ -408,9 +443,20 @@
                 "type": "object"
               }
             },
+            "auto_linked_cells": {
+              "type": "array",
+              "description": "Target cells whose only format change is the link Google Sheets adds on its own to a RAW string that is a URL (userEnteredFormat.textFormat.link.uri equal to the written text); reported, not counted as a structure difference.",
+              "items": {
+                "type": "string"
+              }
+            },
             "duplicate_sheet": {
               "type": "object",
               "description": "duplicate_sheet only: created tab, content equality with the source snapshot, source and other tabs unchanged."
+            },
+            "add_sheet": {
+              "type": "object",
+              "description": "add_sheet only: created tabs, every requested tab present, empty and with the requested grid, pre-existing tabs intact."
             }
           }
         }
@@ -452,7 +498,14 @@
     },
     "sheet_plan": {
       "type": "object",
-      "description": "duplicate_sheet only: source summary (ids, grid, merges, validations, formulas, links, notes, sizes, content hash), destination (exists?, insert_index) and expected effect."
+      "description": "duplicate_sheet: source summary (ids, grid, merges, validations, formulas, links, notes, sizes, content hash), destination (exists?, insert_index) and expected effect. add_sheet: tabs to add (grid, frozen rows, index, exists?), existing tabs and expected effect."
+    },
+    "data_client_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "BU-registry destinations only: the clients whose data the patch writes (hash-locked in preview_hash)."
     }
   },
   "$defs": {
@@ -536,7 +589,8 @@
             "write_formula",
             "clear_value",
             "set_number_format",
-            "duplicate_sheet"
+            "duplicate_sheet",
+            "add_sheet"
           ]
         },
         "range": {
@@ -589,6 +643,37 @@
             },
             "new_sheet_title": {
               "type": "string"
+            },
+            "insert_index": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        "add_sheet": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "new_sheet_title",
+            "row_count",
+            "column_count",
+            "frozen_row_count",
+            "insert_index"
+          ],
+          "properties": {
+            "new_sheet_title": {
+              "type": "string"
+            },
+            "row_count": {
+              "type": "integer"
+            },
+            "column_count": {
+              "type": "integer"
+            },
+            "frozen_row_count": {
+              "type": "integer"
             },
             "insert_index": {
               "type": [

@@ -47,7 +47,7 @@ from scripts.lib.google_sheets_auth import (  # noqa: E402
 )
 from scripts.lib.google_sheets_patch import apply_patch, build_patch_approval_candidate, preview_patch  # noqa: E402
 from scripts.lib.google_sheets_read import read_google_sheet  # noqa: E402
-from scripts.lib.google_sheets_sources import load_client_sources  # noqa: E402
+from scripts.lib.google_sheets_sources import BU_SCOPE_ID, load_bu_sources, load_client_sources  # noqa: E402
 from scripts.lib.google_sheets_transport import GoogleSheetsError  # noqa: E402
 from scripts.lib.workspace import require_workspace  # noqa: E402
 
@@ -70,7 +70,11 @@ def _emit(result: dict, out: str | None, default_path: Path | None) -> None:
 
 
 def _client_context(args) -> tuple[dict | None, Path]:
+    """--client bu selects the BU registry (<workspace>/bu/sources.json) of
+    multi-client destinations; any other value is one client's sources.json."""
     ws = require_workspace(args.workspace)
+    if args.client == BU_SCOPE_ID:
+        return load_bu_sources(ws.root), ws.generated_dir / BU_SCOPE_ID / "google-sheets"
     return load_client_sources(ws.client_dir(args.client)), ws.client_generated_dir(args.client) / "google-sheets"
 
 

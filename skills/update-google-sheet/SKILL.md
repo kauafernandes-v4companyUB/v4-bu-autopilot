@@ -13,7 +13,7 @@ Slug: update-google-sheet
 
 Categoria: action
 
-Versão: 1.0.0
+Versão: 1.1.0
 
 Canonical Side Effects: EXTERNAL (somente `apply` bem-sucedido); NONE em `preview`.
 
@@ -41,8 +41,8 @@ Esta skill NÃO decide quais métricas preencher, NÃO interpreta BI, NÃO cria 
 ## 4. Quando NÃO usar
 
 - para decidir conteúdo, recalcular valores ou "ajustar" o patch;
-- para operações estruturais ou de estilo (inserir/remover linhas ou abas, renomear, merges, cores, fontes, bordas, validações) — não suportadas; o tipo de operação é rejeitado (`UNSUPPORTED_OPERATION`). A única operação estrutural é `duplicate_sheet`; a única de formatação é `set_number_format`;
-- para planilhas não declaradas pelo cliente, com `writable: false` ou `contains_multiple_clients: true`.
+- para operações estruturais ou de estilo (inserir/remover linhas, remover/renomear abas, merges, cores, fontes, bordas, validações) — não suportadas; o tipo de operação é rejeitado (`UNSUPPORTED_OPERATION`). As únicas operações estruturais são `duplicate_sheet` e `add_sheet`; a única de formatação é `set_number_format`;
+- para planilhas não declaradas, com `writable: false` ou `contains_multiple_clients: true` — exceto destino BU (seção 5.1).
 
 ---
 
@@ -61,7 +61,17 @@ Operações:
 | `write_formula` | `formulas` (strings iniciando com `=`) | sempre `USER_ENTERED`; sintaxe da API (separador `,`, nomes em inglês) |
 | `clear_value` | — | exige `permissions.allow_clear: true`; executado via `values.batchClear` (remove valor/fórmula, preserva formato e validação) |
 | `duplicate_sheet` | `source_sheet_title`, `new_sheet_title`, `insert_index?` | estrutural, **sozinha no patch**; `duplicateSheet` nativo da API (nunca reconstrução célula a célula); destino existente ⇒ `conflict DESTINATION_EXISTS` (ou `no_change` se já for cópia idêntica); origem inexistente ⇒ `conflict SOURCE_SHEET_NOT_FOUND`; o preview traz `sheet_plan` (ids, grid, mesclas, validações, fórmulas, links, notas, larguras, hash de conteúdo, destino/índice) |
+| `add_sheet` | `new_sheet_title`, `row_count`, `column_count`, `frozen_row_count?`, `insert_index?` | estrutural; o patch contém **somente** `add_sheet` (várias abas numa única `batchUpdate` atômica, `addSheet` nativo); aba existente ⇒ `conflict DESTINATION_EXISTS` (ou `no_change` se já for a aba vazia pedida, mesma grade); o preview traz `sheet_plan.sheets_to_add`; verificação: toda aba pedida existe, vazia, com a grade pedida, e nenhuma aba anterior sumiu |
 | `set_number_format` | `number_format` `{type, pattern?}` | altera **somente** `userEnteredFormat.numberFormat` (`repeatCell`, `fields=userEnteredFormat.numberFormat`); nunca toca valor, fórmula, outro formato ou validação; não pode dividir célula com outra operação |
+
+### 5.1 Destino BU (planilha consolidada multi-cliente)
+
+Uma planilha com vários clientes não é declarada por nenhum cliente: fica em `<workspace>/bu/sources.json` (`registry_scope: "bu"`, `client_id: "bu"`), numa entrada `scope: "bu"` com `allowed_client_ids`. É o único caso em que `contains_multiple_clients: true` permite escrita, e exige:
+
+- `client_id: "bu"`;
+- patch com `data_client_ids` não vazio e contido em `allowed_client_ids`.
+
+`data_client_ids` entra no `preview_hash`. O `sources.json` de um cliente nunca concede escrita multi-cliente, e `bu` nunca é um cliente (CLI: `--client bu`).
 
 `replace_existing_formula: true` é a única forma de sobrescrever, substituir ou limpar uma célula que hoje contém fórmula.
 
@@ -84,7 +94,7 @@ Operações:
 1. Exigir preview aplicável (`mode: preview`, `status: success`) do mesmo cliente/patch e aprovação explícita do operador cobrindo o `patch_id`, não stale (`scripts/lib/approval.py::validate_approval`). Sem isso ⇒ `error` (`NO_PREVIEW`, `NO_APPROVAL`, `STALE_APPROVAL`, `PATCH_MISMATCH`, `CLIENT_ISOLATION`), zero escrita. Nenhuma skill aprova a própria proposta: o registro vem de `approval.apply_operator_decision` a partir de pedido explícito (`python scripts/google_sheets.py approve ... --approved-by <operador>`).
 2. Reler tudo e recomputar hashes. Estado desejado já presente ⇒ `no_change`, zero escrita (idempotência). `preview_hash` diferente ⇒ `conflict STALE_PREVIEW` (base mudou) ou `PATCH_MISMATCH` (patch mudou), zero escrita — nunca adaptar.
 3. Executar apenas as operações com mudança, nesta ordem: `values.batchClear` (clears), `values.batchUpdate` `RAW`, `values.batchUpdate` `USER_ENTERED`, `repeatCell` de `numberFormat`. Nunca limpar escrevendo `""`: na API real isso também apaga `userEnteredFormat.numberFormat` (teste descartável de 2026-09-29).
-4. Reler e verificar: células-alvo = `after` (inclui `number_format` de `set_number_format`); fórmulas fora do patch intactas; fingerprint de estrutura idêntico (`userEnteredFormat` + validação por célula — nunca `effectiveFormat`), exceto o `numberFormat` das células de `set_number_format`, cujo restante do formato e validação precisa ser idêntico. Tudo ok ⇒ `success`; qualquer diferença ⇒ `conflict VERIFICATION_FAILED`, com `verification.structure_differences` indicando aba/célula/propriedade.
+4. Reler e verificar: células-alvo = `after` (inclui `number_format` de `set_number_format`); fórmulas fora do patch intactas; fingerprint de estrutura idêntico (`userEnteredFormat` + validação por célula — nunca `effectiveFormat`), exceto (a) o `numberFormat` das células de `set_number_format`, cujo restante do formato e validação precisa ser idêntico, e (b) o link que o próprio Sheets adiciona a uma URL escrita como texto RAW (`userEnteredFormat.textFormat.link.uri` = exatamente o texto escrito, texto relido idêntico, URL `http(s)://` sem espaços) — tolerado somente se, removido esse link, o fingerprint da célula for igual ao anterior; essas células são listadas em `verification.auto_linked_cells` (observado na API real em 2026-09-29). Qualquer outra diferença de valor, fórmula, formato ou validação continua falhando. Tudo ok ⇒ `success`; qualquer diferença ⇒ `conflict VERIFICATION_FAILED`, com `verification.structure_differences` indicando aba/célula/propriedade.
 4b. `duplicate_sheet`: base = lista de abas + snapshot completo da origem (`get_sheet_snapshot`); verificação = aba nova com conteúdo idêntico ao snapshot da origem (identidade à parte), origem inalterada, nenhuma outra aba alterada (`verification.duplicate_sheet`). Semântica confirmada na API real em planilha descartável (2026-09-29): cópia nativa idêntica pelo snapshot normalizado.
 5. Gerar `receipt` (`schemas/action-receipt.schema.json`). Persistir o receipt em memória canônica é decisão separada do orquestrador — esta skill não escreve `clients/`.
 

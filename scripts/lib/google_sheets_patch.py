@@ -21,10 +21,19 @@ Guarantees:
   userEnteredFormat.numberFormat); its cells are verified to have exactly
   the requested number format and every other format property unchanged;
 - formulas outside the patch on every touched tab are verified intact;
-- the only structural operation is duplicate_sheet (native duplicateSheet,
+- the only structural operations are duplicate_sheet (native duplicateSheet,
   alone in its patch): a destination that already exists is never
   overwritten; after the copy, the new tab must equal the source snapshot
-  (identity aside) and the source and every other tab must be unchanged;
+  (identity aside) and the source and every other tab must be unchanged —
+  and add_sheet (native addSheet of NEW empty tabs with an explicit grid;
+  a structural patch holding only add_sheet operations, sent as one atomic
+  batchUpdate): an existing tab is never overwritten (conflict, or
+  no_change when it is already the requested empty tab); after the write
+  every requested tab must exist, empty, with the requested grid, and
+  every pre-existing tab must still be there;
+- a spreadsheet declared as containing multiple clients is writable only
+  when it is a BU-level destination (BU registry, scope "bu") and the patch
+  declares data_client_ids within the destination's allowed_client_ids;
 - replaying an already-applied patch is no_change with zero writes.
 """
 
@@ -38,10 +47,12 @@ from scripts.lib import approval as ap
 from scripts.lib.a1_notation import A1Error, cell_a1, col_to_letters, parse_a1, quote_sheet_title
 from scripts.lib.artifact_hash import content_sha256
 from scripts.lib.exec_clock import future_timestamp_problem, utc_now_rfc3339
-from scripts.lib.google_sheets_sources import SheetSourceError, resolve_sheet_binding
+from scripts.lib.google_sheets_sources import BU_SCOPE_ID, SheetSourceError, resolve_sheet_binding
 from scripts.lib.google_sheets_transport import (
+    AUTO_LINK_URL,
     GoogleSheetsError,
     GoogleSheetsTransport,
+    cell_structure_sha,
     sheet_content,
     sheet_content_sha256,
     snapshot_differences,
@@ -50,12 +61,15 @@ from scripts.lib.receipt import build_effect, build_receipt
 
 SCHEMA_VERSION = "1.0.0"
 SKILL = "update-google-sheet"
-OP_TYPES = ("write_value", "write_formula", "clear_value", "set_number_format", "duplicate_sheet")
+OP_TYPES = ("write_value", "write_formula", "clear_value", "set_number_format", "duplicate_sheet", "add_sheet")
 NUMBER_FORMAT_TYPES = ("TEXT", "NUMBER", "PERCENT", "CURRENCY", "DATE", "TIME", "DATE_TIME", "SCIENTIFIC")
 METHOD_WRITE = "values.batchUpdate"
 METHOD_CLEAR = "values.batchClear"
 METHOD_NUMBER_FORMAT = "spreadsheets.batchUpdate:repeatCell(userEnteredFormat.numberFormat)"
 METHOD_DUPLICATE = "spreadsheets.batchUpdate:duplicateSheet"
+METHOD_ADD_SHEET = "spreadsheets.batchUpdate:addSheet"
+MAX_ADD_SHEET_ROWS = 100000
+MAX_ADD_SHEET_COLUMNS = 500
 MAX_SHEET_TITLE = 100
 APPROVAL_ITEM_TYPE = "google_sheet_patch"
 APPROVAL_SOURCE_TYPE = "google_sheet_preview"
@@ -206,7 +220,27 @@ def normalize_operations(patch: dict, binding_tab_allowed: Callable[[str], bool]
             continue
         seen_ops.add(op_id)
         if op_type not in OP_TYPES:
-            errors.append(_notice("UNSUPPORTED_OPERATION", f"operation type {op_type!r} is not supported (the only structural operation is duplicate_sheet; the only formatting operation is set_number_format)", op_id=op_id))
+            errors.append(_notice("UNSUPPORTED_OPERATION", f"operation type {op_type!r} is not supported (the only structural operations are duplicate_sheet and add_sheet; the only formatting operation is set_number_format)", op_id=op_id))
+            continue
+        if op_type == "add_sheet":
+            new, idx = op.get("new_sheet_title"), op.get("insert_index")
+            rows, cols, frozen = op.get("row_count"), op.get("column_count"), op.get("frozen_row_count", 0)
+            ints_ok = all(isinstance(v, int) and not isinstance(v, bool) for v in (rows, cols, frozen))
+            if not isinstance(new, str) or not new.strip() or len(new) > MAX_SHEET_TITLE:
+                errors.append(_notice("INVALID_OPERATION", f"add_sheet needs a non-empty new_sheet_title (≤ {MAX_SHEET_TITLE} chars)", op_id=op_id))
+                continue
+            if not ints_ok or not (1 <= rows <= MAX_ADD_SHEET_ROWS) or not (1 <= cols <= MAX_ADD_SHEET_COLUMNS) or not (0 <= frozen < rows):
+                errors.append(_notice("INVALID_OPERATION", f"add_sheet needs row_count 1..{MAX_ADD_SHEET_ROWS}, column_count 1..{MAX_ADD_SHEET_COLUMNS} and 0 <= frozen_row_count < row_count", op_id=op_id))
+                continue
+            if idx is not None and (not isinstance(idx, int) or isinstance(idx, bool) or idx < 0):
+                errors.append(_notice("INVALID_OPERATION", "insert_index must be a non-negative integer", op_id=op_id))
+                continue
+            if not binding_tab_allowed(new):
+                errors.append(_notice("TAB_NOT_ALLOWED", f"tab {new!r} is not in the source's allowed_tabs", op_id=op_id))
+                continue
+            normalized.append({"op_id": op_id, "type": op_type, "range": quote_sheet_title(new), "sheet_title": new, "input_option": None,
+                               "replace_existing_formula": False, "cells": [],
+                               "add_sheet": {"new_sheet_title": new, "row_count": rows, "column_count": cols, "frozen_row_count": frozen, "insert_index": idx}})
             continue
         if op_type == "duplicate_sheet":
             src, new, idx = op.get("source_sheet_title"), op.get("new_sheet_title"), op.get("insert_index")
@@ -315,6 +349,12 @@ def normalize_operations(patch: dict, binding_tab_allowed: Callable[[str], bool]
         })
     if any(o["type"] == "duplicate_sheet" for o in normalized) and len(ops) > 1:
         errors.append(_notice("DUPLICATE_SHEET_NOT_ALONE", "a duplicate_sheet patch must contain exactly one operation; write to the new tab in a separate patch after it exists"))
+    adds = [o for o in normalized if o["type"] == "add_sheet"]
+    if adds and len(adds) != len(ops):
+        errors.append(_notice("ADD_SHEET_NOT_ALONE", "an add_sheet patch may contain only add_sheet operations; write to the new tabs in a separate patch after they exist"))
+    titles = [o["sheet_title"] for o in adds]
+    for t in sorted({t for t in titles if titles.count(t) > 1}):
+        errors.append(_notice("DUPLICATE_ADD_SHEET", f"tab {t!r} is requested more than once"))
     return normalized, errors
 
 
@@ -393,6 +433,39 @@ def _structure_differences(before: dict, after: dict, excluded: set[tuple[str, s
             if (tab, ref) not in excluded and bc.get(ref) != ac.get(ref):
                 diffs.append({"sheet": tab, "cell": ref, "property": "cell_format_or_validation"})
     return diffs
+
+
+def _only_auto_link_added(op: dict, c: dict, live: dict, before_structure: dict) -> bool:
+    """Sheets turns a RAW string that is a URL into a link on its own: it adds
+    userEnteredFormat.textFormat.link = {"uri": <the text>} that the patch
+    never asked for. That is the one difference tolerated — only for a RAW
+    write_value of a bare http(s) URL string, read back as exactly that
+    string (no formula), whose link uri is exactly that string, and only
+    when dropping that link makes the cell's format + validation
+    fingerprint equal to the pre-write one. Any other format/validation
+    change still fails verification."""
+    text = c["desired"].get("value")
+    if (op["type"] != "write_value" or op["input_option"] != "RAW" or c["desired"].get("kind") != "value"
+            or not isinstance(text, str) or not AUTO_LINK_URL.match(text)):
+        return False
+    state = live["cells"][c["cell"]]
+    if state["formula"] is not None or state["value"] != text:
+        return False
+    tab, ref = _fingerprint_key(op, c)
+    before = ((before_structure.get(tab) or {}).get("cells") or {}).get(ref)
+    after = ((live["structure"].get(tab) or {}).get("cells") or {}).get(ref)
+    entry = live["formats"].get(c["cell"]) or {}
+    fmt, validation = entry.get("user_entered_format"), entry.get("data_validation")
+    # the raw format inspected here must be the one the fingerprint saw
+    if before is None or after is None or cell_structure_sha(fmt, validation) != after:
+        return False
+    text_format = dict((fmt or {}).get("textFormat") or {})
+    if text_format.pop("link", None) != {"uri": text}:
+        return False
+    without_link = {k: v for k, v in (fmt or {}).items() if k != "textFormat"}
+    if text_format:
+        without_link["textFormat"] = text_format
+    return cell_structure_sha(without_link or None, validation) == before
 
 
 def _formulas_outside(formula_map: dict[str, dict[str, str]], targets: set[str]) -> dict[str, dict[str, str]]:
@@ -513,7 +586,7 @@ def _preview_duplicate(transport, out: dict, meta: dict, ops: list[dict], client
         "operations": out["operations"], "after": {"new_sheet_title": so["new_sheet_title"], "insert_index": insert_index,
                                                    "source_content_sha256": sheet_content_sha256(src) if src else None},
         "formula_replacements": [],
-    })
+    } | _bu_hash_extra(out))
     out["status"] = "conflict" if out["conflicts"] else ("no_change" if already_done else "success")
     return out, base_state, ops
 
@@ -552,6 +625,96 @@ def _verify_duplicate(transport, spreadsheet_id: str, op: dict, base_state: dict
     }
 
 
+def _bu_hash_extra(out: dict) -> dict:
+    """BU-destination previews also lock the declared data_client_ids;
+    client previews keep their historical preview_hash unchanged."""
+    return {"data_client_ids": out["data_client_ids"]} if out.get("data_client_ids") is not None else {}
+
+
+def _is_blank_new_tab(snap: dict, spec: dict) -> bool:
+    grid = snap["grid"]
+    return (not snap["cells"] and grid.get("rowCount") == spec["row_count"] and grid.get("columnCount") == spec["column_count"]
+            and (grid.get("frozenRowCount") or 0) == spec["frozen_row_count"])
+
+
+def _preview_add_sheets(transport, out: dict, meta: dict, ops: list[dict], client_id: str, patch: dict) -> tuple[dict, Optional[dict], list[dict]]:
+    by_title = {s["title"]: s for s in meta["sheets"]}
+    plan, pending = [], []
+    for op in ops:
+        spec = op["add_sheet"]
+        existing = by_title.get(spec["new_sheet_title"])
+        done = False
+        if existing is not None:
+            try:
+                snap = transport.get_sheet_snapshot(meta["spreadsheet_id"], spec["new_sheet_title"])
+            except GoogleSheetsError as e:
+                out["errors"].append(_notice(e.code, str(e), op_id=op["op_id"]))
+                return out, None, ops
+            done = _is_blank_new_tab(snap, spec)
+            if not done:
+                out["conflicts"].append(_notice("DESTINATION_EXISTS", f"tab {spec['new_sheet_title']!r} already exists and is not the requested empty tab — never overwritten", op_id=op["op_id"]))
+        else:
+            pending.append(op)
+        plan.append(dict(spec, exists=existing is not None, already_requested_state=done if existing is not None else None))
+    base_state = {
+        "spreadsheet_id": meta["spreadsheet_id"], "title": meta["title"],
+        "sheets": [{"sheet_id": s["sheet_id"], "title": s["title"], "index": s["index"]} for s in sorted(meta["sheets"], key=lambda s: s["index"])],
+        "requested": [op["add_sheet"] for op in ops],
+    }
+    base_state_hash = content_sha256(base_state)
+    will_write = not out["conflicts"] and bool(pending)
+    out["before"], out["after"], out["diff"] = {}, {}, []
+    out["base_state_hash"] = base_state_hash
+    out["sheet_plan"] = {
+        "operation": "add_sheet", "spreadsheet_id": meta["spreadsheet_id"], "spreadsheet_title": meta["title"],
+        "sheets_to_add": plan, "existing_sheets": [s["title"] for s in base_state["sheets"]],
+        "expected_effect": (f"native addSheet creates {len(pending)} new empty tab(s) {[o['sheet_title'] for o in pending]} in one atomic batchUpdate; "
+                            "no existing tab is modified" if will_write else "no write"),
+    }
+    out["mutation_plan"] = {
+        "will_write": will_write,
+        "write_requests": [{"op_id": op["op_id"], "range": op["range"], "method": METHOD_ADD_SHEET, "value_input_option": None} for op in pending] if will_write else [],
+        "formula_replacements": [], "cells_to_change": 0, "content_only": False,
+    }
+    out["preview_hash"] = content_sha256({
+        "client_id": client_id, "patch_id": patch["patch_id"], "spreadsheet_id": meta["spreadsheet_id"], "base_state_hash": base_state_hash,
+        "operations": out["operations"], "after": {"add_sheet": [op["add_sheet"] for op in pending]}, "formula_replacements": [],
+    } | _bu_hash_extra(out))
+    out["status"] = "conflict" if out["conflicts"] else ("no_change" if not pending else "success")
+    return out, base_state, ops
+
+
+def _verify_add_sheets(transport, spreadsheet_id: str, ops: list[dict], base_state: dict, created: Optional[list]) -> dict:
+    meta = transport.get_spreadsheet_metadata(spreadsheet_id)
+    by_title = {s["title"]: s for s in meta["sheets"]}
+    mismatches = []
+    for op in ops:
+        spec = op["add_sheet"]
+        if spec["new_sheet_title"] not in by_title:
+            mismatches.append({"sheet": spec["new_sheet_title"], "property": "missing"})
+            continue
+        snap = transport.get_sheet_snapshot(spreadsheet_id, spec["new_sheet_title"])
+        if not _is_blank_new_tab(snap, spec):
+            mismatches.append({"sheet": spec["new_sheet_title"], "property": "not_the_requested_empty_tab", "grid": snap["grid"], "cells": len(snap["cells"])})
+    before_ids = {(s["sheet_id"], s["title"]) for s in base_state["sheets"]}
+    now_ids = {(s["sheet_id"], s["title"]) for s in meta["sheets"]}
+    requested = {op["add_sheet"]["new_sheet_title"] for op in ops}
+    added_titles = {t for _, t in now_ids - before_ids}
+    other_sheets_intact = before_ids <= now_ids and added_titles <= requested
+    structure_differences = [] if other_sheets_intact else [
+        {"property": "sheet_list", "before": sorted(t for _, t in before_ids), "after": sorted(t for _, t in now_ids)}]
+    return {
+        "targets_match": not mismatches,
+        "formulas_outside_patch_intact": other_sheets_intact,
+        "structure_preserved": other_sheets_intact,
+        "mismatches": mismatches,
+        "changed_formulas_outside_patch": [],
+        "structure_differences": structure_differences,
+        "add_sheet": {"created": created, "requested": sorted(requested), "all_present_and_empty": not mismatches,
+                      "other_sheets_intact": other_sheets_intact},
+    }
+
+
 def _desired_to_after(desired: dict, state: dict) -> dict:
     if desired["kind"] == "number_format":
         return {"value": state["value"], "formula": state["formula"], "number_format": desired["number_format"]}
@@ -585,8 +748,22 @@ def _preview_internal(transport, *, client_id, patch, sources_doc, mode, clock) 
     if not binding.writable:
         out["errors"].append(_notice("SOURCE_NOT_WRITABLE", f"source {binding.source_id!r} is not declared writable (google_sheet.writable=true) in sources.json"))
         return out, None, []
-    if binding.contains_multiple_clients:
+    if binding.registry_scope == "bu":
+        data_clients = patch.get("data_client_ids")
+        allowed = set(binding.allowed_client_ids or ())
+        if client_id != BU_SCOPE_ID or binding.scope != "bu" or not allowed:
+            out["errors"].append(_notice("CLIENT_ISOLATION", "a BU-registry destination needs client_id 'bu', scope 'bu' and a non-empty allowed_client_ids"))
+            return out, None, []
+        if (not isinstance(data_clients, list) or not data_clients or BU_SCOPE_ID in data_clients
+                or len(set(data_clients)) != len(data_clients) or set(data_clients) - allowed):
+            out["errors"].append(_notice("CLIENT_ISOLATION", f"patch data_client_ids must be a non-empty, unique subset of the destination's allowed_client_ids {sorted(allowed)}"))
+            return out, None, []
+        out["data_client_ids"] = list(data_clients)
+    elif binding.contains_multiple_clients:
         out["errors"].append(_notice("CLIENT_ISOLATION", "writes to a source declared as containing multiple clients are not allowed"))
+        return out, None, []
+    elif client_id == BU_SCOPE_ID:
+        out["errors"].append(_notice("CLIENT_ISOLATION", "client_id 'bu' is reserved for BU-registry destinations"))
         return out, None, []
 
     ops, op_errors = normalize_operations(patch, binding.tab_allowed)
@@ -608,6 +785,8 @@ def _preview_internal(transport, *, client_id, patch, sources_doc, mode, clock) 
 
     if ops and ops[0]["type"] == "duplicate_sheet":
         return _preview_duplicate(transport, out, meta, ops, client_id, patch)
+    if ops and ops[0]["type"] == "add_sheet":
+        return _preview_add_sheets(transport, out, meta, ops, client_id, patch)
 
     sheets = {s["title"]: s for s in meta["sheets"]}
     for op in ops:
@@ -699,7 +878,7 @@ def _preview_internal(transport, *, client_id, patch, sources_doc, mode, clock) 
         "operations": out["operations"],
         "after": after,
         "formula_replacements": replacements,
-    })
+    } | _bu_hash_extra(out))
     if out["conflicts"]:
         out["status"] = "conflict"
     elif not diff:
@@ -744,6 +923,8 @@ def _verify(transport, spreadsheet_id: str, ops: list[dict], base_state: dict) -
     # whose remaining format properties and validation must stay identical.
     number_format_ops = [op for op in ops if op["type"] == "set_number_format"]
     excluded = {_fingerprint_key(op, c) for op in number_format_ops for c in op["cells"]}
+    auto_linked = sorted(c["cell"] for op in ops for c in op["cells"] if _only_auto_link_added(op, c, live, base_state["structure"]))
+    excluded |= {_fingerprint_key(op, c) for op in ops for c in op["cells"] if c["cell"] in auto_linked}
     structure_differences = _structure_differences(base_state["structure"], live["structure"], excluded)
     for op in number_format_ops:
         for c in op["cells"]:
@@ -765,6 +946,7 @@ def _verify(transport, spreadsheet_id: str, ops: list[dict], base_state: dict) -
         "mismatches": mismatches,
         "changed_formulas_outside_patch": changed_formulas,
         "structure_differences": structure_differences,
+        "auto_linked_cells": auto_linked,
     }
 
 
@@ -854,6 +1036,13 @@ def apply_patch(
     if number_formats:
         steps.append((METHOD_NUMBER_FORMAT, None, [r["range"] for r in number_formats],
                       lambda: transport.set_number_formats(fresh["spreadsheet_id"], number_formats)))
+    add_ops = [op for op in changed_ops if op["type"] == "add_sheet"]
+    if add_ops:
+        steps.append((METHOD_ADD_SHEET, None, [op["range"] for op in add_ops],
+                      lambda: transport.add_sheets(fresh["spreadsheet_id"], [
+                          {"title": op["add_sheet"]["new_sheet_title"], "row_count": op["add_sheet"]["row_count"],
+                           "column_count": op["add_sheet"]["column_count"], "frozen_row_count": op["add_sheet"]["frozen_row_count"],
+                           "insert_index": op["add_sheet"]["insert_index"]} for op in add_ops])))
     duplicate_op = next((op for op in changed_ops if op["type"] == "duplicate_sheet"), None)
     if duplicate_op is not None:
         so = duplicate_op["sheet_operation"]
@@ -868,7 +1057,7 @@ def apply_patch(
             write_error = e
             break
         sent.append({"method": method_name, "value_input_option": option, "ranges": ranges})
-        if method_name == METHOD_DUPLICATE:
+        if method_name in (METHOD_DUPLICATE, METHOD_ADD_SHEET):
             created = resp
         else:
             updated_cells += resp["updated_cells"] if method_name == METHOD_WRITE else sum(n_cells(r) for r in ranges)
@@ -876,6 +1065,8 @@ def apply_patch(
     fresh["applied"] = {"applied_at": applied_at, "write_requests_sent": sent, "updated_cells": updated_cells}
     if duplicate_op is not None:
         fresh["applied"]["created_sheet"] = created
+    if add_ops:
+        fresh["applied"]["created_sheets"] = created
     problem = future_timestamp_problem(applied_at)
     if problem:
         fresh["warnings"].append(_notice("EXECUTION_TIMESTAMP_IN_FUTURE", problem))
@@ -884,6 +1075,8 @@ def apply_patch(
     try:
         if duplicate_op is not None:
             fresh["verification"] = _verify_duplicate(transport, fresh["spreadsheet_id"], duplicate_op, base_state, created)
+        elif ops and ops[0]["type"] == "add_sheet":
+            fresh["verification"] = _verify_add_sheets(transport, fresh["spreadsheet_id"], ops, base_state, created)
         else:
             fresh["verification"] = _verify(transport, fresh["spreadsheet_id"], ops, base_state)
     except GoogleSheetsError as e:
@@ -915,11 +1108,12 @@ def apply_patch(
             target=f"google_sheets:{fresh['spreadsheet_id']}",
             operation="+".join(dict.fromkeys(
                 {METHOD_WRITE: "values_batch_update", METHOD_CLEAR: "values_batch_clear", METHOD_NUMBER_FORMAT: "number_format_repeat_cell",
-                 METHOD_DUPLICATE: "duplicate_sheet"}[s["method"]]
+                 METHOD_DUPLICATE: "duplicate_sheet", METHOD_ADD_SHEET: "add_sheet"}[s["method"]]
                 for s in sent
             )) or "none",
-            before=fresh["before"] if duplicate_op is None else {"sheets": base_state["sheets"]},
-            after=fresh["after"] if duplicate_op is None else {"created_sheet": created, "verification": fresh["verification"]},
+            before=fresh["before"] if duplicate_op is None and not add_ops else {"sheets": base_state["sheets"]},
+            after=(fresh["after"] if duplicate_op is None and not add_ops
+                   else {("created_sheet" if duplicate_op is not None else "created_sheets"): created, "verification": fresh["verification"]}),
             external_id=fresh["spreadsheet_id"],
             external_url=f"https://docs.google.com/spreadsheets/d/{fresh['spreadsheet_id']}",
         )],

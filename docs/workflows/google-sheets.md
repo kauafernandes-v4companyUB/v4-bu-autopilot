@@ -141,10 +141,27 @@ python scripts/google_sheets.py apply   --client <id> --patch patch.json --previ
 - `set_number_format` é a única operação de formatação: altera só `userEnteredFormat.numberFormat` e passa pelo mesmo preview → aprovação → apply → verificação.
 - Fórmula existente só é sobrescrita/limpa com `replace_existing_formula: true` na operação — e aparece em `mutation_plan.formula_replacements` do preview aprovado.
 
+## Operações estruturais e destino BU
+
+- `add_sheet` cria abas novas e vazias, com grade explícita e linha congelada opcional, via `addSheet` nativo. O patch contém só `add_sheet`, e todas as abas vão numa única `batchUpdate` atômica. Aba existente dá `DESTINATION_EXISTS`, ou `no_change` se já for a aba vazia pedida.
+- Planilha consolidada multi-cliente: é declarada em `<workspace>/bu/sources.json` (`registry_scope: "bu"`), com `allowed_client_ids`. Usa-se `--client bu`, e o patch declara `data_client_ids`. O `sources.json` de um cliente nunca concede escrita multi-cliente.
+- Leituras com muitas faixas (`batchGet`, `spreadsheets.get`) vão em lotes de 50, combinados de forma transparente.
+- Cota de leitura (60 leituras/min/usuário na API real). Só **leituras** idempotentes são repetidas, com política central `ReadRetryPolicy`:
+  - dispara em HTTP 429, ou em 403 com motivo `userRateLimitExceeded`/`rateLimitExceeded`; `permissionDenied` e demais 403 são definitivos;
+  - espera o `Retry-After` quando válido, senão backoff de 15, 30 e 60 s com jitter de até 5 s;
+  - até 3 retries e no máximo 180 s acumulados.
+
+  **Escritas nunca são repetidas automaticamente**, porque uma resposta de erro pode esconder uma mutação já aplicada; o retry embutido do `googleapiclient` (`execute(num_retries=N)`, que também repete POST em 5xx/429/erro de socket) é fixado em `LIBRARY_NUM_RETRIES = 0` em **toda** chamada, leitura inclusive, para que `ReadRetryPolicy` seja a única camada de retry. Vale igualmente para o Drive (`google_drive_transport.py`): `files.create` (import de .xlsx) e `files.copy` são enviados uma única vez — um retry cego poderia criar arquivo duplicado —; `files.get`, `files.list` e o download de mídia usam `ReadRetryPolicy`. Fora do nosso controle e não alterado: o `httplib2` reabre a conexão e reenvia uma vez quando uma conexão keep-alive antiga falha antes da resposta (`BadStatusLine` na 1ª tentativa), e o `google-auth-httplib2` reenvia após `401` + refresh do token (401 = requisição recusada, não aplicada). Cada tentativa vai para o log e para `transport.retry_events`, fora de qualquer hash.
+
+## Exportação de criativos campeões
+
+`skills/export-creative-performance-to-google-sheet/SKILL.md` projeta os `creative-performance.json` em cinco abas gerenciadas, com upsert idempotente. Usa este mesmo fluxo em duas fases: `add_sheet` e depois o conteúdo. Comandos: `python scripts/creative_performance_sheet_export.py dry-run|preview|approve|apply`.
+
 ## Limitações conhecidas (v1)
 
-- Sem operações estruturais/de estilo (linhas, abas, merges, cores, fontes, bordas) — rejeitadas. Só `set_number_format`.
+- Sem operações estruturais/de estilo além de `duplicate_sheet` e `add_sheet` (linhas, remover/renomear abas, merges, cores, fontes, bordas) — rejeitadas. Formatação: só `set_number_format`.
 - Comportamento medido na API real (planilha descartável, 2026-09-29): `values.batchUpdate` com `""` ou texto `RAW` **remove** `userEnteredFormat.numberFormat` (fundo e validação sobrevivem); números (`RAW` ou `USER_ENTERED`) e `values.batchClear` preservam. Escrever texto `RAW` numa célula com formato numérico gera o warning `NUMBER_FORMAT_WILL_BE_RESET` no preview e `VERIFICATION_FAILED` após o apply. `USER_ENTERED` com texto e escrita de fórmula não foram medidos.
+- Auto-link medido na API real (2026-09-29): texto `RAW` que é uma URL (`https://…`) é gravado byte a byte, e o Sheets acrescenta sozinho `userEnteredFormat.textFormat.link = {uri: <o texto>}` (e o campo `hyperlink`). A verificação tolera **só** isso: `write_value` `RAW`, texto `http(s)://` sem espaços, releitura idêntica, `link.uri` igual ao texto, e fingerprint da célula sem esse link igual ao anterior. Essas células saem em `verification.auto_linked_cells`; link para outra URI, link em texto que não é URL, `USER_ENTERED`, ou qualquer outra mudança de formato/validação continuam falhando.
 - Fórmulas devem estar na sintaxe da API (nomes de função em inglês, separador `,`), mesmo em planilhas pt-BR. A comparação tolera caixa e espaços fora de strings.
 - `write_value` com `USER_ENTERED` é verificado por igualdade numérica ou pelo valor formatado; parsing de locale fica a cargo do Sheets.
 - Com valores `RAW` e `USER_ENTERED` no mesmo patch há duas requisições de escrita; se a segunda falhar, o resultado é `error` com a verificação mostrando o estado real (possível atualização parcial).

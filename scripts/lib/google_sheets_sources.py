@@ -7,6 +7,12 @@ A spreadsheet is only ever reached through an entry of
 boundary: a spreadsheet id that the client has not declared is never
 read or written on that client's behalf, and nothing is ever looked up
 by spreadsheet name.
+
+BU-level destinations (one sheet consolidating several clients) are not
+declared by any single client. They live in the workspace's BU registry
+(<workspace>/bu/sources.json, ``registry_scope: "bu"``, ``client_id:
+"bu"``) and each entry names its ``allowed_client_ids`` explicitly. A
+client's own sources.json can never grant a multi-client write.
 """
 
 from __future__ import annotations
@@ -18,6 +24,8 @@ from pathlib import Path
 from typing import Optional
 
 SOURCE_TYPE = "google_sheet"
+BU_SCOPE_ID = "bu"  # reserved writer scope for BU-level destinations; never a client id
+BU_REGISTRY_RELATIVE_PATH = "bu/sources.json"
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{10,}$")
 _URL_RE = re.compile(r"^https://docs\.google\.com/spreadsheets/d/([A-Za-z0-9_-]{10,})(?:[/?#].*)?$")
 
@@ -38,6 +46,9 @@ class SheetBinding:
     allowed_tabs: Optional[tuple[str, ...]]
     writable: bool
     contains_multiple_clients: bool
+    registry_scope: str = "client"
+    scope: str = "client"
+    allowed_client_ids: Optional[tuple[str, ...]] = None
 
     def tab_allowed(self, title: str) -> bool:
         return self.allowed_tabs is None or title in self.allowed_tabs
@@ -55,6 +66,18 @@ def parse_spreadsheet_locator(locator: str) -> str:
     if _ID_RE.match(locator):
         return locator
     raise SheetSourceError("INVALID_LOCATOR", "spreadsheet locator must be a spreadsheet id or a docs.google.com/spreadsheets/d/<id> URL (names are never searched)")
+
+
+def load_bu_sources(workspace_root: Path) -> Optional[dict]:
+    """The BU registry of multi-client destinations, or None when absent.
+    Only a document declaring registry_scope="bu" and client_id="bu" counts."""
+    path = Path(workspace_root) / BU_REGISTRY_RELATIVE_PATH
+    if not path.is_file():
+        return None
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    if doc.get("registry_scope") != "bu" or doc.get("client_id") != BU_SCOPE_ID:
+        raise SheetSourceError("INVALID_BU_REGISTRY", f"{BU_REGISTRY_RELATIVE_PATH} must declare registry_scope='bu' and client_id='bu'")
+    return doc
 
 
 def load_client_sources(client_dir: Path) -> Optional[dict]:
@@ -105,4 +128,7 @@ def resolve_sheet_binding(
         allowed_tabs=tuple(allowed) if allowed is not None else None,
         writable=bool(gs.get("writable", False)),
         contains_multiple_clients=bool(entry.get("contains_multiple_clients", False)),
+        registry_scope="bu" if sources_doc.get("registry_scope") == "bu" else "client",
+        scope=entry.get("scope", "client"),
+        allowed_client_ids=tuple(entry["allowed_client_ids"]) if isinstance(entry.get("allowed_client_ids"), list) else None,
     )

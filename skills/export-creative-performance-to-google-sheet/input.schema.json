@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/export-creative-performance-to-google-sheet/input.schema.json",
+  "title": "export-creative-performance-to-google-sheet — export request",
+  "description": "What the operator asks to export and where. The scope is always explicit (client_ids and/or report paths) — never an implicit 'all clients'. The destination must be a writable scope 'bu' entry of the BU registry (<workspace>/bu/sources.json) whose allowed_client_ids cover every exported client.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "export_id",
+    "destination",
+    "scope"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "export_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+      "description": "Operator-chosen id; patch ids derive from it (cpx-<export_id>-structure|content)."
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "spreadsheet_id": {
+          "type": "string",
+          "description": "Optional cross-check: id or docs.google.com URL; names are never searched."
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "client_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+          },
+          "description": "Every final creative-performance.json of each listed client (explicit per-client request)."
+        },
+        "report_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^context/generated/[a-z0-9][a-z0-9._-]*/creative-performance/[a-z0-9][a-z0-9._-]*/creative-performance\\.json$"
+          },
+          "description": "Explicit workspace-relative report paths."
+        }
+      }
+    }
+  }
+}

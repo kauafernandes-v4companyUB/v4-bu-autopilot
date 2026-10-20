@@ -25,6 +25,14 @@ and data validation survive); writing a number (``RAW`` or
 ``batch_update`` (raw spreadsheets.batchUpdate) exists for future,
 explicitly authorized structural operations and is not used by
 update-google-sheet.
+
+Quota resilience: idempotent READS go through ``ReadRetryPolicy`` (HTTP 429
+and 403 rate-limit reasons; Retry-After or exponential backoff with jitter;
+bounded). WRITES are sent exactly once — a failed write response may hide an
+applied mutation. googleapiclient's own retry (``execute(num_retries=N)``,
+which also repeats POSTs on 5xx/429/socket errors) is pinned to
+``LIBRARY_NUM_RETRIES = 0`` on every call, reads included, so the read policy
+is the single retry layer. Same rule in google_drive_transport.py.
 """
 
 from __future__ import annotations
@@ -32,12 +40,173 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
+import random
+import re
+import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from email.utils import parsedate_to_datetime
 from typing import Any, Callable, Optional
 
 from scripts.lib.a1_notation import A1Error, A1Range, cell_a1, col_to_letters, parse_a1, quote_sheet_title
 
 VALUE_RENDER_OPTIONS = ("UNFORMATTED_VALUE", "FORMATTED_VALUE", "FORMULA")
+# Reads with `ranges` are GET requests: many ranges would overflow the URL,
+# so the real transport sends them in chunks and merges the answers.
+MAX_RANGES_PER_REQUEST = 50
+
+LOG = logging.getLogger(__name__)
+# Quota errors worth waiting for. A 403 is retried only when the API names
+# one of these reasons — permissionDenied and every other 403 stay final.
+# googleapiclient's built-in retry, passed to every execute()/next_chunk():
+# never anything but 0 (see module docstring).
+LIBRARY_NUM_RETRIES = 0
+
+RETRYABLE_403_REASONS = frozenset({"userRateLimitExceeded", "rateLimitExceeded", "RATE_LIMIT_EXCEEDED"})
+
+
+@dataclass
+class ReadRetryPolicy:
+    """Retry policy for IDEMPOTENT READS only (never applied to writes, whose
+    failed response may hide an applied mutation). Sized to outlast the
+    Sheets per-minute read quota: up to `max_retries` extra attempts,
+    honoring a valid Retry-After, otherwise exponential backoff with jitter,
+    never waiting past `max_elapsed_s` in total."""
+
+    max_retries: int = 3
+    base_delay_s: float = 15.0
+    max_delay_s: float = 60.0
+    jitter_s: float = 5.0
+    max_elapsed_s: float = 180.0
+    sleep: Callable[[float], None] = time.sleep
+    clock: Callable[[], float] = time.monotonic
+    rng: Callable[[], float] = random.random
+
+    def backoff(self, retry_index: int) -> float:
+        return min(self.max_delay_s, self.base_delay_s * (2 ** retry_index)) + self.rng() * self.jitter_s
+
+
+@dataclass
+class RetryEvent:
+    operation: str
+    attempt: int
+    status: Optional[int]
+    reason: str
+    wait_s: Optional[float]
+    outcome: str  # "retrying" | "succeeded_after_retry" | "gave_up"
+    retry_after: Optional[str] = None
+    extra: dict = field(default_factory=dict)
+
+
+def _error_status(exc: Exception) -> Optional[int]:
+    status = getattr(getattr(exc, "resp", None), "status", None)
+    try:
+        return int(status) if status is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _error_reasons(exc: Exception) -> set[str]:
+    """Machine reasons of a googleapiclient HttpError (error_details and the
+    JSON body), duck-typed — the Google libs are never imported here."""
+    reasons: set[str] = set()
+    details = getattr(exc, "error_details", None)
+    for d in details if isinstance(details, list) else ([details] if isinstance(details, dict) else []):
+        if isinstance(d, dict) and d.get("reason"):
+            reasons.add(str(d["reason"]))
+    content = getattr(exc, "content", None)
+    if isinstance(content, (bytes, bytearray)):
+        content = content.decode("utf-8", "replace")
+    if isinstance(content, str) and content.strip().startswith("{"):
+        try:
+            err = (json.loads(content) or {}).get("error") or {}
+        except (ValueError, AttributeError):
+            err = {}
+        for e in err.get("errors") or []:
+            if isinstance(e, dict) and e.get("reason"):
+                reasons.add(str(e["reason"]))
+        for d in err.get("details") or []:
+            if isinstance(d, dict) and d.get("reason"):
+                reasons.add(str(d["reason"]))
+        if err.get("status") == "RESOURCE_EXHAUSTED" and _error_status(exc) == 403:
+            reasons.add("RATE_LIMIT_EXCEEDED")
+    return reasons
+
+
+def is_retryable_read_error(exc: Exception) -> bool:
+    status = _error_status(exc)
+    if status == 429:
+        return True
+    return status == 403 and bool(_error_reasons(exc) & RETRYABLE_403_REASONS)
+
+
+def _retry_after_seconds(exc: Exception, cap_s: float) -> tuple[Optional[float], Optional[str]]:
+    """(seconds, raw header) from a valid Retry-After (delta-seconds or
+    HTTP-date), None when absent/invalid or beyond `cap_s`."""
+    resp = getattr(exc, "resp", None)
+    raw = None
+    if resp is not None:
+        getter = getattr(resp, "get", None)
+        raw = getter("retry-after") or getter("Retry-After") if callable(getter) else None
+    if raw is None:
+        return None, None
+    raw = str(raw).strip()
+    try:
+        seconds = float(raw)
+    except ValueError:
+        try:
+            seconds = parsedate_to_datetime(raw).timestamp() - time.time()
+        except (TypeError, ValueError):
+            return None, raw
+    if seconds < 0 or seconds > cap_s:
+        return None, raw
+    return seconds, raw
+
+
+def run_read_with_retry(call: Callable[[], Any], *, policy: ReadRetryPolicy, operation: str,
+                        events: Optional[list] = None) -> Any:
+    """Run one idempotent read, retrying quota errors per `policy`. The raw
+    exception is re-raised when not retryable or when the budget is spent —
+    the caller maps it (map_google_error). Events go to `events` and the
+    module logger; they are never part of any hashed payload."""
+    start = policy.clock()
+    retry = 0
+    while True:
+        try:
+            result = call()
+        except Exception as exc:  # noqa: BLE001 - classified below, re-raised when final
+            status, reasons = _error_status(exc), _error_reasons(exc)
+            reason = ",".join(sorted(reasons)) or type(exc).__name__
+            if not is_retryable_read_error(exc):
+                raise
+            if retry >= policy.max_retries:
+                ev = RetryEvent(operation, retry + 1, status, reason, None, "gave_up")
+                if events is not None:
+                    events.append(ev)
+                LOG.warning("sheets read %s: giving up after %d attempt(s) (HTTP %s %s)", operation, retry + 1, status, reason)
+                raise
+            wait, raw = _retry_after_seconds(exc, policy.max_delay_s * 2)
+            if wait is None:
+                wait = policy.backoff(retry)
+            if policy.clock() - start + wait > policy.max_elapsed_s:
+                ev = RetryEvent(operation, retry + 1, status, reason, None, "gave_up", raw, {"elapsed_budget_s": policy.max_elapsed_s})
+                if events is not None:
+                    events.append(ev)
+                LOG.warning("sheets read %s: retry budget of %.0fs exhausted (HTTP %s %s)", operation, policy.max_elapsed_s, status, reason)
+                raise
+            if events is not None:
+                events.append(RetryEvent(operation, retry + 1, status, reason, round(wait, 3), "retrying", raw))
+            LOG.warning("sheets read %s: HTTP %s %s on attempt %d — waiting %.1fs%s", operation, status, reason, retry + 1, wait,
+                        f" (Retry-After {raw})" if raw else "")
+            policy.sleep(wait)
+            retry += 1
+            continue
+        if retry:
+            if events is not None:
+                events.append(RetryEvent(operation, retry + 1, None, "ok", None, "succeeded_after_retry"))
+            LOG.warning("sheets read %s: succeeded after %d retr%s", operation, retry, "y" if retry == 1 else "ies")
+        return result
 VALUE_INPUT_OPTIONS = ("RAW", "USER_ENTERED")
 
 
@@ -93,6 +262,12 @@ def pad_grid(values: list, a1: A1Range) -> list[list]:
     return grid
 
 
+def cell_structure_sha(user_entered_format: Optional[dict], data_validation: Optional[dict]) -> str:
+    """Hash of one cell's userEnteredFormat + dataValidation, as stored in
+    fingerprint_structure()["<tab>"]["cells"]."""
+    return _sha({"format": user_entered_format, "data_validation": data_validation})
+
+
 def fingerprint_structure(sheets: list[dict], ranges: list[str]) -> dict:
     """Normalize a spreadsheets.get(includeGridData) response into a
     comparable structure fingerprint: grid properties, merges and
@@ -112,16 +287,13 @@ def fingerprint_structure(sheets: list[dict], ranges: list[str]) -> dict:
             c0 = block.get("startColumn", 0)
             for ri, row in enumerate(block.get("rowData", []) or []):
                 for ci, cell in enumerate(row.get("values", []) or []):
-                    seen[(r0 + ri + 1, c0 + ci + 1)] = {
-                        "format": cell.get("userEnteredFormat"),
-                        "data_validation": cell.get("dataValidation"),
-                    }
+                    seen[(r0 + ri + 1, c0 + ci + 1)] = cell
         for a1 in parsed:
             if a1.sheet_title != title or not a1.is_bounded:
                 continue
             for row, col in a1.cells():
-                state = seen.get((row, col), {"format": None, "data_validation": None})
-                cells[f"{col_to_letters(col)}{row}"] = _sha(state)
+                cell = seen.get((row, col), {})
+                cells[f"{col_to_letters(col)}{row}"] = cell_structure_sha(cell.get("userEnteredFormat"), cell.get("dataValidation"))
         out[title] = {
             "sheet_id": props.get("sheetId"),
             "grid": {
@@ -197,6 +369,14 @@ class GoogleSheetsTransport(ABC):
     def batch_update(self, spreadsheet_id: str, requests: list[dict]) -> dict:
         """Raw spreadsheets.batchUpdate. Structural/format operations only
         when explicitly authorized — never used for content patches."""
+
+    def add_sheets(self, spreadsheet_id: str, specs: list[dict]) -> list[dict]:
+        """Native addSheet for NEW, empty tabs — all specs in one
+        spreadsheets.batchUpdate (atomic on the API). specs: [{title,
+        row_count, column_count, frozen_row_count, insert_index|None}].
+        Returns [{sheet_id, title, index}] in spec order. Never overwrites
+        an existing tab (the API rejects duplicate titles)."""
+        raise NotImplementedError(f"{type(self).__name__} does not implement add_sheets")
 
     def list_sheets(self, spreadsheet_id: str) -> list[dict]:
         return self.get_spreadsheet_metadata(spreadsheet_id)["sheets"]
@@ -358,10 +538,31 @@ def map_google_error(exc: Exception) -> GoogleSheetsError:
     return GoogleSheetsAPIError(msg)
 
 
+def _chunks(items: list, size: int = MAX_RANGES_PER_REQUEST) -> list[list]:
+    return [items[i:i + size] for i in range(0, len(items), size)] or [[]]
+
+
+def merge_sheet_responses(responses: list[dict]) -> list[dict]:
+    """spreadsheets.get(includeGridData) answers for chunks of ranges → one
+    sheets list: same sheet (by sheetId) keeps its first properties/merges/
+    formatting objects and accumulates every chunk's data blocks."""
+    merged: dict[Any, dict] = {}
+    order: list[Any] = []
+    for resp in responses:
+        for sheet in resp.get("sheets", []) or []:
+            sid = (sheet.get("properties") or {}).get("sheetId")
+            if sid not in merged:
+                merged[sid] = dict(sheet, data=list(sheet.get("data", []) or []))
+                order.append(sid)
+            else:
+                merged[sid]["data"] += list(sheet.get("data", []) or [])
+    return [merged[sid] for sid in order]
+
+
 class GoogleApiSheetsTransport(GoogleSheetsTransport):
     """Official Google Sheets API v4 transport."""
 
-    def __init__(self, service: Any = None, credentials: Any = None, num_retries: int = 2):
+    def __init__(self, service: Any = None, credentials: Any = None, read_retry: Optional[ReadRetryPolicy] = None):
         if service is None:
             if credentials is None:
                 raise GoogleSheetsAuthError("no credentials supplied — use scripts/lib/google_sheets_auth.py build_real_transport()")
@@ -371,17 +572,28 @@ class GoogleApiSheetsTransport(GoogleSheetsTransport):
                 raise GoogleSheetsDependencyMissing("google-api-python-client is not installed: pip install -r requirements-google.txt") from e
             service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
         self._service = service
-        self._num_retries = num_retries
+        self._read_retry = read_retry or ReadRetryPolicy()
+        self.retry_events: list[RetryEvent] = []
 
     def _execute(self, request: Any) -> dict:
+        """WRITES (and anything not known to be idempotent): exactly one
+        attempt — a failed write response may hide an applied mutation."""
         try:
-            return request.execute(num_retries=self._num_retries)
+            return request.execute(num_retries=LIBRARY_NUM_RETRIES)
+        except Exception as e:  # noqa: BLE001 - every failure is mapped, none swallowed
+            raise map_google_error(e) from e
+
+    def _execute_read(self, request: Any, operation: str) -> dict:
+        """Idempotent READS: quota errors are retried per ReadRetryPolicy."""
+        try:
+            return run_read_with_retry(lambda: request.execute(num_retries=LIBRARY_NUM_RETRIES), policy=self._read_retry,
+                                       operation=operation, events=self.retry_events)
         except Exception as e:  # noqa: BLE001 - every failure is mapped, none swallowed
             raise map_google_error(e) from e
 
     def get_spreadsheet_metadata(self, spreadsheet_id: str) -> dict:
-        resp = self._execute(
-            self._service.spreadsheets().get(spreadsheetId=spreadsheet_id, fields=_METADATA_FIELDS, includeGridData=False)
+        resp = self._execute_read(
+            self._service.spreadsheets().get(spreadsheetId=spreadsheet_id, fields=_METADATA_FIELDS, includeGridData=False), "spreadsheets.get:metadata"
         )
         props = resp.get("properties", {})
         sheets = []
@@ -409,11 +621,13 @@ class GoogleApiSheetsTransport(GoogleSheetsTransport):
     def get_values(self, spreadsheet_id: str, ranges: list[str], value_render: str) -> list[dict]:
         if value_render not in VALUE_RENDER_OPTIONS:
             raise ValueError(f"invalid value_render: {value_render!r}")
-        kwargs = {"spreadsheetId": spreadsheet_id, "ranges": list(ranges), "valueRenderOption": value_render, "majorDimension": "ROWS"}
-        if value_render != "FORMATTED_VALUE":
-            kwargs["dateTimeRenderOption"] = "FORMATTED_STRING"
-        resp = self._execute(self._service.spreadsheets().values().batchGet(**kwargs))
-        value_ranges = resp.get("valueRanges", [])
+        value_ranges = []
+        for chunk in _chunks(list(ranges)):
+            kwargs = {"spreadsheetId": spreadsheet_id, "ranges": chunk, "valueRenderOption": value_render, "majorDimension": "ROWS"}
+            if value_render != "FORMATTED_VALUE":
+                kwargs["dateTimeRenderOption"] = "FORMATTED_STRING"
+            resp = self._execute_read(self._service.spreadsheets().values().batchGet(**kwargs), "values.batchGet")
+            value_ranges += resp.get("valueRanges", [])
         if len(value_ranges) != len(ranges):
             raise GoogleSheetsAPIError(f"batchGet returned {len(value_ranges)} ranges for {len(ranges)} requested")
         out = []
@@ -426,10 +640,9 @@ class GoogleApiSheetsTransport(GoogleSheetsTransport):
         return out
 
     def get_structure(self, spreadsheet_id: str, ranges: list[str]) -> dict:
-        resp = self._execute(
-            self._service.spreadsheets().get(spreadsheetId=spreadsheet_id, ranges=list(ranges), includeGridData=True, fields=_STRUCTURE_FIELDS)
-        )
-        return fingerprint_structure(resp.get("sheets", []), ranges)
+        responses = [self._execute_read(self._service.spreadsheets().get(spreadsheetId=spreadsheet_id, ranges=chunk, includeGridData=True, fields=_STRUCTURE_FIELDS), "spreadsheets.get:structure")
+                     for chunk in _chunks(list(ranges))]
+        return fingerprint_structure(merge_sheet_responses(responses), ranges)
 
     def write_values(self, spreadsheet_id: str, data: list[dict], value_input_option: str) -> dict:
         if value_input_option not in VALUE_INPUT_OPTIONS:
@@ -450,10 +663,9 @@ class GoogleApiSheetsTransport(GoogleSheetsTransport):
         return {"cleared_ranges": list(resp.get("clearedRanges", []))}
 
     def get_cell_formats(self, spreadsheet_id: str, ranges: list[str]) -> dict[str, dict]:
-        resp = self._execute(
-            self._service.spreadsheets().get(spreadsheetId=spreadsheet_id, ranges=list(ranges), includeGridData=True, fields=_CELL_FORMAT_FIELDS)
-        )
-        return cell_formats_from_grid(resp.get("sheets", []), ranges)
+        responses = [self._execute_read(self._service.spreadsheets().get(spreadsheetId=spreadsheet_id, ranges=chunk, includeGridData=True, fields=_CELL_FORMAT_FIELDS), "spreadsheets.get:cell_formats")
+                     for chunk in _chunks(list(ranges))]
+        return cell_formats_from_grid(merge_sheet_responses(responses), ranges)
 
     def set_number_formats(self, spreadsheet_id: str, requests: list[dict]) -> dict:
         body = {"requests": [
@@ -468,8 +680,8 @@ class GoogleApiSheetsTransport(GoogleSheetsTransport):
         return {"updated_ranges": [r["range"] for r in requests]}
 
     def get_sheet_snapshot(self, spreadsheet_id: str, sheet_title: str) -> dict:
-        resp = self._execute(self._service.spreadsheets().get(
-            spreadsheetId=spreadsheet_id, ranges=[quote_sheet_title(sheet_title)], includeGridData=True, fields=_SHEET_SNAPSHOT_FIELDS))
+        resp = self._execute_read(self._service.spreadsheets().get(
+            spreadsheetId=spreadsheet_id, ranges=[quote_sheet_title(sheet_title)], includeGridData=True, fields=_SHEET_SNAPSHOT_FIELDS), "spreadsheets.get:snapshot")
         sheets = resp.get("sheets", [])
         if not sheets:
             raise GoogleSheetsRangeError(f"HTTP 400: Unable to parse range: {sheet_title}")
@@ -484,10 +696,29 @@ class GoogleApiSheetsTransport(GoogleSheetsTransport):
     def batch_update(self, spreadsheet_id: str, requests: list[dict]) -> dict:
         return self._execute(self._service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests}))
 
+    def add_sheets(self, spreadsheet_id: str, specs: list[dict]) -> list[dict]:
+        requests = []
+        for spec in specs:
+            props = {"title": spec["title"], "gridProperties": {"rowCount": spec["row_count"], "columnCount": spec["column_count"],
+                                                                "frozenRowCount": spec.get("frozen_row_count", 0)}}
+            if spec.get("insert_index") is not None:
+                props["index"] = spec["insert_index"]
+            requests.append({"addSheet": {"properties": props}})
+        resp = self._execute(self._service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests}))
+        out = []
+        for reply in resp.get("replies") or []:
+            props = (reply.get("addSheet") or {}).get("properties") or {}
+            out.append({"sheet_id": props.get("sheetId"), "title": props.get("title"), "index": props.get("index")})
+        return out
+
 
 # ---------------------------------------------------------------------------
 # Fake transport
 # ---------------------------------------------------------------------------
+
+
+# A string Sheets turns into a link on its own (observed for RAW writes of full URLs).
+AUTO_LINK_URL = re.compile(r"^https?://\S+$")
 
 
 def _user_entered(value: Any) -> tuple[Any, Optional[str]]:
@@ -515,8 +746,11 @@ class FakeGoogleSheetsTransport(GoogleSheetsTransport):
     Formatting side effects mirror what was observed on the real API: a
     RAW write of "" or of a string drops format["numberFormat"] (other
     format keys and the data validation stay); numbers keep it;
-    clear_values keeps everything but the content. USER_ENTERED text and
-    formula writes were not measured and keep the format here.
+    clear_values keeps everything but the content. A RAW write of a string
+    that is a bare http(s) URL gets auto-linked: Sheets adds
+    format["textFormat"]["link"] = {"uri": <the text>} (plus a `hyperlink`
+    field this fake does not model). USER_ENTERED text and formula writes
+    were not measured and keep the format here.
 
     Hooks for failure injection: `auth_error`, `fail_next`, and
     `after_write` (called with the transport after each write — used to
@@ -640,7 +874,7 @@ class FakeGoogleSheetsTransport(GoogleSheetsTransport):
             "sheets": [
                 {
                     "sheet_id": s["sheet_id"], "title": t, "index": s["index"], "row_count": s["row_count"],
-                    "column_count": s["column_count"], "frozen_row_count": 0, "frozen_column_count": 0, "hidden": s["hidden"],
+                    "column_count": s["column_count"], "frozen_row_count": s.get("frozen_row_count", 0), "frozen_column_count": 0, "hidden": s["hidden"],
                 }
                 for t, s in sorted(book["sheets"].items(), key=lambda kv: kv[1]["index"])
             ],
@@ -727,6 +961,9 @@ class FakeGoogleSheetsTransport(GoogleSheetsTransport):
                         new["format"].pop("numberFormat", None)  # observed real-API side effect
                         if not new["format"]:
                             del new["format"]
+                    if value_input_option == "RAW" and isinstance(raw, str) and AUTO_LINK_URL.match(raw):
+                        # observed real-API side effect: the URL text becomes a link
+                        new.setdefault("format", {}).setdefault("textFormat", {})["link"] = {"uri": raw}
                     sheet["cells"][key] = new
                     updated += 1
             ranges_out.append(a1.to_a1())
@@ -846,6 +1083,30 @@ class FakeGoogleSheetsTransport(GoogleSheetsTransport):
         if self.after_write is not None:
             self.after_write(self)
         return {"sheet_id": new["sheet_id"], "title": new_sheet_title, "index": index}
+
+    def add_sheets(self, spreadsheet_id: str, specs: list[dict]) -> list[dict]:
+        book = self._enter("add_sheets", spreadsheet_id)
+        titles = [spec["title"] for spec in specs]
+        clash = [t for t in titles if t in book["sheets"]] or [t for t in titles if titles.count(t) > 1]
+        if clash:  # API semantics: the whole batch is rejected, nothing is created
+            raise GoogleSheetsAPIError(f"HTTP 400: A sheet with the name \"{clash[0]}\" already exists.")
+        created = []
+        for spec in specs:
+            next_id = max((s["sheet_id"] for s in book["sheets"].values()), default=999) + 1
+            index = len(book["sheets"]) if spec.get("insert_index") is None else min(spec["insert_index"], len(book["sheets"]))
+            for s in book["sheets"].values():
+                if s["index"] >= index:
+                    s["index"] += 1
+            book["sheets"][spec["title"]] = {
+                "sheet_id": next_id, "index": index, "row_count": spec["row_count"], "column_count": spec["column_count"],
+                "hidden": False, "merges": [], "conditional_formats": [], "column_sizes": [],
+                "frozen_row_count": spec.get("frozen_row_count", 0), "cells": {},
+            }
+            created.append({"sheet_id": next_id, "title": spec["title"], "index": index})
+        self.structure_calls.append({"spreadsheet_id": spreadsheet_id, "add_sheets": copy.deepcopy(specs)})
+        if self.after_write is not None:
+            self.after_write(self)
+        return created
 
     def batch_update(self, spreadsheet_id: str, requests: list[dict]) -> dict:
         self._enter("batch_update", spreadsheet_id)

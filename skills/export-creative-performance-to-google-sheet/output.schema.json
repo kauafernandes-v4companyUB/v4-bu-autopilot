@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.v4-bu-autopilot.internal/skills/export-creative-performance-to-google-sheet/output.schema.json",
+  "title": "export-creative-performance-to-google-sheet — preview/apply result",
+  "description": "EXTERNAL ACTION wrapper. creative-performance.json is the source of truth; the sheet is a derived view. preview never writes; apply delegates to update-google-sheet (hash-locked approval, drift check, writes, re-read verification). phase 'structure' creates missing managed tabs (add_sheet); phase 'content' writes header and upserted rows.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "skill",
+    "mode",
+    "export_id",
+    "generated_at",
+    "status",
+    "phase",
+    "destination",
+    "reports",
+    "tabs",
+    "summary",
+    "changes",
+    "tabs_to_create",
+    "headers_to_create",
+    "patch",
+    "patch_preview",
+    "base_state_hash",
+    "preview_hash",
+    "apply_result",
+    "post_apply",
+    "conflicts",
+    "warnings",
+    "errors"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "skill": {
+      "const": "export-creative-performance-to-google-sheet"
+    },
+    "mode": {
+      "enum": [
+        "preview",
+        "apply"
+      ]
+    },
+    "export_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "status": {
+      "enum": [
+        "success",
+        "no_change",
+        "conflict",
+        "error"
+      ]
+    },
+    "phase": {
+      "enum": [
+        "structure",
+        "content",
+        null
+      ]
+    },
+    "destination": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "spreadsheet_id",
+            "spreadsheet_title"
+          ],
+          "properties": {
+            "source_id": {
+              "type": "string"
+            },
+            "spreadsheet_id": {
+              "type": "string"
+            },
+            "spreadsheet_title": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "reports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "client_id",
+          "creative_id",
+          "path",
+          "file_sha256",
+          "report_sha256"
+        ],
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "creative_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "file_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "report_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "tabs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "title",
+          "exists",
+          "header",
+          "inserts",
+          "updates",
+          "no_changes",
+          "orphans"
+        ],
+        "properties": {
+          "key": {
+            "enum": [
+              "creatives",
+              "patterns",
+              "hypotheses",
+              "do_not_generalize",
+              "sources"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "header": {
+            "enum": [
+              "create",
+              "ok",
+              null
+            ]
+          },
+          "inserts": {
+            "type": "integer"
+          },
+          "updates": {
+            "type": "integer"
+          },
+          "no_changes": {
+            "type": "integer"
+          },
+          "orphans": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "summary": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reports",
+            "basis",
+            "inserts",
+            "updates",
+            "no_changes",
+            "orphans"
+          ],
+          "properties": {
+            "reports": {
+              "type": "integer"
+            },
+            "basis": {
+              "enum": [
+                "live",
+                "planned_after_structure"
+              ]
+            },
+            "inserts": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "updates": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "no_changes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "orphans": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "tab",
+          "action",
+          "key",
+          "row"
+        ],
+        "properties": {
+          "tab": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "INSERT",
+              "UPDATE"
+            ]
+          },
+          "key": {
+            "type": "array"
+          },
+          "row": {
+            "type": "integer"
+          },
+          "cells_changed": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "tabs_to_create": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "headers_to_create": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "patch": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "The google-sheet patch (schemas/google-sheet-patch.schema.json) handed to update-google-sheet."
+    },
+    "patch_preview": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "update-google-sheet preview of the patch — the artifact the operator approves (hash-locked)."
+    },
+    "base_state_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "preview_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "apply_result": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "update-google-sheet apply output (writes, verification, receipt)."
+    },
+    "post_apply": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "next_phase",
+            "status",
+            "summary",
+            "content_converged"
+          ],
+          "properties": {
+            "next_phase": {
+              "enum": [
+                "structure",
+                "content",
+                null
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "summary": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "content_converged": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
